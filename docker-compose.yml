@@ -1,0 +1,13 @@
+services:
+  atlas-docs:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DATA_DIR: /data
+      NODE_ENV: production
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
