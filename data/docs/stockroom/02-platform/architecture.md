@@ -4,7 +4,9 @@ description: How the browser, API, and database fit together.
 order: 1
 ---
 
-# Architecture
+## # Architecture
+
+### 1231231
 
 The browser talks only to the API. The API writes movements. The database stores items, shelves, and movements.
 
