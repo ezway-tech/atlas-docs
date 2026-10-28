@@ -33,7 +33,11 @@ try{
  await fetch(origin+'/api/media/'+largeAsset.id,{method:'DELETE'});
  const photo=assets.find(a=>a.mimeType==='image/png'),text=assets.find(a=>a.mimeType==='text/plain'),video=assets.find(a=>a.mimeType==='video/mp4');
  const editedForm=new FormData();editedForm.set('file',new File([png],'original-edited.png',{type:'image/png'}));editedForm.set('alt','Chú thích giữ nguyên');
- const copiedResponse=await fetch(origin+'/api/media',{method:'POST',body:editedForm});assert.equal(copiedResponse.status,200);const copied=await copiedResponse.json();assert.notEqual(copied.id,photo.id);assert.equal(copied.alt,'Chú thích giữ nguyên');assert.equal(copied.filename,'original-edited.png');
+ const copiedResponse=await fetch(origin+'/api/media',{method:'POST',body:editedForm});assert.equal(copiedResponse.status,200);const copied=await copiedResponse.json();assert.notEqual(copied.id,photo.id);assert.equal(copied.alt,'Chú thích giữ nguyên');assert.equal(copied.filename,'original-edited.png');assert.equal(photo.source,'upload');assert.equal(copied.source,'upload');
+ const pasteForm=new FormData();pasteForm.set('file',new File([png],'anh-dan.png',{type:'image/png'}));pasteForm.set('alt','Ảnh dán');pasteForm.set('source','paste');
+ const pasteResponse=await fetch(origin+'/api/media',{method:'POST',body:pasteForm});assert.equal(pasteResponse.status,200,await pasteResponse.clone().text());const pasted=await pasteResponse.json();assert.equal(pasted.source,'paste');assert.equal(pasted.filename,'anh-dan.png');assert.equal(pasted.alt,'Ảnh dán');
+ const badSource=new FormData();badSource.set('file',new File([png],'nguon-sai.png',{type:'image/png'}));badSource.set('source','folder');
+ assert.equal((await (await fetch(origin+'/api/media',{method:'POST',body:badSource})).json()).source,'upload');
  const invalidAlt=new FormData();invalidAlt.set('file',new File([png],'bad-alt.png',{type:'image/png'}));invalidAlt.set('alt','x'.repeat(301));assert.equal((await fetch(origin+'/api/media',{method:'POST',body:invalidAlt})).status,400);
  const photoResponse=await fetch(origin+'/api/media/'+photo.id);assert.deepEqual(Buffer.from(await photoResponse.arrayBuffer()),png);
  const download=await fetch(origin+'/api/media/'+photo.id+'?download=1');assert.match(download.headers.get('content-disposition'),/^attachment/);assert.match(download.headers.get('content-disposition'),/filename\*=UTF-8''/);assert.equal(download.headers.get('x-content-type-options'),'nosniff');
@@ -45,11 +49,13 @@ try{
  const body=new FormData();body.set('file',new File([png],'edited.png',{type:'image/png'}));
  assert.equal((await fetch(origin+'/api/media/'+text.id,{method:'PUT',body})).status,400);
  assert.equal((await fetch(origin+'/api/media/'+photo.id,{method:'PUT',body})).status,200);
+ assert.equal((await (await fetch(origin+'/api/media')).json()).find(a=>a.id===photo.id).source,'edit');
  assert.equal((await json('/api/folders','POST',{parent:'',title:'Invalid cover',imageId:text.id})).status,400);
  const folderResponse=await json('/api/folders','POST',{parent:'',title:'Test resources',imageId:photo.id});assert.equal(folderResponse.status,200,await folderResponse.clone().text());const folder=await folderResponse.json();
  const docResponse=await json('/api/docs','POST',{folder:folder.path,title:'Resource links',kind:'md'});assert.equal(docResponse.status,200);const doc=await docResponse.json();
  assert.equal((await json('/api/docs/'+doc.id,'PUT',{raw:`# Resource links\n![ảnh](/api/media/${photo.id})\n[Tài liệu](/api/media/${text.id}?download=1)`})).status,200);
  const used=await (await fetch(origin+'/api/media/'+photo.id+'/usage')).json();assert.equal(used.folders.length,1);assert.equal(used.docs.length,1);
+ const refs=await (await fetch(origin+'/api/media/referenced')).json();assert.ok(refs.ids.includes(photo.id));assert.ok(refs.ids.includes(text.id));assert.equal(refs.ids.includes(pasted.id),false);
  const textUsage=await (await fetch(origin+'/api/media/'+text.id+'/usage')).json();assert.equal(textUsage.docs.length,1);
  const backup=await fetch(origin+'/api/backup');assert.equal(backup.status,200);const zip=await backup.arrayBuffer();
  await server(restoreRoot,port+1);const restoreForm=new FormData();restoreForm.set('file',new File([zip],'backup.zip',{type:'application/zip'}));

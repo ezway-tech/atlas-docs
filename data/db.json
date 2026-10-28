@@ -7,7 +7,8 @@
       "mimeType": "image/png",
       "size": 12620,
       "alt": "Stock list on the Stockroom home screen",
-      "createdAt": "2026-10-20T08:00:00.000Z"
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "source": "upload"
     },
     {
       "id": "4f8c1a20-6b14-4c3e-9a11-0c0ffee00002",
@@ -16,7 +17,8 @@
       "mimeType": "image/png",
       "size": 11587,
       "alt": "Bar chart of units received from January to June",
-      "createdAt": "2026-10-20T08:00:00.000Z"
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "source": "upload"
     },
     {
       "id": "4f8c1a20-6b14-4c3e-9a11-0c0ffee00003",
@@ -25,7 +27,8 @@
       "mimeType": "image/png",
       "size": 12703,
       "alt": "Shelf map of aisles A and B",
-      "createdAt": "2026-10-20T08:00:00.000Z"
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "source": "upload"
     },
     {
       "id": "20b52551-8566-439d-8436-619911cd47a5",
@@ -34,7 +37,8 @@
       "mimeType": "image/png",
       "size": 25041,
       "alt": "Bar chart of units received from January to June",
-      "createdAt": "2026-10-28T03:36:29.508Z"
+      "createdAt": "2026-10-28T03:36:29.508Z",
+      "source": "upload"
     }
   ],
   "folders": [

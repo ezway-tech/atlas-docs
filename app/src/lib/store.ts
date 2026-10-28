@@ -2,7 +2,7 @@ import path from 'node:path';
 import {mkdir,readFile,readdir,writeFile,rename,stat,rm} from 'node:fs/promises';
 import {JSONFilePreset} from 'lowdb/node';
 import matter from 'gray-matter';
-import type {DB,DocInfo,DocKind,Folder,Settings} from './types';
+import type {AssetSource,DB,DocInfo,DocKind,Folder,Settings} from './types';
 import {folderIconId} from './folder-icons';
 export const ROOT=path.resolve(process.env.DATA_DIR||path.join(process.cwd(),'..','data'));
 export const docsRoot=path.join(ROOT,'docs');
@@ -12,7 +12,8 @@ export const defaults:Settings={theme:'dark',leftWidth:265,rightWidth:335,pinned
 const initial:DB={assets:[],folders:[],comments:[],navigationOrder:{},settings:defaults};
 let singleton:ReturnType<typeof JSONFilePreset<DB>>|undefined;let serial:Promise<unknown>=Promise.resolve();
 async function db(){if(!singleton)singleton=(async()=>{await mkdir(ROOT,{recursive:true});return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
-function fill(d:DB){d.assets||=[];d.comments||=[];d.folders||=[];d.navigationOrder||={};d.settings={...defaults,...d.settings};return d;}
+function assetSource(value:unknown):AssetSource{return value==='paste'||value==='edit'?value:'upload';}
+function fill(d:DB){d.assets||=[];for(const asset of d.assets)asset.source=assetSource(asset.source);d.comments||=[];d.folders||=[];d.navigationOrder||={};d.settings={...defaults,...d.settings};return d;}
 export async function readDB(){await serial.catch(()=>{});const x=await db();await x.read();return structuredClone(fill(x.data));}
 export function writeDB<T>(fn:(d:DB)=>T|Promise<T>):Promise<T>{const task=serial.catch(()=>{}).then(async()=>{const x=await db();await x.read();x.data=fill(x.data);const ret=await fn(x.data);await x.write();return ret;});serial=task;return task;}
 export function safeFolder(id:string){if(!/^[a-z0-9][a-z0-9_ /-]*$/.test(id)||id.split('/').length>3||id.split('/').some(x=>!x||x==='..'))throw Error('Folder path invalid');return id;}
