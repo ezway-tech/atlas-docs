@@ -5,6 +5,7 @@ import {NextRequest} from 'next/server';
 import {ROOT,uploadsRoot,folderFile,createFolder,createDoc,deleteDoc,deleteFolder,getDoc,listDocs,listFolders,readDB,writeDB,saveDoc,updateFolder,safeDoc,safeFolder,readLibrary,invalidateLibrary} from '@/lib/store';
 import type {AssetSource} from '@/lib/types';
 import {history,revisionRaw,restore,reorder,links,exportZip,importZip} from '@/lib/extras';
+import {sanitizeKeymap} from '@/lib/keymap';
 import {err} from '@/lib/http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 type Params={params:Promise<{action:string[]}>};
@@ -26,7 +27,7 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
  }
  if(name==='settings'){
    if(method==='GET')return json((await readDB()).settings);
-   if(method==='PATCH'){const o=await body();const allowed=['theme','leftWidth','rightWidth','pinnedFolders','hiddenFolders'];if(Object.keys(o).some(x=>!allowed.includes(x)))throw Error('Unsupported setting');return json(await writeDB(d=>{d.settings={...d.settings,...o};return d.settings;}));}
+   if(method==='PATCH'){const o=await body();const allowed=['theme','leftWidth','rightWidth','pinnedFolders','hiddenFolders','keymap'];if(Object.keys(o).some(x=>!allowed.includes(x)))throw Error('Unsupported setting');if('keymap' in o)o.keymap=sanitizeKeymap(o.keymap);return json(await writeDB(d=>{d.settings={...d.settings,...o};return d.settings;}));}
  }
  if(name==='order'){
    if(method==='GET')return json((await readDB()).navigationOrder);

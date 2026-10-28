@@ -2,6 +2,7 @@
 import React,{forwardRef,useEffect,useImperativeHandle,useRef,useState} from 'react';
 import {MousePointer2,Crop,Pencil,ArrowUpRight,Square,Type,Undo2,Redo2} from 'lucide-react';
 import {MAX_ASSET_SIZE} from '@/lib/assets';
+import {useKeymap} from './KeymapProvider';
 
 type Tool='select'|'crop'|'pen'|'arrow'|'rect'|'text';
 type ShapeTool='pen'|'arrow'|'rect'|'text';
@@ -20,7 +21,7 @@ type Gesture=
  |{kind:'resize';pointerId:number;id:string;handle:number;start:Shape;live:Shape};
 export type ImageEditorHandle={requestCancel:()=>void};
 type Props={src:string;filename:string;gif:boolean;replace?:boolean;saveLabel?:string;keepName?:boolean;onCancel:()=>void;onSave:(file:File)=>Promise<void>};
-const toolItems=[{id:'select',label:'Chọn',key:'v',Icon:MousePointer2},{id:'crop',label:'Cắt',key:'c',Icon:Crop},{id:'pen',label:'Vẽ',key:'b',Icon:Pencil},{id:'arrow',label:'Mũi tên',key:'a',Icon:ArrowUpRight},{id:'rect',label:'Khung',key:'r',Icon:Square},{id:'text',label:'Chữ',key:'t',Icon:Type}] as const;
+const toolItems=[{id:'select',label:'Chọn',Icon:MousePointer2},{id:'crop',label:'Cắt',Icon:Crop},{id:'pen',label:'Vẽ',Icon:Pencil},{id:'arrow',label:'Mũi tên',Icon:ArrowUpRight},{id:'rect',label:'Khung',Icon:Square},{id:'text',label:'Chữ',Icon:Type}] as const;
 const shapeLabel:Record<ShapeTool,string>={pen:'nét vẽ',arrow:'mũi tên',rect:'khung',text:'chữ'};
 
 function cloneShape(s:Shape):Shape{return {...s,points:s.points.map(p=>({...p}))};}
@@ -101,6 +102,7 @@ const ImageEditor=forwardRef<ImageEditorHandle,Props>(function ImageEditor({src,
  const history=useRef<{past:Step[];future:Step[]}>({past:[],future:[]}),gesture=useRef<Gesture|null>(null),saveLock=useRef(false),bakedCrop=useRef(false),seq=useRef(0);
  const shapesRef=useRef<Shape[]>([]),selectedRef=useRef<string|null>(null),cropRef=useRef<Point[]|null>(null),textEdit=useRef<{id:string;before:Shape}|null>(null),fontEdit=useRef<{id:string;before:Shape}|null>(null);
  const actions=useRef({escape:()=>{},undo:(_redo=false)=>{void _redo;},remove:()=>{},pick:(_id:Tool)=>{void _id;}});
+ const km=useKeymap();
  const paintRef=useRef(()=>{});
  const [tool,setTool]=useState<Tool>('pen'),[ready,setReady]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[retry,setRetry]=useState(0);
  const [color,setColor]=useState('#d92d20'),[width,setWidth]=useState(3),[fontSize,setFontSize]=useState(24),[text,setText]=useState(''),[crop,setCrop]=useState<Point[]|null>(null),[counts,setCounts]=useState({undo:0,redo:0}),[size,setSize]=useState({w:0,h:0}),[discard,setDiscard]=useState(false);
@@ -168,7 +170,7 @@ const ImageEditor=forwardRef<ImageEditorHandle,Props>(function ImageEditor({src,
  useEffect(()=>{root.current?.focus({preventScroll:true});},[]);
  useEffect(()=>{if(discard)continueButton.current?.focus();else if(returnCancel.current){returnCancel.current=false;cancelButton.current?.focus();}},[discard]);
  useEffect(()=>{const canvas=overlay.current;if(!ready||!canvas)return;const observer=new ResizeObserver(()=>paintRef.current());observer.observe(canvas);return()=>observer.disconnect();},[ready]);
- useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();actions.current.escape();return;}const typing=(e.target as HTMLElement|null)?.closest?.('input,textarea,select');if(!typing&&(e.key==='Delete'||e.key==='Backspace')){e.preventDefault();e.stopPropagation();actions.current.remove();return;}if(!typing&&!e.ctrlKey&&!e.metaKey&&!e.altKey){const item=toolItems.find(t=>t.key===e.key.toLowerCase());if(item){e.preventDefault();e.stopPropagation();actions.current.pick(item.id);return;}}if((e.ctrlKey||e.metaKey)&&!e.altKey&&['z','y'].includes(e.key.toLowerCase())){e.preventDefault();e.stopPropagation();actions.current.undo(e.key.toLowerCase()==='y'||e.shiftKey);}};document.addEventListener('keydown',onKey,true);return()=>document.removeEventListener('keydown',onKey,true);},[]);
+ useEffect(()=>{const offs=[...toolItems.map(({id})=>km.register('image.'+id,()=>actions.current.pick(id))),km.register('image.remove',()=>actions.current.remove()),km.register('image.undo',()=>actions.current.undo(false)),km.register('image.redo',()=>actions.current.undo(true)),km.pushLayer('image',80,()=>{actions.current.escape();return true;}),km.enterImage()];return ()=>offs.forEach(off=>off());},[km]);
  function dirty(){return bakedCrop.current||history.current.past.some(s=>s.kind==='crop')||shapesRef.current.length>0||!!cropRef.current||!!gesture.current||(!!textRef.current.trim()&&shapesRef.current.every(s=>s.id!==selectedRef.current||s.tool!=='text'));}
  function requestCancel(){if(saveLock.current)return;if(dirty()){if(gesture.current){gesture.current=null;paint();}setDiscard(true);}else onCancel();}
  useImperativeHandle(ref,()=>({requestCancel}));
@@ -218,7 +220,7 @@ const ImageEditor=forwardRef<ImageEditorHandle,Props>(function ImageEditor({src,
   <p className="sketch-intro">{replace?'Chỉnh sửa ảnh đang dùng trong thư viện.':'Vẽ chú thích rồi lưu một bản mới để chèn vào bài. Ảnh gốc được giữ nguyên.'}</p>
   {gif&&<p className="resource-notice">{replace?'GIF sau khi lưu đè sẽ thành PNG tĩnh ở cùng địa chỉ.':'Bản chỉnh sửa GIF là ảnh PNG tĩnh. GIF gốc được giữ nguyên.'}</p>}
   <fieldset className="sketch-controls" disabled={!ready||saving||discard}>
-   <div className="image-tools" aria-label="Công cụ chỉnh sửa">{toolItems.map(({id,label,key,Icon})=><button type="button" key={id} aria-pressed={tool===id} className={tool===id?'active':''} title={label+' ('+key.toUpperCase()+')'} onClick={()=>actions.current.pick(id)}><Icon size={16}/>{label}</button>)}<span className="sketch-separator"/><button type="button" aria-label="Hoàn tác" title="Hoàn tác (Ctrl Z)" disabled={!counts.undo} onClick={()=>undo()}><Undo2 size={16}/></button><button type="button" aria-label="Làm lại" title="Làm lại (Ctrl Shift Z)" disabled={!counts.redo} onClick={()=>undo(true)}><Redo2 size={16}/></button></div>
+   <div className="image-tools" aria-label="Công cụ chỉnh sửa">{toolItems.map(({id,label,Icon})=>{const key=km.text('image.'+id);return <button type="button" key={id} aria-pressed={tool===id} className={tool===id?'active':''} onClick={()=>actions.current.pick(id)}><Icon size={16}/>{label}{key&&<kbd>{key}</kbd>}</button>;})}<span className="sketch-separator"/><button type="button" aria-label="Hoàn tác" disabled={!counts.undo} onClick={()=>undo()}><Undo2 size={16}/>{km.text('image.undo')&&<kbd>{km.text('image.undo')}</kbd>}</button><button type="button" aria-label="Làm lại" disabled={!counts.redo} onClick={()=>undo(true)}><Redo2 size={16}/>{km.text('image.redo')&&<kbd>{km.text('image.redo')}</kbd>}</button></div>
    <div className="sketch-options"><label>Màu<input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label><label>Độ dày nét<input type="range" min={1} max={20} value={width} onChange={e=>setWidth(+e.target.value)}/><output>{width} px</output></label>{(tool==='text'||activeText)&&<label>Cỡ chữ<input type="number" min={12} max={72} value={shownFont} onChange={e=>{const next=Math.max(12,Math.min(72,+e.target.value||12));const current=shapesRef.current.find(s=>s.id===selectedRef.current&&s.tool==='text');if(current)updateShape(current.id,{...cloneShape(current),fontSize:next},'font',fontEdit);else setFontSize(next);}}/></label>}{tool==='crop'&&<button type="button" className="btn ghost" disabled={!crop} onClick={()=>crop&&applyCrop(crop)}>Cắt vùng này</button>}{selectedShape&&<button type="button" className="btn ghost" onClick={removeSelected}>Xóa hình</button>}</div>
    {(tool==='text'||activeText)&&<label className="sketch-text">{activeText?'Sửa chữ đang chọn':'Chữ chú thích'}<textarea rows={2} value={shownText} onChange={e=>{const value=e.target.value;const current=shapesRef.current.find(s=>s.id===selectedRef.current&&s.tool==='text');if(current)updateShape(current.id,{...cloneShape(current),text:value},'text',textEdit);else setText(value);}} placeholder={activeText?'Sửa chữ, rồi kéo chữ trên ảnh để dời':'Nhập chữ, sau đó nhấn vào vị trí trên ảnh'}/></label>}
   </fieldset>

@@ -1,5 +1,6 @@
 'use client';
 import React,{useEffect,useRef,useState} from 'react';
+import {useKeymap} from './KeymapProvider';
 
 type Props={image?:{src:string;alt:string};svg?:string;onClose:()=>void};
 
@@ -11,6 +12,7 @@ export default function ZoomLayer({image,svg,onClose}:Props){
   const viewRef=useRef(view);
   viewRef.current=view;
   const drag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
+  const km=useKeymap();
 
   const fit=()=>{
     const frameEl=frame.current;if(!frameEl)return;
@@ -27,10 +29,9 @@ export default function ZoomLayer({image,svg,onClose}:Props){
     const el=frame.current;if(!el)return;
     const onWheel=(e:WheelEvent)=>{e.preventDefault();const factor=e.deltaY<0?1.1:0.9;setView(v=>({...v,scale:Math.min(4,Math.max(0.2,v.scale*factor))}));};
     el.addEventListener('wheel',onWheel,{passive:false});
-    const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();};
-    window.addEventListener('keydown',onKey);
-    return()=>{el.removeEventListener('wheel',onWheel);window.removeEventListener('keydown',onKey);};
+    return ()=>el.removeEventListener('wheel',onWheel);
   },[onClose]);
+  useEffect(()=>km.pushLayer('zoom',70,()=>{onClose();return true;}),[km,onClose]);
   useEffect(()=>{
     if(!svg)return;
     const svgEl=box.current?.querySelector('svg');if(!svgEl)return;

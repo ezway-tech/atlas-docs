@@ -12,7 +12,7 @@ type TipProps={
   'aria-describedby'?:string;
 };
 
-export function Tooltip({content,children,side='top',onlyOverflow=false}:{content:React.ReactNode;children:React.ReactElement<TipProps>;side?:Side;onlyOverflow?:boolean}){
+export function Tooltip({content,children,side='top',onlyOverflow=false}:{content:React.ReactNode;children:React.ReactElement;side?:Side;onlyOverflow?:boolean}){
   const [open,setOpen]=useState(false),[box,setBox]=useState<{top:number;left:number}|null>(null);
   const anchor=useRef<HTMLElement|null>(null),tipRef=useRef<HTMLDivElement|null>(null),timer=useRef<number|undefined>(undefined);
   const id=useId();
@@ -22,8 +22,9 @@ export function Tooltip({content,children,side='top',onlyOverflow=false}:{conten
   useEffect(()=>{if(!open)return;const onScroll=()=>hide();window.addEventListener('scroll',onScroll,true);window.addEventListener('resize',hide);return()=>{window.removeEventListener('scroll',onScroll,true);window.removeEventListener('resize',hide);};},[open]);
   useEffect(()=>()=>window.clearTimeout(timer.current),[]);
   if(!isValidElement(children))return children;
-  const prev=children.props;
-  const child=cloneElement(children,{
+  const element=children as React.ReactElement<TipProps>;
+  const prev=element.props;
+  const child=cloneElement(element,{
     ref:(node:HTMLElement|null)=>{anchor.current=node;const r=prev.ref;if(typeof r==='function')r(node);else if(r)r.current=node;},
     onMouseEnter:e=>{prev.onMouseEnter?.(e);show();},
     onMouseLeave:e=>{prev.onMouseLeave?.(e);hide();},
