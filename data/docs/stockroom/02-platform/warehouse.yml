@@ -1,0 +1,22 @@
+warehouse:
+  name: North Shed
+  timezone: America/Chicago
+  dock: A
+units:
+  - code: ea
+    label: Each
+  - code: box
+    label: Box
+reorder:
+  bolts:
+    sku: BLT-M8
+    min: 40
+    shelf: A1
+  fittings:
+    sku: FIT-12
+    min: 10
+    shelf: A2
+  gloves:
+    sku: GLV-L
+    min: 12
+    shelf: B2

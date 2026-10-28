@@ -1,0 +1,102 @@
+openapi: 3.0.3
+info:
+  title: Stockroom API
+  version: "1.0.0"
+  description: Receive, issue, and list parts in the North Shed.
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /items:
+    get:
+      summary: List parts on hand
+      responses:
+        "200":
+          description: Parts and the quantity on each shelf
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Item"
+    post:
+      summary: Add a part
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewItem"
+      responses:
+        "201":
+          description: Created
+  /items/{sku}:
+    get:
+      summary: One part by SKU
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The part
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        "404":
+          description: Unknown SKU
+  /movements:
+    post:
+      summary: Receive, issue, or move stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Movement"
+      responses:
+        "201":
+          description: Saved
+components:
+  schemas:
+    Item:
+      type: object
+      properties:
+        sku:
+          type: string
+          example: BLT-M8
+        name:
+          type: string
+          example: M8 bolt
+        shelf:
+          type: string
+          example: A1
+        qty:
+          type: integer
+          example: 48
+    NewItem:
+      type: object
+      required: [sku, name, unit]
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        unit:
+          type: string
+          example: ea
+    Movement:
+      type: object
+      required: [sku, shelf, qty, kind]
+      properties:
+        sku:
+          type: string
+        shelf:
+          type: string
+        qty:
+          type: integer
+        kind:
+          type: string
+          enum: [receive, issue, move]

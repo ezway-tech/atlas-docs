@@ -1,7 +1,8 @@
-import {mkdir,readFile,writeFile,stat} from 'node:fs/promises';
+import {validateAsset,assetKind,assetExtension} from '@/lib/assets';
+import {mkdir,readFile,writeFile,stat,rm,open} from 'node:fs/promises';
 import path from 'node:path';
 import {NextRequest} from 'next/server';
-import {ROOT,uploadsRoot,folderFile,createFolder,createDoc,deleteDoc,deleteFolder,getDoc,listDocs,listFolders,readDB,writeDB,saveDoc,updateFolder,safeDoc,safeFolder} from '@/lib/store';
+import {ROOT,uploadsRoot,folderFile,createFolder,createDoc,deleteDoc,deleteFolder,getDoc,listDocs,listFolders,readDB,writeDB,saveDoc,updateFolder,safeDoc,safeFolder,readLibrary,invalidateLibrary} from '@/lib/store';
 import {history,revisionRaw,restore,reorder,links,exportZip,importZip} from '@/lib/extras';
 import {err} from '@/lib/http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -19,7 +20,7 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
  if(name==='folders'){
    if(method==='GET')return json(await listFolders());
    if(method==='DELETE')return json(await deleteFolder(query.get('path')||''));
-   const o=await body();if(method==='POST')return json({path:await createFolder(String(o.parent||''),String(o.title||''),o.imageId||null,o.icon??null)});
+   const o=await body();if(o.imageId){const a=(await readDB()).assets.find(a=>a.id===o.imageId);if(!a||assetKind(a.mimeType)!=='image')throw Error('Ảnh bìa phải là tệp ảnh');}if(method==='POST')return json({path:await createFolder(String(o.parent||''),String(o.title||''),o.imageId||null,o.icon??null)});
    if(method==='PATCH')return json(await updateFolder(String(o.path),String(o.title),o.imageId||null,o.icon??null));
  }
  if(name==='settings'){
@@ -40,9 +41,29 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
  if(name==='links'&&method==='GET')return json(await links(query.get('id')||''));
  if(name==='dashboard'&&method==='GET'){const [docs,folders,d]=await Promise.all([listDocs(),listFolders(),readDB()]);return json({docs:docs.length,folders:folders.length,topics:folders.filter(f=>f.depth===1).length,comments:d.comments.length,assets:d.assets.length});}
  if(name==='media'){
+   const mediaId=(id:string)=>{if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw Error('Asset id invalid');return id;};
+   const assetFile=async(entry:FormDataEntryValue|null,imagesOnly=false)=>{if(!(entry instanceof File))throw Error('Thiếu tệp tải lên');const {ext,mime}=validateAsset(entry,imagesOnly);return {ext,bytes:new Uint8Array(await entry.arrayBuffer()),type:mime,name:entry.name,size:entry.size};};
    if(method==='GET'&&seg.length===1)return json((await readDB()).assets);
-   if(method==='GET'&&seg.length===2){const asset=(await readDB()).assets.find(a=>a.id===seg[1]);if(!asset)return new Response('Not found',{status:404});const data=await readFile(path.join(uploadsRoot,asset.storedName));return new Response(new Uint8Array(data),{headers:{'Content-Type':asset.mimeType,'Cache-Control':'public, max-age=3600'}});}
-   if(method==='POST'){const form=await req.formData(),file=form.get('file');if(!(file instanceof File)||file.size>8*1024*1024)throw Error('Upload must be an image up to 8MB');const types:{[k:string]:string}={'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp','image/gif':'.gif'};if(!types[file.type])throw Error('Unsupported image type');const id=crypto.randomUUID(),storedName=id+types[file.type];await mkdir(uploadsRoot,{recursive:true});await writeFile(path.join(uploadsRoot,storedName),new Uint8Array(await file.arrayBuffer()));return json(await writeDB(d=>{const a={id,filename:file.name,storedName,mimeType:file.type,size:file.size,alt:file.name,createdAt:new Date().toISOString()};d.assets.push(a);return a;}));}
+   if(method==='GET'&&seg.length===3&&seg[2]==='usage'){const id=mediaId(seg[1]),needle='/api/media/'+id;const [lib,d]=await Promise.all([readLibrary(),readDB()]);return json({folders:d.folders.filter(f=>f.imageId===id).map(f=>({path:f.path,title:f.title})),docs:lib.docs.filter(doc=>doc.kind==='md'&&(doc.raw||'').includes(needle)).map(doc=>({id:doc.id,title:doc.title})),comments:d.comments.filter(c=>c.content.includes(needle)).map(c=>({id:c.id,docId:c.docId}))});}
+   if(method==='GET'&&seg.length===2){
+     const asset=(await readDB()).assets.find(a=>a.id===mediaId(seg[1]));if(!asset)return new Response('Not found',{status:404});
+     const filename=path.join(uploadsRoot,asset.storedName),size=(await stat(filename)).size;
+     const inline=['image','video','audio'].includes(assetKind(asset.mimeType))||asset.mimeType==='application/pdf';
+     const headers:Record<string,string>={'Content-Type':asset.mimeType,'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Content-Disposition':`${query.get('download')==='1'||!inline?'attachment':'inline'}; filename="download.${assetExtension(asset.storedName)}"; filename*=UTF-8''${encodeURIComponent(asset.filename).replace(/['()]/g,c=>'%'+c.charCodeAt(0).toString(16))}`};
+     const ranged=['video','audio'].includes(assetKind(asset.mimeType));if(ranged)headers['Accept-Ranges']='bytes';
+     const range=ranged?req.headers.get('range'):null;
+     if(range){
+       const m=/^bytes=(\d*)-(\d*)$/.exec(range);let start=0,end=size-1;
+       if(m&&(m[1]||m[2])){if(!m[1])start=Math.max(0,size-Number(m[2]));else{start=Number(m[1]);if(m[2])end=Math.min(end,Number(m[2]));}}
+       if(!m||(!m[1]&&!m[2])||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start>end||start>=size){return new Response(null,{status:416,headers:{...headers,'Content-Range':`bytes */${size}`}});}
+       const file=await open(filename,'r');try{const buffer=Buffer.alloc(end-start+1);await file.read(buffer,0,buffer.length,start);return new Response(new Uint8Array(buffer),{status:206,headers:{...headers,'Content-Length':String(buffer.length),'Content-Range':`bytes ${start}-${end}/${size}`}});}finally{await file.close();}
+     }
+     return new Response(new Uint8Array(await readFile(filename)),{headers:{...headers,'Content-Length':String(size)}});
+   }
+   if(method==='POST'&&seg.length===1){const form=await req.formData(),file=await assetFile(form.get('file'));const alt=form.has('alt')?String(form.get('alt')):file.name;if(alt.length>300)throw Error('Mô tả quá dài');const id=crypto.randomUUID(),storedName=id+file.ext;await mkdir(uploadsRoot,{recursive:true});await writeFile(path.join(uploadsRoot,storedName),file.bytes);return json(await writeDB(d=>{const a={id,filename:file.name,storedName,mimeType:file.type,size:file.size,alt,createdAt:new Date().toISOString()};d.assets.push(a);return a;}));}
+   if(method==='PATCH'&&seg.length===2){const id=mediaId(seg[1]),o=await body(),filename=String(o.filename??'').trim(),alt=String(o.alt??'').trim();if(!filename||filename.length>180)throw Error('Tên tệp không hợp lệ');if(alt.length>300)throw Error('Mô tả quá dài');return json(await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw Error('Tệp không tồn tại');if(/[\x00-\x1f/\\]/.test(filename)||assetExtension(filename)!==assetExtension(a.filename))throw Error('Tên tệp phải giữ nguyên phần mở rộng');a.filename=filename;a.alt=alt;return a;}));}
+   if(method==='PUT'&&seg.length===2){const id=mediaId(seg[1]),file=await assetFile((await req.formData()).get('file'),true),storedName=id+file.ext;const current=await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw Error('Tệp không tồn tại');if(assetKind(a.mimeType)!=='image')throw Error('Chỉ có thể sửa ảnh');return a.storedName;});await mkdir(uploadsRoot,{recursive:true});await writeFile(path.join(uploadsRoot,storedName),file.bytes);const saved=await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw Error('Tệp không tồn tại');a.filename=a.filename.replace(/\.[^.]+$/,'')+file.ext;a.storedName=storedName;a.mimeType=file.type;a.size=file.size;return a;});if(current!==storedName)await rm(path.join(uploadsRoot,current),{force:true});return json(saved);}
+   if(method==='DELETE'&&seg.length===2){const id=mediaId(seg[1]);const removed=await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw Error('Tệp không tồn tại');d.assets=d.assets.filter(x=>x.id!==id);let cover=false;for(const f of d.folders)if(f.imageId===id){f.imageId=null;cover=true;}return {storedName:a.storedName,cover};});if(removed.cover)invalidateLibrary();await rm(path.join(uploadsRoot,removed.storedName),{force:true});return json({ok:true});}
  }
  if(name==='backup'){
    if(method==='GET')return new Response(new Uint8Array(await exportZip()),{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="atlas-backup.zip"'}});

@@ -10,7 +10,8 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "bootstrap": "node scripts/bootstrap.mjs",
-    "test:storage": "node scripts/test-storage.mjs"
+    "test:storage": "node scripts/test-storage.mjs",
+    "test:resources": "node --experimental-strip-types scripts/test-resources.mjs"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",

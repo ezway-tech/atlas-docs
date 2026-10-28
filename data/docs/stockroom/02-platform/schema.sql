@@ -1,0 +1,22 @@
+CREATE TABLE items (
+  id INTEGER PRIMARY KEY,
+  sku VARCHAR(32) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  unit VARCHAR(16) NOT NULL
+);
+
+CREATE TABLE shelves (
+  id INTEGER PRIMARY KEY,
+  code VARCHAR(16) NOT NULL,
+  aisle VARCHAR(16) NOT NULL
+);
+
+CREATE TABLE movements (
+  id INTEGER PRIMARY KEY,
+  item_id INTEGER NOT NULL,
+  shelf_id INTEGER NOT NULL,
+  qty INTEGER NOT NULL,
+  kind VARCHAR(16) NOT NULL,
+  FOREIGN KEY (item_id) REFERENCES items (id),
+  FOREIGN KEY (shelf_id) REFERENCES shelves (id)
+);
