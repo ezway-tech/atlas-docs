@@ -1,9 +1,12 @@
 'use client';
+import {Button as UiButton} from './ui/controls';
+
 import React,{useEffect,useRef,useState} from 'react';
 import {EditorContent,useEditor} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {Markdown} from '@tiptap/markdown';
 import {Bold,Italic,Strikethrough,Heading2,Code2,Link2,List,ListOrdered,Quote,ListChecks} from 'lucide-react';
+import {LinkDialog} from './ui/link-dialog';
 import {Tooltip} from './Tooltip';
 
 type MdEditor={getMarkdown:()=>string};
@@ -32,9 +35,9 @@ export default function CommentField({value,onChange,label,placeholder,onReady}:
   if(!editor)return;
   ready.current?.({focus:()=>editor.commands.focus()});
  },[editor]);
+ const [linkOpen,setLinkOpen]=useState(false);
  if(!editor)return <div className="comment-field"><div className="comment-surface"/></div>;
- const press=(run:()=>void)=>(e:React.MouseEvent)=>{e.preventDefault();run();};
- const link=()=>{const prev=String(editor.getAttributes('link').href||'https://');const url=window.prompt('Địa chỉ liên kết',prev);if(url===null)return;if(!url.trim())editor.chain().focus().unsetLink().run();else editor.chain().focus().extendMarkRange('link').setLink({href:url.trim()}).run();};
+ const link=()=>{setLinkOpen(true);};
  const tools:[string,React.ReactNode,()=>void,boolean][]=[
   ['Đậm',<Bold size={15}/>,()=>editor.chain().focus().toggleBold().run(),editor.isActive('bold')],
   ['Nghiêng',<Italic size={15}/>,()=>editor.chain().focus().toggleItalic().run(),editor.isActive('italic')],
@@ -47,5 +50,5 @@ export default function CommentField({value,onChange,label,placeholder,onReady}:
   ['Trích dẫn',<Quote size={15}/>,()=>editor.chain().focus().toggleBlockquote().run(),editor.isActive('blockquote')],
   ['Việc cần làm',<ListChecks size={15}/>,()=>editor.chain().focus().insertContent('<p>☐ việc cần làm</p>').run(),false],
  ];
- return <div className={editor.isEmpty&&placeholder?'comment-field is-empty':'comment-field'} data-placeholder={placeholder||''}><div className="comment-bar"><div className="comment-tools">{tools.map(([name,icon,run,on])=><Tooltip key={name} content={name}><button type="button" aria-label={name} aria-pressed={on} className={on?'active':''} onMouseDown={press(run)}>{icon}</button></Tooltip>)}</div></div><EditorContent editor={editor}/></div>;
+ return <div className={editor.isEmpty&&placeholder?'comment-field is-empty':'comment-field'} data-placeholder={placeholder||''}><div className="comment-bar"><div className="comment-tools">{tools.map(([name,icon,run,on])=><Tooltip key={name} content={name}><UiButton type="button" aria-label={name} aria-pressed={on} className={on?'active':''} onMouseDown={e=>e.preventDefault()} onClick={run}>{icon}</UiButton></Tooltip>)}</div></div><EditorContent editor={editor}/>{linkOpen&&<LinkDialog editor={editor} onClose={()=>setLinkOpen(false)}/>}</div>;
 }

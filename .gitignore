@@ -1,3 +1,7 @@
 # /data/**
 !/data/.gitkeep
 app/.next-test/
+app/test-results/
+app/playwright-report/
+app/.next-ui-check/
+app/.next-ui-final/

@@ -41,6 +41,9 @@ export function KeymapProvider({children}:{children:React.ReactNode}){
  }),[overrides]);
  useEffect(()=>{
   const onKey=(event:KeyboardEvent)=>{
+   // Let Radix own navigation and Escape while a select popup is open.
+   if(document.querySelector('[data-ui-popup],[data-ui-block-shortcuts]'))return;
+   if(event.key==='Escape'&&document.querySelector('[data-ui-dialog]'))return;
    if(capture.current){if(capture.current(event)){event.preventDefault();event.stopPropagation();}return;}
    if(event.key==='Escape'){
     const ordered=[...layers.current.values()].sort((a,b)=>b.order-a.order);

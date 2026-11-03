@@ -1,4 +1,7 @@
 'use client';
+import {Button as UiButton} from './ui/controls';
+
+import {Dialog} from './ui/dialog';
 import React,{useEffect,useRef,useState} from 'react';
 import {useKeymap} from './KeymapProvider';
 
@@ -43,5 +46,5 @@ export default function ZoomLayer({image,svg,onClose}:Props){
     fit();
   },[svg]);
 
-  return <div className="zoom-layer" role="dialog" aria-label="Phóng to"><div className="zoom-bar"><button type="button" onClick={fit}>Vừa khung</button><button type="button" onClick={actual}>100%</button><button type="button" onClick={onClose}>Đóng</button></div><div className="zoom-frame" ref={frame} onPointerDown={e=>{if(e.button!==0)return;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);drag.current={px:e.clientX,py:e.clientY,x:viewRef.current.x,y:viewRef.current.y};}} onPointerMove={e=>{const current=drag.current;if(!current)return;setView(v=>({...v,x:current.x+e.clientX-current.px,y:current.y+e.clientY-current.py}));}} onPointerUp={()=>{drag.current=null;}}><div ref={box} className="zoom-content" style={{transform:`translate(${view.x}px, ${view.y}px) scale(${view.scale})`}}>{image?<img src={image.src} alt={image.alt} draggable={false} onLoad={e=>{natural.current={w:e.currentTarget.naturalWidth||1,h:e.currentTarget.naturalHeight||1};fit();}}/>:<div dangerouslySetInnerHTML={{__html:svg||''}}/>}</div></div></div>;
+  return <Dialog title="Phóng to" onOpenChange={v=>{if(!v)onClose();}}><div className="zoom-layer" role="dialog" aria-label="Phóng to"><div className="zoom-bar"><UiButton type="button" onClick={fit}>Vừa khung</UiButton><UiButton type="button" onClick={actual}>100%</UiButton><UiButton type="button" onClick={onClose}>Đóng</UiButton></div><div className="zoom-frame" ref={frame} onPointerDown={e=>{if(e.button!==0)return;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);drag.current={px:e.clientX,py:e.clientY,x:viewRef.current.x,y:viewRef.current.y};}} onPointerMove={e=>{const current=drag.current;if(!current)return;setView(v=>({...v,x:current.x+e.clientX-current.px,y:current.y+e.clientY-current.py}));}} onPointerUp={()=>{drag.current=null;}}><div ref={box} className="zoom-content" style={{transform:`translate(${view.x}px, ${view.y}px) scale(${view.scale})`}}>{image?<img src={image.src} alt={image.alt} draggable={false} onLoad={e=>{natural.current={w:e.currentTarget.naturalWidth||1,h:e.currentTarget.naturalHeight||1};fit();}}/>:<div dangerouslySetInnerHTML={{__html:svg||''}}/>}</div></div></div></Dialog>;
 }

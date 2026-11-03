@@ -1,4 +1,6 @@
 'use client';
+import {Button as UiButton} from './ui/controls';
+
 import React from 'react';
 
 type LayoutSelectors={getScrollToKey:()=>unknown};
@@ -63,11 +65,11 @@ export default class ModelCollapse extends React.Component<Props,State>{
     const {expanded,collapsedContent}=this.state;
     if(expanded&&hideSelfOnExpand)return <span className={classes||''}>{children}</span>;
     return <span className={classes||''} ref={this.onLoad}>
-      <button aria-expanded={expanded} className="model-box-control" onClick={this.toggleCollapsed}>
+      <UiButton aria-expanded={expanded} className="model-box-control" onClick={this.toggleCollapsed}>
         {title?<span className="pointer">{title}</span>:null}
         <span className={'model-toggle'+(expanded?'':' collapsed')}/>
         {expanded?null:<span>{collapsedContent}</span>}
-      </button>
+      </UiButton>
       {expanded?children:null}
     </span>;
   }

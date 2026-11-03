@@ -1,4 +1,6 @@
 'use client';
+import {Button as UiButton} from './ui/controls';
+
 import React,{useEffect,useMemo,useState} from 'react';
 import {Background,Controls,ReactFlow,type Edge,type Node} from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
@@ -41,5 +43,5 @@ export default function SqlView({source,dark,diagramOnly}:{source:string;dark:bo
   if(!schema.tables.length)return <div className="spec-note"><p>File này không có lệnh CREATE TABLE, nên không vẽ sơ đồ.</p>{schema.error&&<p>{schema.error}</p>}{!diagramOnly&&<SourceEditor value={source} onChange={()=>{}} apiRef={apiRef} dark={dark} lang="sql" readOnly/>}</div>;
   const canvas=laid?<div className="sql-canvas"><ReactFlow nodes={laid.nodes} edges={laid.edges} nodeTypes={nodeTypes} fitView minZoom={0.2} maxZoom={2} colorMode={dark?'dark':'light'} proOptions={{hideAttribution:false}}><Background/><Controls/></ReactFlow></div>:null;
   if(diagramOnly)return canvas;
-  return <div><div className="mode-tabs sql-tabs"><button type="button" className={tab==='diagram'?'active':''} onClick={()=>setTab('diagram')}>Sơ đồ</button><button type="button" className={tab==='source'?'active':''} onClick={()=>setTab('source')}>Nguồn</button></div>{tab==='diagram'?canvas:<SourceEditor value={source} onChange={()=>{}} apiRef={apiRef} dark={dark} lang="sql" readOnly/>}</div>;
+  return <div><div className="mode-tabs sql-tabs"><UiButton type="button" className={tab==='diagram'?'active':''} onClick={()=>setTab('diagram')}>Sơ đồ</UiButton><UiButton type="button" className={tab==='source'?'active':''} onClick={()=>setTab('source')}>Nguồn</UiButton></div>{tab==='diagram'?canvas:<SourceEditor value={source} onChange={()=>{}} apiRef={apiRef} dark={dark} lang="sql" readOnly/>}</div>;
 }

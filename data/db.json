@@ -112,6 +112,12 @@
     "hiddenFolders": [
       "stockroom/03-ops"
     ],
-    "keymap": {}
+    "keymap": {
+      "comment": {
+        "key": "c",
+        "mod": true,
+        "shift": true
+      }
+    }
   }
 }
