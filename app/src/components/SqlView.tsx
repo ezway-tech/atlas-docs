@@ -34,14 +34,14 @@ function layout(schema:SqlSchema){
   return {nodes,edges};
 }
 
-export default function SqlView({source,dark,diagramOnly}:{source:string;dark:boolean;diagramOnly?:boolean}){
+export default function SqlView({source,dark,diagramOnly,compact}:{source:string;dark:boolean;diagramOnly?:boolean;compact?:boolean}){
   const [schema,setSchema]=useState<SqlSchema|null>(null),[tab,setTab]=useState<'diagram'|'source'>('diagram');
   const apiRef=React.useRef<EditorRef|null>(null);
   useEffect(()=>{let cancel=false;const timer=setTimeout(()=>{void readSqlSchema(source).then(next=>{if(!cancel)setSchema(next);});},250);return()=>{cancel=true;clearTimeout(timer);};},[source]);
   const laid=useMemo(()=>schema&&schema.tables.length?layout(schema):null,[schema]);
   if(!schema)return <div className="empty">Đang đọc SQL...</div>;
   if(!schema.tables.length)return <div className="spec-note"><p>File này không có lệnh CREATE TABLE, nên không vẽ sơ đồ.</p>{schema.error&&<p>{schema.error}</p>}{!diagramOnly&&<SourceEditor value={source} onChange={()=>{}} apiRef={apiRef} dark={dark} lang="sql" readOnly/>}</div>;
-  const canvas=laid?<div className="sql-canvas"><ReactFlow nodes={laid.nodes} edges={laid.edges} nodeTypes={nodeTypes} fitView minZoom={0.2} maxZoom={2} colorMode={dark?'dark':'light'} proOptions={{hideAttribution:false}}><Background/><Controls/></ReactFlow></div>:null;
+  const canvas=laid?<div className={compact?'sql-canvas md-sql-canvas':'sql-canvas'}><ReactFlow nodes={laid.nodes} edges={laid.edges} nodeTypes={nodeTypes} fitView minZoom={0.2} maxZoom={2} colorMode={dark?'dark':'light'} proOptions={{hideAttribution:false}}><Background/><Controls/></ReactFlow></div>:null;
   if(diagramOnly)return canvas;
   return <div><div className="mode-tabs sql-tabs"><UiButton type="button" className={tab==='diagram'?'active':''} onClick={()=>setTab('diagram')}>Sơ đồ</UiButton><UiButton type="button" className={tab==='source'?'active':''} onClick={()=>setTab('source')}>Nguồn</UiButton></div>{tab==='diagram'?canvas:<SourceEditor value={source} onChange={()=>{}} apiRef={apiRef} dark={dark} lang="sql" readOnly/>}</div>;
 }

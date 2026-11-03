@@ -7,7 +7,7 @@ import type {editor as MonacoEditor} from 'monaco-editor';
 const Monaco=dynamic(()=>import('@monaco-editor/react'),{ssr:false});
 
 export type Format='h2'|'h3'|'bold'|'italic'|'link'|'list'|'number'|'task'|'quote'|'code'|'table'|'mermaid'|'divider';
-export type SourceLang='markdown'|'yaml'|'sql';
+export type SourceLang='markdown'|'yaml'|'sql'|'json';
 export function formatting(kind:Format,text=''){const t=text||'Văn bản';switch(kind){case'h2':return '## '+t;case'h3':return '### '+t;case'bold':return `**${t}**`;case'italic':return `*${t}*`;case'link':return `[${t}](https://example.com)`;case'list':return '- '+(text||'Mục 1');case'number':return '1. '+(text||'Mục 1');case'task':return '- [ ] '+(text||'Cần làm');case'quote':return '> '+t;case'code':return '\n```bash\n'+(text||'echo hello')+'\n```\n';case'table':return '\n| Cột 1 | Cột 2 |\n| --- | --- |\n| A | B |\n';case'mermaid':return '\n```mermaid\nflowchart LR\n A --> B\n```\n';case'divider':return '\n---\n';}}
 export type EditorRef={insert:(value:string)=>void;format:(value:Format)=>void};
 export type ImagePaste=(file:File,insert:(markdown:string)=>void)=>void;
@@ -19,7 +19,20 @@ function clipboardImage(data:DataTransfer|null){
   return [...data.items].find(item=>item.kind==='file'&&item.type.startsWith('image/'))?.getAsFile()??null;
 }
 
-const languageOf=(lang:SourceLang)=>lang==='yaml'?'yaml':lang==='sql'?'sql':'markdown';
+const langMap:Record<SourceLang,string>={markdown:'markdown',yaml:'yaml',sql:'sql',json:'json'};
+
+export function monacoLanguage(fence:string):string|null{
+  const key=fence.trim().toLowerCase();
+  if(!key||key==='text'||key==='plain'||key==='plaintext')return null;
+  const aliases:Record<string,string>={
+    yml:'yaml',yaml:'yaml',json:'json',sql:'sql',md:'markdown',markdown:'markdown',
+    js:'javascript',javascript:'javascript',ts:'typescript',typescript:'typescript',
+    bash:'shell',sh:'shell',shell:'shell',zsh:'shell',
+    py:'python',python:'python',html:'html',css:'css',xml:'xml',
+    graphql:'graphql',gql:'graphql',dockerfile:'dockerfile'
+  };
+  return aliases[key]??(/^[a-z0-9_+#-]+$/i.test(key)?key:null);
+}
 
 function replaceSelection(ed:MonacoEditor.IStandaloneCodeEditor,text:string){
   const model=ed.getModel();
@@ -31,7 +44,12 @@ function replaceSelection(ed:MonacoEditor.IStandaloneCodeEditor,text:string){
   ed.focus();
 }
 
-export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown',readOnly=false,onImagePaste}:{value:string;onChange:(v:string)=>void;apiRef:React.MutableRefObject<EditorRef|null>;dark:boolean;lang?:SourceLang;readOnly?:boolean;onImagePaste?:ImagePaste}){
+export function embedHeight(source:string,max=360,min=120,line=18){
+  const lines=Math.max(1,source.replace(/\n$/,'').split('\n').length);
+  return Math.min(max,Math.max(min,lines*line+24))+'px';
+}
+
+export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown',language,readOnly=false,height='68vh',onImagePaste}:{value:string;onChange:(v:string)=>void;apiRef:React.MutableRefObject<EditorRef|null>;dark:boolean;lang?:SourceLang;language?:string;readOnly?:boolean;height?:string;onImagePaste?:ImagePaste}){
   const editor=useRef<MonacoEditor.IStandaloneCodeEditor|null>(null);
   const pasteRef=useRef(onImagePaste);
   const valueRef=useRef(value);
@@ -41,6 +59,8 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
   valueRef.current=value;
   onChangeRef.current=onChange;
   readOnlyRef.current=readOnly;
+  const monacoLang=language||langMap[lang];
+  const wrap=monacoLang==='markdown';
 
   useEffect(()=>{
     apiRef.current={
@@ -64,7 +84,7 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
 
   const onMount:OnMount=(ed)=>{
     editor.current=ed;
-    if(lang!=='markdown'||readOnly)return;
+    if(monacoLang!=='markdown'||readOnly)return;
     const node=ed.getDomNode();
     if(!node)return;
     const onPaste=(event:ClipboardEvent)=>{
@@ -89,9 +109,9 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
 
   return <Monaco
     value={value}
-    language={languageOf(lang)}
+    language={monacoLang}
     theme={dark?'vs-dark':'light'}
-    height="68vh"
+    height={height}
     onChange={readOnly?undefined:v=>onChange(v??'')}
     onMount={onMount}
     options={{
@@ -101,13 +121,15 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
       fontFamily:'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace',
       minimap:{enabled:false},
       scrollBeyondLastLine:false,
-      wordWrap:lang==='markdown'?'on':'off',
+      wordWrap:wrap?'on':'off',
       lineNumbers:'on',
       folding:true,
       renderLineHighlight:readOnly?'none':'line',
       padding:{top:12,bottom:12},
       tabSize:2,
-      stickyScroll:{enabled:false}
+      stickyScroll:{enabled:false},
+      domReadOnly:readOnly,
+      overviewRulerLanes:0
     }}
   />;
 }

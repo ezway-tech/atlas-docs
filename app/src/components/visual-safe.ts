@@ -1,6 +1,8 @@
 /** Guard complex documents against lossy WYSIWYG round trips. */
 const blocks:[RegExp,string][]=[
  [/```\s*mermaid\b/i,'Bài có sơ đồ Mermaid. Visual có thể làm mất cú pháp.'],
+ [/```\s*sql\b/i,'Bài có khối SQL. Visual có thể làm mất cú pháp.'],
+ [/```\s*(ya?ml|json)\b/i,'Bài có khối YAML/JSON. Visual có thể làm mất cú pháp.'],
  [/^\s*\|.*\|\s*\n\s*\|[-:| ]+\|/m,'Bài có bảng. Visual có thể làm mất cú pháp.'],
  [/^\s*- \[[ xX]\]/m,'Bài có checklist. Visual có thể làm mất cú pháp.'],
  [/<\/?[A-Z][\w.]*/,'Bài có MDX. Visual có thể làm mất cú pháp.'],

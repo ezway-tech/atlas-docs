@@ -3,7 +3,7 @@
 .kind-tag{margin-left:6px;font-size:10px;color:var(--accent);flex:0 0 auto}
 .zoom-hit{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .diagram-open{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
-.zoom-layer{position:fixed;inset:0;z-index:160;background:#09111ccc;display:flex;flex-direction:column}
+.zoom-layer{position:fixed;inset:0;z-index:160;background:color-mix(in srgb,var(--bg) 82%,var(--ink) 18%);display:flex;flex-direction:column}
 .zoom-bar{display:flex;gap:8px;justify-content:flex-end;padding:10px}
 .zoom-bar button{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink)}
 .zoom-frame{flex:1;overflow:hidden;touch-action:none;cursor:grab}

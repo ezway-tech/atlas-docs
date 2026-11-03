@@ -15,7 +15,7 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
  if(name==='health'&&method==='GET')return json({ok:true});
  if(name==='docs'){
    if(method==='GET'&&seg.length===1)return json(await listDocs());
-   if(method==='POST'&&seg.length===1){const o=await body();const kind=o.kind==='yaml'||o.kind==='sql'?o.kind:'md';return json(await createDoc(String(o.folder),String(o.title),kind));}
+   if(method==='POST'&&seg.length===1){const o=await body();const kind=o.kind==='yaml'||o.kind==='sql'||o.kind==='json'?o.kind:'md';return json(await createDoc(String(o.folder),String(o.title),kind));}
    const id=seg.slice(1).join('/');safeDoc(id);
    if(method==='GET')return json(await getDoc(id));if(method==='PUT'){const o=await body();return json(await saveDoc(id,String(o.raw)));}if(method==='DELETE')return json(await deleteDoc(id));
  }

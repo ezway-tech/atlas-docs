@@ -1,6 +1,6 @@
 import type {Keymap} from './keymap';
 export type Folder={path:string;title:string;imageId:string|null;icon:string|null;depth:number};
-export type DocKind='md'|'yaml'|'sql';
+export type DocKind='md'|'yaml'|'sql'|'json';
 export type DocInfo={id:string;kind:DocKind;title:string;description:string;category:string;updatedAt:string;order:number;content?:string;raw?:string;text:string;headings:{level:number;title:string;id:string}[]};
 export type AssetSource='upload'|'paste'|'edit';
 export type Asset={id:string;filename:string;storedName:string;mimeType:string;size:number;alt:string;source:AssetSource;createdAt:string};
