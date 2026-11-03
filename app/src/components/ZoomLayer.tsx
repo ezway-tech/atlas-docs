@@ -3,13 +3,14 @@ import {Button as UiButton} from './ui/controls';
 
 import {Dialog} from './ui/dialog';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Maximize2,Ratio,X} from 'lucide-react';
+import {X,Minus,Plus,Expand,Minimize} from 'lucide-react';
 import {useKeymap} from './KeymapProvider';
 import {Tooltip} from './Tooltip';
 
-type Props={image?:{src:string;alt:string};svg?:string;onClose:()=>void};
+export type ZoomMode='medium'|'fullscreen';
+type Props={initialMode?:ZoomMode;image?:{src:string;alt:string};svg?:string;onClose:()=>void};
 
-function prefixSvgIds(html:string){
+export function prefixSvgIds(html:string){
   const prefix='zoom-'+crypto.randomUUID().replaceAll('-','')+'-';
   const ids=new Set<string>();
   html.replace(/\bid=(["'])([^"']+)\1/gi,(_, __,id)=>{ids.add(id);return '';});
@@ -23,7 +24,31 @@ function prefixSvgIds(html:string){
     next=next.replace(new RegExp(`href=(["'])#${safe}\\1`,'gi'),`href=$1#${prefix}${id}$1`);
     next=next.replace(new RegExp(`xlink:href=(["'])#${safe}\\1`,'gi'),`xlink:href=$1#${prefix}${id}$1`);
   }
-  return next;
+  // Rewrite selectors only: declarations can contain colors such as #fff.
+  const doc=new DOMParser().parseFromString(next,'image/svg+xml');
+  for(const style of doc.querySelectorAll('style')){
+    const sheet=new CSSStyleSheet();
+    sheet.replaceSync(style.textContent||'');
+    const rewrite=(rules:CSSRuleList)=>{
+      for(const rule of Array.from(rules)){
+        if(rule instanceof CSSStyleRule){
+          for(const id of ids){
+            const escaped=CSS.escape(id).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+            rule.selectorText=rule.selectorText.replace(new RegExp('#'+escaped+'(?![\\w-])','g'),'#'+CSS.escape(prefix+id));
+          }
+        }
+        if('cssRules' in rule)rewrite((rule as CSSGroupingRule).cssRules);
+      }
+    };
+    rewrite(sheet.cssRules);
+    style.textContent=Array.from(sheet.cssRules,r=>r.cssText).join('\n');
+  }
+  return new XMLSerializer().serializeToString(doc.documentElement);
+}
+
+export function zoomView(v:{scale:number;x:number;y:number},factor:number,anchor:{x:number;y:number}){
+  const scale=Math.min(4,Math.max(0.05,v.scale*factor)),ratio=scale/v.scale;
+  return {scale,x:anchor.x-(anchor.x-v.x)*ratio,y:anchor.y-(anchor.y-v.y)*ratio};
 }
 
 function measureSvg(svgEl:SVGSVGElement){
@@ -41,7 +66,8 @@ function measureSvg(svgEl:SVGSVGElement){
   return {w:Math.max(1,w),h:Math.max(1,h)};
 }
 
-export default function ZoomLayer({image,svg,onClose}:Props){
+export default function ZoomLayer({image,svg,onClose,initialMode='fullscreen'}:Props){
+  const [mode,setMode]=useState<ZoomMode>(initialMode);
   const frame=useRef<HTMLDivElement>(null);
   const box=useRef<HTMLDivElement>(null);
   const natural=useRef({w:1,h:1});
@@ -50,6 +76,8 @@ export default function ZoomLayer({image,svg,onClose}:Props){
   viewRef.current=view;
   const drag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
   const ready=useRef(false);
+  const fitMode=useRef(true);
+  const frameSize=useRef({w:0,h:0});
   const km=useKeymap();
   const zoomSvg=useMemo(()=>svg?prefixSvgIds(svg):'',[svg]);
 
@@ -57,15 +85,10 @@ export default function ZoomLayer({image,svg,onClose}:Props){
     const frameEl=frame.current;
     if(!frameEl||frameEl.clientWidth<32||frameEl.clientHeight<32)return false;
     const availW=Math.max(1,frameEl.clientWidth-48),availH=Math.max(1,frameEl.clientHeight-48);
-    const scale=Math.min(4,Math.max(0.05,Math.min(availW/natural.current.w,availH/natural.current.h)));
+    const scale=Math.min(1.5,Math.max(0.05,Math.min(availW/natural.current.w,availH/natural.current.h)));
+    fitMode.current=true;
     setView({scale,x:(frameEl.clientWidth-natural.current.w*scale)/2,y:(frameEl.clientHeight-natural.current.h*scale)/2});
     return true;
-  },[]);
-
-  const actual=useCallback(()=>{
-    const frameEl=frame.current;
-    if(!frameEl||frameEl.clientWidth<32||frameEl.clientHeight<32)return;
-    setView({scale:1,x:(frameEl.clientWidth-natural.current.w)/2,y:(frameEl.clientHeight-natural.current.h)/2});
   },[]);
 
   const syncNatural=useCallback(()=>{
@@ -80,6 +103,7 @@ export default function ZoomLayer({image,svg,onClose}:Props){
     const size=measureSvg(svgEl);
     svgEl.setAttribute('width',String(size.w));
     svgEl.setAttribute('height',String(size.h));
+    svgEl.style.maxWidth='none';
     svgEl.style.width=size.w+'px';
     svgEl.style.height=size.h+'px';
     natural.current=size;
@@ -95,42 +119,52 @@ export default function ZoomLayer({image,svg,onClose}:Props){
     requestAnimationFrame(run);
   },[fit,syncNatural]);
 
-  useEffect(()=>{
+  const zoomAt=useCallback((factor:number,point?:{x:number;y:number})=>{
     const el=frame.current;if(!el)return;
+    const anchor=point||{x:el.clientWidth/2,y:el.clientHeight/2};
+    fitMode.current=false;
+    setView(v=>zoomView(v,factor,anchor));
+  },[]);
+
+  const bindFrame=useCallback((el:HTMLDivElement|null)=>{
+    frame.current=el;if(!el)return;
     const onWheel=(e:WheelEvent)=>{
       e.preventDefault();
-      const factor=e.deltaY<0?1.1:0.9;
-      setView(v=>{
-        const scale=Math.min(4,Math.max(0.05,v.scale*factor));
-        return {...v,scale};
-      });
+      const rect=el.getBoundingClientRect();
+      zoomAt(e.deltaY<0?1.2:1/1.2,{x:e.clientX-rect.left,y:e.clientY-rect.top});
     };
     el.addEventListener('wheel',onWheel,{passive:false});
-    return ()=>el.removeEventListener('wheel',onWheel);
-  },[onClose]);
+    ready.current=false;fitMode.current=true;scheduleFit();
+    frameSize.current={w:el.clientWidth,h:el.clientHeight};
+    const ro=new ResizeObserver(()=>{
+      const prev=frameSize.current,next={w:el.clientWidth,h:el.clientHeight};
+      frameSize.current=next;
+      if(!ready.current)scheduleFit();
+      else if(fitMode.current)fit();
+      else setView(v=>({...v,x:v.x+(next.w-prev.w)/2,y:v.y+(next.h-prev.h)/2}));
+    });
+    ro.observe(el);
+    return ()=>{el.removeEventListener('wheel',onWheel);ro.disconnect();};
+  },[zoomAt,fit,scheduleFit,zoomSvg]);
 
   useEffect(()=>km.pushLayer('zoom',70,()=>{onClose();return true;}),[km,onClose]);
 
-  useEffect(()=>{
-    ready.current=false;
-    scheduleFit();
-    const el=frame.current;if(!el||typeof ResizeObserver==='undefined')return;
-    const ro=new ResizeObserver(()=>{if(ready.current)fit();else scheduleFit();});
-    ro.observe(el);
-    return ()=>ro.disconnect();
-  },[zoomSvg,image,fit,scheduleFit]);
 
-  return <Dialog title="Phóng to" onOpenChange={v=>{if(!v)onClose();}}>
-    <div className="zoom-layer" role="dialog" aria-label="Phóng to">
+  return <Dialog closeOnOutside={mode==='medium'} overlayClassName={`zoom-overlay zoom-${mode}`} title="Phóng to" onOpenChange={v=>{if(!v)onClose();}}>
+    <div className="zoom-layer" data-mode={mode} role="dialog" aria-label="Phóng to">
       <div className="zoom-bar">
-        <Tooltip content="Vừa khung"><UiButton type="button" className="zoom-icon" aria-label="Vừa khung" onClick={()=>fit()}><Maximize2 size={18}/></UiButton></Tooltip>
-        <Tooltip content="100%"><UiButton type="button" className="zoom-icon" aria-label="100%" onClick={actual}><Ratio size={18}/></UiButton></Tooltip>
+        <UiButton aria-label="Thu nhỏ" disabled={view.scale<=0.05} onClick={()=>zoomAt(1/1.2)}><Minus size={18}/></UiButton>
+        <Tooltip content="Vừa khung"><UiButton className="zoom-scale" aria-label="Vừa khung" onClick={()=>fit()}><output aria-label="Tỷ lệ phóng to">{Math.round(view.scale*100)}%</output></UiButton></Tooltip>
+        <UiButton aria-label="Phóng lớn" disabled={view.scale>=4} onClick={()=>zoomAt(1.2)}><Plus size={18}/></UiButton>
+        <UiButton aria-label={mode==='medium'?'Toàn màn hình':'Khung vừa'} onClick={()=>{fitMode.current=true;setMode(v=>v==='medium'?'fullscreen':'medium');scheduleFit();}}>{mode==='medium'?<Expand size={18}/>:<Minimize size={18}/>}</UiButton>
         <Tooltip content="Đóng"><UiButton type="button" className="zoom-icon" aria-label="Đóng" onClick={onClose}><X size={18}/></UiButton></Tooltip>
       </div>
-      <div className="zoom-frame" ref={frame}
-        onPointerDown={e=>{if(e.button!==0)return;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);drag.current={px:e.clientX,py:e.clientY,x:viewRef.current.x,y:viewRef.current.y};}}
+      <div className="zoom-frame" ref={bindFrame}
+        onPointerDown={e=>{if(e.button!==0)return;fitMode.current=false;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);drag.current={px:e.clientX,py:e.clientY,x:viewRef.current.x,y:viewRef.current.y};}}
         onPointerMove={e=>{const current=drag.current;if(!current)return;setView(v=>({...v,x:current.x+e.clientX-current.px,y:current.y+e.clientY-current.py}));}}
         onPointerUp={()=>{drag.current=null;}}
+        onPointerCancel={()=>{drag.current=null;}}
+        onLostPointerCapture={()=>{drag.current=null;}}
       >
         <div ref={box} className="zoom-content" style={{transform:`translate(${view.x}px, ${view.y}px) scale(${view.scale})`}}>
           {image

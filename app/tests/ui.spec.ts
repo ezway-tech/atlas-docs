@@ -67,3 +67,90 @@ test('resource filters are grouped, removable and fit mobile toolbar',async({pag
  await page.screenshot({path:'test-results/resource-toolbar-mobile.png'});
  await page.getByRole('button',{name:'Bộ lọc',exact:true}).click();await page.getByRole('combobox',{name:'Loại tệp',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('dialog',{name:'Bộ lọc tài nguyên'})).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog',{name:'Bộ lọc tài nguyên'})).toHaveCount(0);
 });
+
+
+test('Mermaid preserves style, natural size, zoom anchor and fullscreen layout',async({page})=>{
+ test.setTimeout(60000);
+ await page.goto('/?diagram');
+ const svg=page.locator('.diagram-scroll svg').first();await expect(svg).toBeVisible();
+ for(const width of [1280,390]){
+  await page.setViewportSize({width,height:720});
+  for(const dark of [false,true]){
+   if(dark)await page.getByRole('button',{name:'Theme',exact:true}).click();
+   await expect(page.locator('.diagram-action')).toHaveCount(0);
+   for(const selector of ['.diagram-open','.zoom-hit']){
+    const trigger=page.locator(selector).first();await trigger.scrollIntoViewIfNeeded();
+    const before=await trigger.boundingBox();await trigger.hover();
+    await expect(page.getByRole('tooltip',{name:'Phóng to',exact:true})).toHaveCount(0);
+    expect(await trigger.boundingBox()).toEqual(before);
+    await expect(trigger).toHaveCSS('cursor','zoom-in');
+    await page.mouse.move(0,0);await trigger.focus();
+    await expect(page.getByRole('tooltip',{name:'Phóng to',exact:true})).toHaveCount(0);
+    for(const key of ['Enter','Space']){
+     await trigger.press(key);const dialog=page.getByRole('dialog',{name:'Phóng to',exact:true});await expect(dialog).toBeVisible();
+     await expect(dialog).toHaveAttribute('data-mode','medium');
+     if(key==='Enter'&&selector==='.diagram-open')await page.screenshot({path:`test-results/medium-${width}-${dark}.png`});
+     const box=await dialog.boundingBox();expect(box!.width).toBeCloseTo(width===390?366:1024,0);expect(box!.height).toBeCloseTo(width===390?612:576,0);
+     await page.getByRole('button',{name:'Toàn màn hình',exact:true}).click();await expect(dialog).toHaveAttribute('data-mode','fullscreen');
+     expect(await dialog.boundingBox()).toMatchObject({x:0,y:0,width,height:720});
+     await page.getByRole('button',{name:'Khung vừa',exact:true}).click();await expect(dialog).toHaveAttribute('data-mode','medium');
+     await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
+    }
+   }
+   for(const icon of await page.locator('.preview-fullscreen').all()){
+    expect(await icon.locator('svg').boundingBox()).toMatchObject({width:18,height:18});
+    await icon.click();await expect(page.getByRole('dialog')).toHaveAttribute('data-mode','fullscreen');
+    await page.keyboard.press('Escape');await expect(icon).toBeFocused();
+   }
+   await page.locator('.zoom-hit').click();await page.mouse.click(2,2);await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.zoom-hit')).toBeFocused();
+   if(dark)await page.getByRole('button',{name:'Theme',exact:true}).click();
+  }
+ }
+ await page.setViewportSize({width:1280,height:720});
+ await expect(svg).toBeVisible();
+ const original=await svg.locator('.node rect').first().evaluate(el=>getComputedStyle(el).fill);
+ const size=await svg.boundingBox();expect(size!.height).toBeGreaterThan(40);await page.screenshot({path:'test-results/mermaid-inline.png'});
+ const open=page.getByRole('button',{name:'Xem sơ đồ toàn màn hình'}).first();await open.click();
+ const dialog=page.getByRole('dialog',{name:'Phóng to',exact:true});await expect(dialog).toBeVisible();
+ await expect(page.locator('.zoom-bar output')).toHaveText('150%');
+ expect(await dialog.boundingBox()).toMatchObject({x:0,y:0,width:1280,height:720});
+ expect(await dialog.locator('.node rect').first().evaluate(el=>getComputedStyle(el).fill)).toBe(original);
+ const ids=await page.locator('svg[id]').evaluateAll(els=>els.map(e=>e.id));expect(new Set(ids).size).toBe(ids.length);
+ await expect(page.locator('.zoom-bar button')).toHaveCount(5);await expect(page.getByRole('button',{name:'100%',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Thu nhỏ',exact:true}).click();await page.getByRole('button',{name:'Vừa khung',exact:true}).click();await expect(page.locator('.zoom-bar output')).toHaveText('150%');
+ await page.getByRole('button',{name:'Phóng lớn',exact:true}).click();await expect(page.locator('.zoom-bar output')).toHaveText('180%');
+ const frame=page.locator('.zoom-frame'),content=page.locator('.zoom-content');
+ const before=await content.boundingBox();const bounds=await frame.boundingBox();const anchor={x:bounds!.x+200,y:bounds!.y+120};
+ await page.mouse.move(anchor.x,anchor.y);await page.mouse.wheel(0,-100);await expect(page.locator('.zoom-bar output')).toHaveText('216%');
+ const after=await content.boundingBox();expect((anchor.x-after!.x)/(anchor.x-before!.x)).toBeCloseTo(1.2,1);
+ await page.mouse.down();await page.mouse.move(anchor.x+40,anchor.y+30);await page.mouse.up();
+ const dragged=await content.boundingBox();expect(dragged!.x-after!.x).toBeCloseTo(40,0);
+ await page.getByRole('button',{name:'Thu nhỏ',exact:true}).click();
+ await page.setViewportSize({width:1000,height:800});await expect(page.locator('.zoom-bar output')).toHaveText('180%');
+ await page.keyboard.press('Escape');await expect(open).toBeFocused();
+ await page.getByRole('button',{name:'Theme',exact:true}).click();await expect(svg).toBeVisible();
+ await expect.poll(()=>svg.locator('.node rect').first().evaluate(el=>getComputedStyle(el).fill)).not.toBe(original);
+ await open.click();expect(await dialog.locator('.node rect').first().evaluate(el=>getComputedStyle(el).fill)).toBe(await svg.locator('.node rect').first().evaluate(el=>getComputedStyle(el).fill));
+ await page.screenshot({path:'test-results/mermaid-dark.png'});
+ await page.keyboard.press('Escape');
+ await page.locator('.zoom-hit').click();await expect(dialog.locator('img')).toBeVisible();await page.keyboard.press('Escape');
+ const result=await page.evaluate(()=>{
+  const api=(window as any).diagramTest;
+  const view=api.zoomView({scale:1,x:10,y:20},2,{x:100,y:80});
+  const html=api.prefixSvgIds('<svg xmlns="http://www.w3.org/2000/svg" id="fff"><style>#fff rect {fill:#fff;stroke:#abcdef}</style><defs><marker id="arrow"/></defs><rect marker-end="url(#arrow)"/><use href="#fff"/></svg>');
+  return {view,html};
+ });
+ expect(result.view).toEqual({scale:2,x:-80,y:-40});expect(result.html).toContain('fill: rgb(255, 255, 255)');expect(result.html).not.toContain('href="#fff"');expect(result.html).not.toContain('url(#arrow)');
+});
+
+test('wide and tall diagrams remain readable on mobile',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ for(const shape of ['wide','tall']){
+  await page.goto('/?diagram&'+shape);const svg=page.locator('.diagram-scroll svg').first();await expect(svg).toBeVisible();
+  if(shape==='wide')expect(await page.locator('.diagram-scroll').first().evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
+  await page.getByRole('button',{name:'Xem sơ đồ toàn màn hình'}).first().click();
+  const dialog=page.getByRole('dialog',{name:'Phóng to',exact:true});await expect(dialog).toBeVisible();
+  expect(await dialog.boundingBox()).toMatchObject({x:0,y:0,width:390,height:844});
+  await page.screenshot({path:`test-results/mermaid-${shape}.png`});await page.keyboard.press('Escape');
+ }
+});

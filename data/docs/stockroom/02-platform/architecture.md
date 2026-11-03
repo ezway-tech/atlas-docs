@@ -3,6 +3,7 @@ title: Architecture
 description: How the browser, API, and database fit together.
 order: 1
 ---
+# H1
 
 ## # Architecture
 
