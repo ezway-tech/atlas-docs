@@ -5,6 +5,7 @@ order: 1
 ---
 
 # Shelf map
+## Shelf map
 
 The North Shed has two aisles. Aisle A faces the dock. Aisle B faces the jobs bench.
 

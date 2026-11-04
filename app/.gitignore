@@ -13,7 +13,7 @@ coverage/
 
 # Next.js
 .next/
-.next-resource-check/
+.next-*/
 out/
 
 # production

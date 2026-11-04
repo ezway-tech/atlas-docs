@@ -1,7 +1,9 @@
 # /data/**
 !/data/.gitkeep
-app/.next-test/
+
+# Next.js cache / build outputs
+app/.next/
+app/.next-*/
+app/out/
 app/test-results/
 app/playwright-report/
-app/.next-ui-check/
-app/.next-ui-final/

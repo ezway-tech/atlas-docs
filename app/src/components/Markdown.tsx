@@ -5,6 +5,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';import remarkGfm from 'remark-gfm';import rehypeSlug from 'rehype-slug';
 import {MessageCircle,Copy,Check,Expand} from 'lucide-react';
+import {markdownWiki} from '@/lib/headings';
 import type {Comment} from '@/lib/types';
 import {looksLikeOpenApi} from '@/lib/spec';
 import {Tooltip} from './Tooltip';
@@ -155,6 +156,6 @@ export default function Markdown({content,docId,comments=[],activeId,onComment,f
     img:({src,alt}:any)=><span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?`Phóng to ảnh: ${alt}`:"Phóng to ảnh"} onClick={()=>openZoom({mode:'medium',image:{src:String(src||''),alt:String(alt||'Ảnh minh họa')}})}><img className="md-image" src={src} alt={alt||'Ảnh minh họa'}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?`Xem ảnh toàn màn hình: ${alt}`:'Xem ảnh toàn màn hình'} onClick={()=>openZoom({mode:'fullscreen',image:{src:String(src||''),alt:String(alt||'Ảnh minh họa')}})}><Expand size={18}/></UiButton></span>,
     code:({children,className,...rest}:any)=><code className={className} {...rest}>{children}</code>
   };
-  const wiki=content.split('\n').map(line=>line.includes('```')?line:line.replace(/\[\[([\w/-]+)\]\]/g,'[$1](/docs/$1)')).join('\n');
+  const wiki=markdownWiki(content);
   return <><article ref={articleRef} className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSlug]} components={components}>{wiki}</ReactMarkdown></article>{zoom&&<ZoomLayer initialMode={zoom.mode} image={zoom.image} svg={zoom.svg} onClose={closeZoom}/>}</>;
 }

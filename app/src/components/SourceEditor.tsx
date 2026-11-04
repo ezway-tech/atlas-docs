@@ -1,4 +1,5 @@
 'use client';
+import {extractHeadings,headingEdit} from '@/lib/headings';
 import React,{useEffect,useRef} from 'react';
 import dynamic from 'next/dynamic';
 import type {OnMount} from '@monaco-editor/react';
@@ -6,10 +7,10 @@ import type {editor as MonacoEditor} from 'monaco-editor';
 
 const Monaco=dynamic(()=>import('@monaco-editor/react'),{ssr:false});
 
-export type Format='h2'|'h3'|'bold'|'italic'|'link'|'list'|'number'|'task'|'quote'|'code'|'table'|'mermaid'|'divider';
+export type Format='paragraph'|'h1'|'h2'|'h3'|'h4'|'h5'|'h6'|'bold'|'italic'|'link'|'list'|'number'|'task'|'quote'|'code'|'table'|'mermaid'|'divider';
 export type SourceLang='markdown'|'yaml'|'sql'|'json';
-export function formatting(kind:Format,text=''){const t=text||'Văn bản';switch(kind){case'h2':return '## '+t;case'h3':return '### '+t;case'bold':return `**${t}**`;case'italic':return `*${t}*`;case'link':return `[${t}](https://example.com)`;case'list':return '- '+(text||'Mục 1');case'number':return '1. '+(text||'Mục 1');case'task':return '- [ ] '+(text||'Cần làm');case'quote':return '> '+t;case'code':return '\n```bash\n'+(text||'echo hello')+'\n```\n';case'table':return '\n| Cột 1 | Cột 2 |\n| --- | --- |\n| A | B |\n';case'mermaid':return '\n```mermaid\nflowchart LR\n A --> B\n```\n';case'divider':return '\n---\n';}}
-export type EditorRef={insert:(value:string)=>void;format:(value:Format)=>void};
+export function formatting(kind:Format,text=''){const t=text||'Văn bản';switch(kind){case'paragraph':return t;case'h1':return '# '+t;case'h4':return '#### '+t;case'h5':return '##### '+t;case'h6':return '###### '+t;case'h2':return '## '+t;case'h3':return '### '+t;case'bold':return `**${t}**`;case'italic':return `*${t}*`;case'link':return `[${t}](https://example.com)`;case'list':return '- '+(text||'Mục 1');case'number':return '1. '+(text||'Mục 1');case'task':return '- [ ] '+(text||'Cần làm');case'quote':return '> '+t;case'code':return '\n```bash\n'+(text||'echo hello')+'\n```\n';case'table':return '\n| Cột 1 | Cột 2 |\n| --- | --- |\n| A | B |\n';case'mermaid':return '\n```mermaid\nflowchart LR\n A --> B\n```\n';case'divider':return '\n---\n';}}
+export type EditorRef={insert:(value:string)=>void;format:(value:Format)=>void;jumpToLine:(line:number)=>void};
 export type ImagePaste=(file:File,insert:(markdown:string)=>void)=>void;
 
 function clipboardImage(data:DataTransfer|null){
@@ -49,7 +50,8 @@ export function embedHeight(source:string,max=360,min=120,line=18){
   return Math.min(max,Math.max(min,lines*line+24))+'px';
 }
 
-export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown',language,readOnly=false,height='68vh',onImagePaste}:{value:string;onChange:(v:string)=>void;apiRef:React.MutableRefObject<EditorRef|null>;dark:boolean;lang?:SourceLang;language?:string;readOnly?:boolean;height?:string;onImagePaste?:ImagePaste}){
+export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown',language,readOnly=false,height='68vh',onImagePaste,onHeadingChange}:{value:string;onChange:(v:string)=>void;apiRef:React.MutableRefObject<EditorRef|null>;dark:boolean;lang?:SourceLang;language?:string;readOnly?:boolean;height?:string;onImagePaste?:ImagePaste;onHeadingChange?:(level:number)=>void}){
+  const headingChangeRef=useRef(onHeadingChange);headingChangeRef.current=onHeadingChange;
   const editor=useRef<MonacoEditor.IStandaloneCodeEditor|null>(null);
   const pasteRef=useRef(onImagePaste);
   const valueRef=useRef(value);
@@ -64,6 +66,7 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
 
   useEffect(()=>{
     apiRef.current={
+      jumpToLine:line=>{const ed=editor.current;if(!ed)return;ed.setPosition({lineNumber:line,column:1});ed.revealLineInCenter(line);ed.focus();},
       insert:text=>{
         if(readOnlyRef.current)return;
         const ed=editor.current;
@@ -76,6 +79,14 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
         if(!ed){onChangeRef.current(valueRef.current+'\n'+formatting(name));return;}
         const model=ed.getModel();
         const sel=ed.getSelection();
+        if(model&&sel&&(name==='paragraph'||/^h[1-6]$/.test(name))){
+          const end=sel.endColumn===1&&sel.endLineNumber>sel.startLineNumber?sel.endLineNumber-1:sel.endLineNumber;
+          const change=headingEdit(model.getValue(),sel.startLineNumber,end,name==='paragraph'?0:Number(name[1]));
+          const range={startLineNumber:change.first,startColumn:1,endLineNumber:change.last,endColumn:model.getLineMaxColumn(change.last)};
+          if(model.getValueInRange(range)===change.text){ed.focus();return;}
+          ed.pushUndoStop();ed.executeEdits('atlas-heading',[{range,text:change.text,forceMoveMarkers:true}]);ed.pushUndoStop();
+          const inserted=change.text.split('\n');ed.setPosition({lineNumber:change.first+inserted.length-1,column:inserted[inserted.length-1].length+1});ed.focus();return;
+        }
         const picked=model&&sel?model.getValueInRange(sel):'';
         replaceSelection(ed,formatting(name,picked));
       }
@@ -84,6 +95,12 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
 
   const onMount:OnMount=(ed)=>{
     editor.current=ed;
+    if(monacoLang==='markdown'&&headingChangeRef.current){
+      let headings=extractHeadings(ed.getValue());
+      const updateHeading=()=>{const line=ed.getPosition()?.lineNumber||1;headingChangeRef.current?.(headings.find(h=>h.line<=line&&h.endLine>=line)?.level||0);};
+      const cursor=ed.onDidChangeCursorPosition(updateHeading),content=ed.onDidChangeModelContent(()=>{headings=extractHeadings(ed.getValue());updateHeading();});updateHeading();
+      ed.onDidDispose(()=>{cursor.dispose();content.dispose();});
+    }
     if(monacoLang!=='markdown'||readOnly)return;
     const node=ed.getDomNode();
     if(!node)return;

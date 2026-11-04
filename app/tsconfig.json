@@ -33,7 +33,8 @@
     "**/*.tsx",
     ".next-resource-check/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    ".next-headings-check/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
