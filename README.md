@@ -114,7 +114,7 @@ The root `package.json` only forwards commands; it has no dependencies and needs
 | `npm run typecheck` | Check TypeScript types |
 | `npm run test:storage` | Check bootstrap, demo validation, and data preservation |
 | `npm run test:resources` / `npm run test:demo` | Integration checks; run build first |
-| `npm run test:ui` / `npm run test:headings` | UI and heading tests; require Microsoft Edge |
+| `npm run test:ui` / `npm run test:headings` / `npm run test:responsive` | UI, heading, and mobile shell tests; require Microsoft Edge |
 | `npm run docker:up` | Build and start Docker in the background |
 | `npm run docker:stop` | Stop Docker without deleting data |
 | `npm run docker:logs` / `npm run docker:status` | Follow container logs / show status |

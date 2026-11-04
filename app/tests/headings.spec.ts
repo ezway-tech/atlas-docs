@@ -153,7 +153,7 @@ test('collapse is remembered per document, range shared between documents',async
  expect(await header.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
  const tabs=await header.getByRole('tablist').boundingBox(),actions=await page.locator('.toc-actions').boundingBox();
  expect(tabs!.x+tabs!.width).toBeLessThanOrEqual(actions!.x+1);
- for(const button of await page.locator('.toc-actions button').all()){const box=await button.boundingBox();expect(box!.width).toBe(28);expect(box!.height).toBe(28);}
+ for(const button of await page.locator('.toc-actions button').all()){const box=await button.boundingBox();expect(box!.width).toBe(36);expect(box!.height).toBe(36);}
  expect(await page.locator('.toc-panel').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
  await page.screenshot({path:`test-results/toc-compact-${dark?'dark':'light'}.png`});
  }

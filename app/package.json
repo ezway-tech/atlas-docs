@@ -15,7 +15,8 @@
     "test:demo": "node scripts/test-demo.mjs",
     "test:resources": "node --experimental-strip-types scripts/test-resources.mjs",
     "test:ui": "playwright test",
-    "test:headings": "node scripts/test-headings.mjs"
+    "test:headings": "node scripts/test-headings.mjs",
+    "test:responsive": "node scripts/test-responsive.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",
