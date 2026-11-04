@@ -20,7 +20,10 @@ async function setup(page:Page,source=raw){
   if(!suffix||suffix.includes('..'))return route.abort();
   await route.fulfill({path:path.resolve('node_modules/monaco-editor/min/vs',suffix),headers:{'Access-Control-Allow-Origin':'*'}});
  });
- await page.goto('/docs/test/heading');await page.getByRole('tab',{name:'Mục lục',exact:true}).click();
+ await page.goto('/docs/test/heading');
+ const tabs=page.getByRole('tablist',{name:'Bảng bên',exact:true}).getByRole('tab');
+ await expect(tabs).toHaveText(['Mục lục','Bình luận (0)']);
+ await expect(page.getByRole('tab',{name:'Mục lục',exact:true})).toHaveAttribute('aria-selected','true');
  if(source===raw)await expect(page.locator('.toc-tree a')).toHaveCount(6);
 }
 test('Little Café recipe has a real H2–H6 branch and stays Visual-safe',()=>{
@@ -156,3 +159,15 @@ test('collapse is remembered per document, range shared between documents',async
  }
  await page.getByRole('tab',{name:'Bình luận (0)',exact:true}).click();await expect(settings).toHaveCount(0);
  });
+
+test('right sidebar tabs default to Mục lục and can be reordered',async({page})=>{
+ await setup(page);
+ const list=page.getByRole('tablist',{name:'Bảng bên',exact:true});
+ const toc=list.getByRole('tab',{name:'Mục lục',exact:true});
+ const comments=list.getByRole('tab',{name:'Bình luận (0)',exact:true});
+ await toc.dragTo(comments);
+ await expect(list.getByRole('tab')).toHaveText(['Bình luận (0)','Mục lục']);
+ await page.reload();
+ await expect(page.getByRole('tablist',{name:'Bảng bên',exact:true}).getByRole('tab')).toHaveText(['Bình luận (0)','Mục lục']);
+ await expect(page.getByRole('tab',{name:'Mục lục',exact:true})).toHaveAttribute('aria-selected','true');
+});
