@@ -11,8 +11,9 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/scripts/bootstrap.mjs ./scripts/bootstrap.mjs
-COPY examples/stockroom /opt/stockroom
-RUN mkdir -p /data && chown -R node:node /data /app /opt/stockroom
+COPY --from=build /app/scripts/seed-demo.mjs ./scripts/seed-demo.mjs
+COPY examples/little-cafe /examples/little-cafe
+RUN mkdir -p /data && chown -R node:node /data /app /examples/little-cafe
 USER node
 EXPOSE 3000
 CMD ["sh","-c","node scripts/bootstrap.mjs && node server.js"]

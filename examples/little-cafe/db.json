@@ -1,0 +1,137 @@
+{
+  "assets": [
+    {
+      "id": "cafe0000-0000-4000-8000-000000000001",
+      "filename": "menu-board.png",
+      "storedName": "cafe0000-0000-4000-8000-000000000001.png",
+      "mimeType": "image/png",
+      "size": 36972,
+      "alt": "Little Café menu board",
+      "source": "upload",
+      "createdAt": "2026-01-03T08:00:00.000Z"
+    },
+    {
+      "id": "cafe0000-0000-4000-8000-000000000002",
+      "filename": "latte-layers.png",
+      "storedName": "cafe0000-0000-4000-8000-000000000002.png",
+      "mimeType": "image/png",
+      "size": 24504,
+      "alt": "Latte recipe diagram",
+      "source": "upload",
+      "createdAt": "2026-01-03T08:00:00.000Z"
+    },
+    {
+      "id": "cafe0000-0000-4000-8000-000000000003",
+      "filename": "stock-sheet.csv",
+      "storedName": "cafe0000-0000-4000-8000-000000000003.csv",
+      "mimeType": "text/csv",
+      "size": 100,
+      "alt": "Morning stock sheet",
+      "source": "upload",
+      "createdAt": "2026-01-03T08:00:00.000Z"
+    },
+    {
+      "id": "cafe0000-0000-4000-8000-000000000004",
+      "filename": "service-chime.wav",
+      "storedName": "cafe0000-0000-4000-8000-000000000004.wav",
+      "mimeType": "audio/wav",
+      "size": 88244,
+      "alt": "Synthetic two-note service chime",
+      "source": "upload",
+      "createdAt": "2026-01-03T08:00:00.000Z"
+    },
+    {
+      "id": "cafe0000-0000-4000-8000-000000000005",
+      "filename": "order-flow.mp4",
+      "storedName": "cafe0000-0000-4000-8000-000000000005.mp4",
+      "mimeType": "video/mp4",
+      "size": 14556,
+      "alt": "Three-step order flow animation",
+      "source": "upload",
+      "createdAt": "2026-01-03T08:00:00.000Z"
+    }
+  ],
+  "folders": [
+    {
+      "path": "start",
+      "title": "Start here",
+      "icon": "book-open",
+      "imageId": null
+    },
+    {
+      "path": "menu",
+      "title": "Menu",
+      "icon": "book",
+      "imageId": "cafe0000-0000-4000-8000-000000000001"
+    },
+    {
+      "path": "operations",
+      "title": "Operations",
+      "icon": "list-todo",
+      "imageId": null
+    },
+    {
+      "path": "operations/stock",
+      "title": "Stock",
+      "icon": "archive",
+      "imageId": null
+    },
+    {
+      "path": "ordering",
+      "title": "Ordering app",
+      "icon": "code",
+      "imageId": null
+    }
+  ],
+  "comments": [
+    {
+      "id": "cafe0000-0000-4000-8000-000000000101",
+      "docId": "menu/latte",
+      "content": "Please confirm the milk choice with the customer before steaming. Try editing this comment or adding your own.",
+      "quote": "Use dairy milk or oat milk.",
+      "blockId": "",
+      "createdAt": "2026-01-03T08:00:00.000Z",
+      "resolved": false
+    }
+  ],
+  "navigationOrder": {
+    "folders:": [
+      "start",
+      "menu",
+      "operations",
+      "ordering"
+    ],
+    "docs:menu": [
+      "menu/menu",
+      "menu/latte",
+      "menu/ingredients"
+    ],
+    "docs:start": [
+      "start/welcome",
+      "start/explore"
+    ],
+    "docs:operations": [
+      "operations/opening",
+      "operations/order-flow"
+    ],
+    "docs:ordering": [
+      "ordering/overview",
+      "ordering/openapi.yml",
+      "ordering/schema.sql",
+      "ordering/cafe.yml",
+      "ordering/order.json"
+    ]
+  },
+  "settings": {
+    "theme": "dark",
+    "leftWidth": 265,
+    "rightWidth": 335,
+    "pinnedFolders": [
+      "menu"
+    ],
+    "hiddenFolders": [
+      "operations/stock"
+    ],
+    "keymap": {}
+  }
+}

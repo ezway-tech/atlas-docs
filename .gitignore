@@ -1,4 +1,4 @@
-# /data/**
+/data/**
 !/data/.gitkeep
 
 # Next.js cache / build outputs

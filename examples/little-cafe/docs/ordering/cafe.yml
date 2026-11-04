@@ -1,0 +1,9 @@
+cafe:
+  name: Little Café
+  currency: USD
+  opening_hours:
+    opens: "08:00"
+    closes: "17:00"
+  milk_choices: [dairy, oat]
+  order_states: [queued, preparing, ready]
+  tables: 6

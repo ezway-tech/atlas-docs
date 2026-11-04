@@ -1,5 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import path from 'node:path';
+import {readFileSync} from 'node:fs';
+import {visualSafe} from '../src/components/visual-safe';
 import {extractHeadings,headingTree,headingEdit,splitMarkdown} from '../src/lib/headings';
 
 const raw='---\ntitle: Test\n---\n# Tổng quan\n\n'+('Nội dung thử.\n\n'.repeat(15))+'## Cài đặt\n\n### Chi tiết\n\n#### Cấp bốn\n\n##### Cấp năm\n\n###### Cấp sáu\n\n## Cài đặt\n\n# Kết thúc\n\n### Nhảy cấp\n';
@@ -21,6 +23,18 @@ async function setup(page:Page,source=raw){
  await page.goto('/docs/test/heading');await page.getByRole('tab',{name:'Mục lục',exact:true}).click();
  if(source===raw)await expect(page.locator('.toc-tree a')).toHaveCount(6);
 }
+test('Little Café recipe has a real H2–H6 branch and stays Visual-safe',()=>{
+ const recipe=readFileSync('../examples/little-cafe/docs/menu/latte.md','utf8');
+ expect(visualSafe(recipe)).toBe(true);
+ const tree=headingTree(extractHeadings(recipe));
+ let branch=tree.find(h=>h.title==='Quality check')!;
+ for(const level of [2,3,4,5,6]){
+  expect(branch.level).toBe(level);
+  if(level<6)branch=branch.children[0];
+ }
+ expect(branch.title).toBe('Shift handover note');
+});
+
 test('parser preserves renderer IDs, source lines and real hierarchy',()=>{
  const input='---\ntitle: Metadata\n---\n# **Tiếng Việt** &amp; [link](https://example.com)\n\n# **Tiếng Việt** &amp; [link](https://example.com)\n\n~~~md\n## Not heading\n~~~\n\n    # Also code\n\nSetext\n======\n\n###### Six\n';
  expect(extractHeadings('---\n---\n# A\n\n---\n# B').map(h=>h.title)).toEqual(['A','B']);

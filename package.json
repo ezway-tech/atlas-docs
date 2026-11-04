@@ -1,0 +1,26 @@
+{
+  "name": "atlas-docs-root",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix app install",
+    "dev": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
+    "start": "npm --prefix app start",
+    "bootstrap": "npm --prefix app run bootstrap",
+    "seed:demo": "npm --prefix app run seed:demo",
+    "typecheck": "npm --prefix app run typecheck",
+    "test:storage": "npm --prefix app run test:storage",
+    "test:resources": "npm --prefix app run test:resources",
+    "test:demo": "npm --prefix app run test:demo",
+    "test:ui": "npm --prefix app run test:ui",
+    "test:headings": "npm --prefix app run test:headings",
+    "check": "npm run typecheck && npm run test:storage",
+    "docker:up": "docker compose up -d --build",
+    "docker:stop": "docker compose stop",
+    "docker:logs": "docker compose logs -f",
+    "docker:status": "docker compose ps"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
