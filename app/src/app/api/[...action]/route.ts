@@ -4,7 +4,7 @@ import path from 'node:path';
 import {NextRequest} from 'next/server';
 import {ROOT,uploadsRoot,folderFile,createFolder,createDoc,deleteDoc,deleteFolder,getDoc,listDocs,listFolders,readDB,writeDB,saveDoc,updateFolder,safeDoc,safeFolder,readLibrary,invalidateLibrary} from '@/lib/store';
 import type {AssetSource} from '@/lib/types';
-import {history,revisionRaw,restore,reorder,links,exportZip,importZip} from '@/lib/extras';
+import {history,historyDetail,revisionRaw,restore,reorder,links,exportZip,importZip} from '@/lib/extras';
 import {sanitizeKeymap} from '@/lib/keymap';
 import {err} from '@/lib/http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -39,7 +39,7 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
    if(method==='PATCH'){const o=await body();if(typeof o.content!=='string'||!o.content.trim()||o.content.length>5000)throw Error('Comment text invalid');return json(await writeDB(d=>{const item=d.comments.find(x=>x.id===o.id);if(!item)throw Error('Comment missing');item.content=o.content;return item;}));}
    if(method==='DELETE'){const id=query.get('id');return json(await writeDB(d=>{d.comments=d.comments.filter(x=>x.id!==id);return {ok:true};}));}
  }
- if(name==='history'){const id=query.get('id')||'';if(method==='GET')return query.has('revision')?json({raw:await revisionRaw(id,query.get('revision')!)}):json({versions:await history(id)});if(method==='POST'){const o=await body();return json(await restore(o.id,o.version));}}
+ if(name==='history'){const id=query.get('id')||'';if(method==='GET'){if(query.has('revision'))return json({raw:await revisionRaw(id,query.get('revision')!)});if(query.get('detail')==='1')return json(await historyDetail(id,query.get('cursor')));return json({versions:await history(id)});}if(method==='POST'){const o=await body();return json(await restore(String(o.id),String(o.version),typeof o.baseHash==='string'?o.baseHash:undefined));}}
  if(name==='links'&&method==='GET')return json(await links(query.get('id')||''));
  if(name==='dashboard'&&method==='GET'){const [docs,folders,d]=await Promise.all([listDocs(),listFolders(),readDB()]);return json({docs:docs.length,folders:folders.length,topics:folders.filter(f=>f.depth===1).length,comments:d.comments.length,assets:d.assets.length});}
  if(name==='media'){

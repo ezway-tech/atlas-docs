@@ -46,7 +46,12 @@ async function mockApi(page:Page){
   if(name==='/api/order')return route.fulfill({json:{}});
   if(name==='/api/links')return route.fulfill({json:{incoming:[],outgoing:[],related:[]}});
   if(name.startsWith('/api/comments'))return route.fulfill({json:[]});
-  if(name.startsWith('/api/history'))return route.fulfill({json:[]});
+  if(name.startsWith('/api/history')){
+   const url=new URL(route.request().url());
+   if(url.searchParams.get('detail')==='1')return route.fulfill({json:{items:[],totalCount:0,totalBytes:0,limits:{maxCount:50,maxBytes:10*1024*1024},nextCursor:null}});
+   if(url.searchParams.has('revision'))return route.fulfill({json:{raw:''}});
+   return route.fulfill({json:{versions:[]}});
+  }
   if(name==='/api/media'||name.startsWith('/api/media'))return route.fulfill({json:[]});
   return route.fulfill({json:{}});
  });

@@ -87,3 +87,95 @@ button.aside-toggle{width:calc(100% - 10px);padding:0;text-align:left;cursor:poi
  .keymap-hint{width:100%}
 }
 @media(max-width:460px){.keymap-toolbar{grid-template-columns:minmax(0,1fr)}.keymap-dialog .keymap-toolbar label{gap:4px}.keymap-toolbar input,.keymap-toolbar .ui-select-trigger{height:38px}}
+/* History dialog: fullscreen, scoped so other modals stay unchanged */
+.backdrop.history-backdrop{padding:12px;align-items:stretch}
+.backdrop.history-backdrop .modal.wide.history-modal{width:100%;max-width:none;height:100%;max-height:none;margin:0;display:flex;flex-direction:column;overflow:hidden;padding:16px 16px 0;border-radius:12px}
+.history-modal .modal-heading{margin-bottom:10px;align-items:center;gap:12px;flex-shrink:0;min-width:0}
+.history-heading-copy{min-width:0;display:flex;align-items:baseline;gap:10px;flex:1}
+.history-heading-copy h2{margin:0;flex-shrink:0}
+.history-doc-sep{flex-shrink:0;color:var(--muted)}
+.history-doc-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:14px;font-weight:500}
+.history-modal .modal-heading>button{flex-shrink:0}
+ .history-modal .history-grid,.history-backdrop .history-grid{display:grid;grid-template-columns:240px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:12px;flex:1;min-height:0;height:auto}
+.history-modal.is-collapsed .history-grid{grid-template-columns:minmax(0,1fr)}
+.history-modal.is-collapsed .history-col-list{display:none}
+.history-col-list,.history-col-main{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.history-col-list{border:1px solid var(--line);border-radius:10px}
+.history-col-title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;font-weight:700;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+.history-modal .modal-heading .history-list-toggle{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--body);flex-shrink:0}
+.history-list-toggle:hover{color:var(--accent);border-color:var(--accent);background:var(--accentsoft)}
+.history-versions{overflow:auto;flex:1;min-height:0}
+.history-day-label{padding:8px 12px 4px;font-size:11px;font-weight:700;color:var(--muted)}
+.history-versions button{display:flex!important;align-items:flex-start;gap:8px;padding:10px 12px;width:100%;text-align:left;border-bottom:1px solid var(--line);border-radius:0}
+.history-versions button.active{background:var(--accentsoft);color:var(--accent)}
+.history-dot{width:12px;flex-shrink:0;line-height:1.4}
+.history-ver-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.history-ver-text strong{font-size:13px}
+.history-ver-text small{color:var(--muted);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-versions button.active .history-ver-text small{color:inherit;opacity:.85}
+.history-more{margin:8px!important;width:calc(100% - 16px)!important}
+.history-col-main{border:1px solid var(--line);border-radius:10px}
+.history-reading{margin-left:auto;padding:6px 12px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:1px;min-width:0;flex-shrink:1;background:transparent;text-align:right}
+.history-reading strong{font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap}
+.history-reading span{font-size:11px;color:var(--muted);white-space:nowrap}
+.history-tabs{display:flex;flex-direction:column;flex:1;min-height:0}
+.history-tabs .ui-tabs-header{padding:0 4px 0 8px;border-bottom:1px solid var(--line);background:var(--surface);flex-shrink:0;align-items:stretch}
+.history-tabs .ui-tabs{gap:0;align-items:stretch}
+.history-tabs .ui-tabs>button{border-radius:0;background:transparent;padding:10px 12px;color:var(--body);margin-bottom:-1px;border-bottom:2px solid transparent}
+.history-tabs .ui-tabs>button[data-state=active]{background:transparent;color:var(--ink);border-bottom-color:var(--accent)}
+.history-tabs>[role=tabpanel]{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.history-tabs>[role=tabpanel][hidden]{display:none}
+.history-col-title>span{white-space:nowrap}
+.history-pane{flex:1;min-height:0;overflow:hidden;padding:0;display:flex;flex-direction:column}
+.history-pane-body{flex:1;min-height:0;overflow:auto;padding:12px}
+.history-pane-diff{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.history-empty{padding:28px 16px;text-align:center;color:var(--muted);line-height:1.7}
+.history-diff-actions{margin-top:12px;display:flex;justify-content:center;gap:8px}
+.history-read{width:100%;max-width:1040px;margin-inline:auto}
+.history-read .doc-meta{color:var(--muted);font-size:12px;margin:0}
+.history-read h1{font-size:22px;margin:2px 0 10px}
+.history-read .doc-lead{margin:0;line-height:1.5}
+.history-read>hr{margin:10px 0}
+.history-read .markdown-body{font-size:14px}
+.history-read .markdown-body h2{margin-top:18px}
+.history-code-wrap{overflow:auto}
+.history-diff{display:flex;flex-direction:column;flex:1;min-height:0}
+.history-diff-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px 12px;padding:8px 12px;border-bottom:1px solid var(--line);flex-shrink:0;color:var(--body);font-size:12px}
+.history-diff-pos{font-weight:700;text-align:center;padding:0 4px}
+.history-diff-nav,.history-mode{display:inline-flex;align-items:center;gap:4px}
+.history-diff-nav{padding-right:12px;margin-right:4px;border-right:1px solid var(--line)}
+.history-diff-nav button{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px}
+.history-mode button{padding:4px 8px;border-radius:6px;color:var(--body)}
+.history-mode button.active{background:var(--accentsoft);color:var(--accent)}
+.history-diff-view{flex:1;min-height:0;overflow:auto}
+.diff-split-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.diff-split-head{position:sticky;top:0;z-index:1;background:var(--surface);font-weight:700;border-bottom:1px solid var(--line)}
+.diff-split-head>div{padding:8px 10px}
+.diff-cell,.diff-line{display:flex;gap:8px;align-items:flex-start;min-width:0;padding:2px 8px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+.diff-no{width:2.6em;flex-shrink:0;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.diff-sign{width:1em;flex-shrink:0}
+.diff-text{min-width:0;flex:1}
+.diff-empty{background:var(--soft)}
+.diff-mark{font-weight:750;border-radius:2px;padding:0 1px}
+.diff-del .diff-mark{background:#dc262655}
+.diff-add .diff-mark{background:#16a34a66}
+.diff-skip{display:block;width:calc(100% - 16px);text-align:center;padding:6px;margin:6px 8px;border:1px dashed var(--line);border-radius:6px;color:var(--muted);font-size:12px;background:var(--soft)}
+.diff-skip:hover{color:var(--accent);border-color:var(--accent)}
+.history-footer{margin-top:0;padding:12px 0;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;flex-shrink:0;background:var(--surface)}
+.history-quota{color:var(--muted);font-size:12px;min-width:0}
+.history-quota em{font-style:normal;color:var(--body)}
+.history-footer-btns{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.history-mobile-pick{display:none}
+@media(max-width:700px){
+ .backdrop.history-backdrop{padding:0}
+ .backdrop.history-backdrop .modal.wide.history-modal{height:100dvh;max-height:100dvh;border-radius:0}
+ .history-mobile-pick{display:block;margin-bottom:8px}
+ .history-mobile-pick>.btn{width:100%;max-width:100%}
+ .history-mobile-pick .history-versions{max-height:40vh;border:1px solid var(--line);border-radius:8px;margin-top:8px;overflow:auto}
+ .history-modal .history-grid,.history-modal.is-collapsed .history-grid{grid-template-columns:minmax(0,1fr)}
+ .history-col-list,.history-modal .modal-heading .history-list-toggle{display:none}
+ .history-heading-copy h2{font-size:16px}
+ .history-footer-btns{width:100%}
+ .history-footer-btns .btn.primary{flex:1}
+}
+

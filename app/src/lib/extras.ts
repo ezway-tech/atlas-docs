@@ -1,13 +1,19 @@
 import {mkdir,readdir,readFile,writeFile,stat,rm,rename} from 'node:fs/promises';
 import path from 'node:path/posix';
 import fsPath from 'node:path';
-import {ROOT,historyRoot,listDocs,listFolders,readDB,readLibrary,writeDB,saveDoc,safeDoc,safeFolder,invalidateLibrary} from './store';
+import {ROOT,historyRoot,listDocs,listFolders,readDB,readLibrary,writeDB,saveDoc,safeDoc,safeFolder,invalidateLibrary,HISTORY_LIMITS,REV_FILE} from './store';
 import type {DocInfo} from './types';
 import {zipSync,unzipSync,strToU8,strFromU8} from 'fflate';
 import {createHash} from 'node:crypto';
-export async function history(id:string){safeDoc(id);const dir=fsPath.join(historyRoot,...id.split('/'));let names:string[]=[];try{names=await readdir(dir);}catch{}return names.filter(n=>/^\d{4}-\d{2}-\d{2}T[\w-]+_[0-9a-f-]{36}\.md$/.test(n)).sort().reverse();}
-export async function revisionRaw(id:string,name:string){safeDoc(id);if(!/^[\w-]+_[0-9a-f-]{36}\.md$/.test(name)||name.includes('..'))throw Error('Invalid revision');return readFile(fsPath.join(historyRoot,...id.split('/'),name),'utf8');}
-export async function restore(id:string,name:string){return saveDoc(id,await revisionRaw(id,name));}
+import {HttpError} from './http';
+const PAGE=20;
+export type HistoryItem={id:string;capturedAt:string;reason:'edit'|'restore'|null;sizeBytes:number};
+export function capturedAtFromName(name:string){const prefix=name.split('_')[0]||'';const m=/^(\d{4}-\d{2}-\d{2}T)(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/.exec(prefix);return m?`${m[1]}${m[2]}:${m[3]}:${m[4]}.${m[5]}Z`:prefix;}
+async function readMeta(dir:string,name:string):Promise<{capturedAt:string;reason:'edit'|'restore'|null}>{try{const meta=JSON.parse(await readFile(fsPath.join(dir,name.replace(/\.md$/i,'.json')),'utf8'));const reason=meta.reason==='edit'||meta.reason==='restore'?meta.reason:null;const capturedAt=typeof meta.capturedAt==='string'?meta.capturedAt:capturedAtFromName(name);return{capturedAt,reason};}catch{return{capturedAt:capturedAtFromName(name),reason:null};}}
+export async function history(id:string){safeDoc(id);const dir=fsPath.join(historyRoot,...id.split('/'));let names:string[];try{names=await readdir(dir);}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return[];throw e;}return names.filter(n=>REV_FILE.test(n)).sort().reverse();}
+export async function historyDetail(id:string,cursor?:string|null){const versions=await history(id);const dir=fsPath.join(historyRoot,...id.split('/'));const sizes=await Promise.all(versions.map(async n=>{try{return(await stat(fsPath.join(dir,n))).size;}catch{return 0;} }));const totalBytes=sizes.reduce((a,b)=>a+b,0);let start=0;if(cursor){const idx=versions.indexOf(cursor);if(idx>=0)start=idx+1;}const slice=versions.slice(start,start+PAGE);const items:HistoryItem[]=await Promise.all(slice.map(async(name,i)=>{const meta=await readMeta(dir,name);return{id:name,capturedAt:meta.capturedAt,reason:meta.reason,sizeBytes:sizes[start+i]};}));return{items,totalCount:versions.length,totalBytes,limits:{...HISTORY_LIMITS},nextCursor:start+PAGE<versions.length&&items.length?items[items.length-1].id:null};}
+export async function revisionRaw(id:string,name:string){safeDoc(id);if(!/^[\w-]+_[0-9a-f-]{36}\.md$/.test(name)||name.includes('..'))throw Error('Invalid revision');try{return await readFile(fsPath.join(historyRoot,...id.split('/'),name),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')throw new HttpError('Revision not found',404);throw e;}}
+export async function restore(id:string,name:string,baseHash?:string){return saveDoc(id,await revisionRaw(id,name),'restore',baseHash);}
 export async function reorder(parent:string,kind:'docs'|'folders',items:string[]){if(parent)safeFolder(parent);if(!['docs','folders'].includes(kind)||!Array.isArray(items)||new Set(items).size!==items.length)throw Error('Invalid order');const siblings=kind==='docs'?(await listDocs()).filter(x=>x.id.split('/').slice(0,-1).join('/')===parent).map(x=>x.id):(await listFolders()).filter(x=>x.path.split('/').slice(0,-1).join('/')===parent).map(x=>x.path);if(siblings.length!==items.length||siblings.some(x=>!items.includes(x)))throw Error('Order must contain all siblings');return writeDB(d=>{d.navigationOrder[`${kind}:${parent}`]=items;return items;});}
 function normalize(target:string,docId:string,known:Set<string>){let name=target.split(/[?#]/)[0].replace(/\.md$/i,'').trim();if(name.startsWith('http')||!name)return null;let resolved=name.startsWith('/docs/')?name.slice(6):name.startsWith('/')?name.slice(1):path.normalize(path.join(path.dirname(docId),name));if(known.has(name))resolved=name;return known.has(resolved)?resolved:null;}
 let linkCache:{version:number;edges:Map<string,Set<string>>}|null=null;
