@@ -11,7 +11,7 @@ order: 2
 
 Use dairy milk or oat milk.
 
-![Latte layers and proportions](/api/media/cafe0000-0000-4000-8000-000000000002)
+![Latte with rosetta foam](/api/media/cafe0000-0000-4000-8000-000000000002)
 
 ## Method
 1. Weigh and grind the coffee.

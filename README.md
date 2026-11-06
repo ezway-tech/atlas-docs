@@ -35,7 +35,7 @@ Seeding validates the bundled sample, then copies it into an empty library. It r
 
 Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. The 13 short documents cover Markdown, links, Mermaid, OpenAPI, SQL, YAML, and JSON. Five original media files demonstrate image previews, CSV download, audio, and video. A sample comment and two older recipe revisions demonstrate discussion and history. Menu starts pinned; Operations → Stock starts hidden and can be shown from the dashboard.
 
-All content is fictional. The graphics, synthesized chime, and animated diagram were created for this repository and share its MIT license. The ordering API is documentation only; no ordering backend is supplied. No external media downloads are needed to use the sample.
+All content is fictional. The two café images were generated with OpenAI ImageGen in a photographic style; they do not depict a real café. The synthesized chime and animated diagram were created for this repository. Demo media is distributed with this repository under its MIT license. The ordering API is documentation only; no ordering backend is supplied. No external media downloads are needed to use the sample.
 
 ### Keep existing data and try the demo separately
 
