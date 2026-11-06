@@ -7,3 +7,4 @@ app/.next-*/
 app/out/
 app/test-results/
 app/playwright-report/
+app/scripts/.bundles/

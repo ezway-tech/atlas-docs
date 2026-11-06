@@ -58,8 +58,8 @@ try{
  const refs=await (await fetch(origin+'/api/media/referenced')).json();assert.ok(refs.ids.includes(photo.id));assert.ok(refs.ids.includes(text.id));assert.equal(refs.ids.includes(pasted.id),false);
  const textUsage=await (await fetch(origin+'/api/media/'+text.id+'/usage')).json();assert.equal(textUsage.docs.length,1);
  const backup=await fetch(origin+'/api/backup');assert.equal(backup.status,200);const zip=await backup.arrayBuffer();
- await server(restoreRoot,port+1);const restoreForm=new FormData();restoreForm.set('file',new File([zip],'backup.zip',{type:'application/zip'}));
- const restored=await fetch(`http://127.0.0.1:${port+1}/api/backup`,{method:'POST',body:restoreForm});assert.equal(restored.status,200,await restored.clone().text());
+ await server(restoreRoot,port+1);
+ const restored=await fetch(`http://127.0.0.1:${port+1}/api/backup`,{method:'POST',headers:{'Content-Type':'application/zip'},body:Buffer.from(zip)});assert.equal(restored.status,200,await restored.clone().text());
  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port+1}/api/media`)).json(),await (await fetch(origin+'/api/media')).json());
  assert.deepEqual(Buffer.from(await (await fetch(`http://127.0.0.1:${port+1}/api/media/${photo.id}`)).arrayBuffer()),png);
  await fetch(origin+'/api/media/'+photo.id,{method:'DELETE'});assert.equal((await (await fetch(origin+'/api/folders')).json())[0].imageId,null);

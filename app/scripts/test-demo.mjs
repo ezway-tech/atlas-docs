@@ -145,8 +145,7 @@ try{
  assert.ok(latteDetail.items.some(x=>x.reason===null),'legacy demo milestones stay readable without sidecar');
  const backup=await fetch(origin+'/api/backup');assert.equal(backup.status,200);const zip=await backup.arrayBuffer();
  await server(restored,port+1);
- const form=new FormData();form.set('file',new File([zip],'cafe.zip',{type:'application/zip'}));
- const response=await fetch(`http://127.0.0.1:${port+1}/api/backup`,{method:'POST',body:form});assert.equal(response.status,200,await response.text());
+ const response=await fetch(`http://127.0.0.1:${port+1}/api/backup`,{method:'POST',headers:{'Content-Type':'application/zip'},body:Buffer.from(zip)});assert.equal(response.status,200,await response.text());
  for(const f of await sampleFiles(root))assert.deepEqual(await readFile(path.join(restored,f)),await readFile(path.join(root,f)),f);
  for(const [f,bytes] of baseline)assert.deepEqual(await readFile(path.join(demoRoot,f)),bytes,'Source demo changed: '+f);
  console.log('PASS: 13 docs, H2–H6 TOC, editor modes, embedded SQL/OpenAPI, wiki links, image-copy editing, history, comments, media playback, byte-for-byte backup restore; source demo unchanged');

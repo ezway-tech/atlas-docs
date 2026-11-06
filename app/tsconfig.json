@@ -33,9 +33,11 @@
     "**/*.tsx",
     ".next-headings-check/types/**/*.ts",
     ".next-resource-check/types/**/*.ts",
+    ".next-responsive-check/types/**/*.ts",
+    ".next-verify/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-responsive-check/types/**/*.ts"
+    ".next-ui-tools/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

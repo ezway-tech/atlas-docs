@@ -14,7 +14,7 @@ import ImageEditor,{type ImageEditorHandle} from './ImageEditor';
 import {useKeymap} from './KeymapProvider';
 import {CommandKeys,CommandTip} from './Keys';
 
-type Usage={folders:{title:string}[];docs:{title:string}[];comments:{id:string}[]};
+type Usage={folders:{title:string}[];docs:{title:string}[];comments:{id:string}[];history?:{docId:string}[];uncertain?:boolean};
 type Props={purpose?:'cover'|'insert';onPick?:(asset:Asset)=>void;onClose?:()=>void;onChanged?:()=>void};
 async function request<T>(url:string,init?:RequestInit):Promise<T>{const r=await fetch(url,{cache:'no-store',...init});const data=await r.json();if(!r.ok)throw Error(data.error||'Không thể thực hiện thao tác.');return data;}
 const labels:Record<string,string>={all:'Tất cả',image:'Ảnh',document:'Tài liệu',video:'Video',audio:'Âm thanh',archive:'Tệp nén'};
@@ -33,7 +33,7 @@ export default function ResourceLibrary({purpose,onPick,onClose,onChanged}:Props
  const km=useKeymap();
  const live=useRef<{menu:string|null;selected:Asset|null;editing:boolean;usage:boolean;busy:boolean;purpose?:'cover'|'insert';onClose?:()=>void;assets:Asset[];copy:(asset:Asset)=>Promise<void>;show:(asset:Asset)=>void;prepareDelete:(asset:Asset)=>Promise<void>;closeDetail:()=>void}>(null!);
  const imagesOnly=purpose==='cover';
- async function refresh(){setError('');setLoading(true);try{setAssets(await request<Asset[]>('/api/media'));if(!purpose){try{const used=await request<{ids:string[]}>('/api/media/referenced');setReferenced(new Set(used.ids));}catch{setReferenced(new Set());}}}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
+ async function refresh(){setError('');setLoading(true);try{setAssets(await request<Asset[]>('/api/media'));if(!purpose){try{const used=await request<{ids:string[];complete?:boolean}>('/api/media/referenced');if(used.complete===false){setReferenced(null);setNotice('Chưa đủ thông tin để xác định tệp không dùng.');}else setReferenced(new Set(used.ids));}catch{setReferenced(null);}}}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
  useEffect(()=>{void refresh();},[]);
 
  function matchesOrigin(asset:Asset){if(purpose||origin==='all')return true;if(origin==='unused')return !!referenced&&!referenced.has(asset.id);return sourceOf(asset)===origin;}
@@ -99,7 +99,7 @@ export default function ResourceLibrary({purpose,onPick,onClose,onChanged}:Props
     <label className="resource-field">Tên tệp<UiInput maxLength={180} value={name} onChange={e=>setName(e.target.value)}/></label><small className="resource-hint">Giữ nguyên đuôi .{assetExtension(selected.filename)}</small>
     <label className="resource-field">Mô tả{assetKind(selected.mimeType)==='image'?' / chữ thay thế':''}<UiTextarea rows={3} maxLength={300} value={description} onChange={e=>setDescription(e.target.value)}/></label>
     <div className="resource-detail-actions"><UiButton className="btn primary" disabled={busy||!name.trim()} onClick={()=>void save()}>Lưu thông tin</UiButton>{onPick&&<UiButton className="btn primary" disabled={busy} onClick={()=>onPick(selected)}>{imagesOnly?'Dùng làm ảnh bìa':assetKind(selected.mimeType)==='image'?'Chèn ảnh gốc':'Chèn vào bài'}</UiButton>}<a className="btn ghost" href={url(selected)+'?download=1'}><Download size={16}/>Tải xuống <CommandKeys id="resource.download"/></a><UiButton className="btn ghost" onClick={()=>void copy(selected)}><Copy size={16}/>Sao chép liên kết <CommandKeys id="resource.copy"/></UiButton>{assetKind(selected.mimeType)==='image'&&purpose!=='cover'&&<UiButton className="btn ghost" onClick={()=>setEditing(true)}><Pencil size={16}/>{purpose==='insert'?'Vẽ / chỉnh sửa':'Sửa ảnh'}</UiButton>}{!purpose&&<UiButton className="btn ghost resource-delete" disabled={busy} onClick={()=>void prepareDelete(selected)}><Trash2 size={16}/>Xóa tệp <CommandKeys id="resource.delete"/></UiButton>}</div>
-    {usage&&<ConfirmDialog title="Xóa tệp này?" confirmLabel="Xóa vĩnh viễn" danger busy={busy} onCancel={()=>setUsage(null)} onConfirm={()=>void remove()}><p>{usage.folders.length||usage.docs.length||usage.comments.length?`Đang dùng ở: ${[...usage.folders.map(f=>'ảnh bìa '+f.title),...usage.docs.map(d=>'bài '+d.title),...(usage.comments.length?[usage.comments.length+' bình luận']:[])].join('; ')}. Ảnh bìa sẽ được gỡ; liên kết trong bài và bình luận sẽ bị hỏng.`:'Tệp sẽ bị xóa khỏi ổ đĩa.'} Không hoàn tác được.</p></ConfirmDialog>}
+    {usage&&<ConfirmDialog title="Xóa tệp này?" confirmLabel="Xóa vĩnh viễn" danger busy={busy} onCancel={()=>setUsage(null)} onConfirm={()=>void remove()}><p>{usage.uncertain?'Chưa đủ thông tin để khẳng định tệp không được dùng. ':''}{usage.folders.length||usage.docs.length||usage.comments.length||usage.history?.length?`Đang dùng ở: ${[...usage.folders.map(f=>'ảnh bìa '+f.title),...usage.docs.map(d=>'bài '+d.title),...(usage.comments.length?[usage.comments.length+' bình luận']:[]),...(usage.history?.length?[usage.history.length+' bản lịch sử']:[])].join('; ')}. Ảnh bìa sẽ được gỡ; liên kết trong bài, bình luận và lịch sử sẽ bị hỏng.`:'Tệp sẽ bị xóa khỏi ổ đĩa.'} Không hoàn tác được.</p></ConfirmDialog>}
    </>}{notice&&<p className="resource-notice" role="status">{notice}</p>}
   </div></Sheet>}
  </div>;
