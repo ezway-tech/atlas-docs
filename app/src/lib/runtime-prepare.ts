@@ -15,34 +15,40 @@ declare global {
 export function ensureLibraryPrepared(): Promise<PrepareResult> {
   if (!globalThis.__atlasPrepare) {
     globalThis.__atlasPrepare = (async () => {
-      const core = await loadCore();
-      const root = process.env.DATA_DIR
-        ? core.canonicalize(path.resolve(process.env.DATA_DIR))
-        : core.resolveAppDataRoot(process.env, process.cwd());
+      try {
+        const core = await loadCore();
+        const root = process.env.DATA_DIR
+          ? core.canonicalize(path.resolve(process.env.DATA_DIR))
+          : core.resolveAppDataRoot(process.env, process.cwd());
 
-      const appVersion = process.env.ATLAS_APP_VERSION || '';
-      const migrateYes = process.env.ATLAS_DOCS_MIGRATE_YES === '1' || process.env.ATLAS_DOCS_MIGRATE_YES === 'true';
-      const agentKitPath = process.env.ATLAS_AGENT_KIT || null;
+        const appVersion = process.env.ATLAS_APP_VERSION || '';
+        const migrateYes = process.env.ATLAS_DOCS_MIGRATE_YES === '1' || process.env.ATLAS_DOCS_MIGRATE_YES === 'true';
+        const agentKitPath = process.env.ATLAS_AGENT_KIT || null;
 
-      const result = await core.prepareLibrary({
-        libraryRoot: root,
-        appVersion,
-        allowInit: true,
-        allowMigrate: true,
-        autoConfirmMigrate: migrateYes,
-        agentKitPath,
-        holdLock: true,
-        log: console.log,
-      });
+        const result = await core.prepareLibrary({
+          libraryRoot: root,
+          appVersion,
+          allowInit: true,
+          allowMigrate: true,
+          autoConfirmMigrate: migrateYes,
+          agentKitPath,
+          holdLock: true,
+          log: console.log,
+        });
 
-      const unlock = () => {
-        result.lock?.releaseSync?.();
-      };
-      process.once('exit', unlock);
-      process.once('SIGINT', unlock);
-      process.once('SIGTERM', unlock);
+        const unlock = () => {
+          result.lock?.releaseSync?.();
+        };
+        process.once('exit', unlock);
+        process.once('SIGINT', unlock);
+        process.once('SIGTERM', unlock);
 
-      return {root: result.root, lock: result.lock};
+        return {root: result.root, lock: result.lock};
+      } catch (error) {
+        globalThis.__atlasPrepare = undefined;
+        console.error('[Atlas Docs] Library prepare failed:', error);
+        throw error;
+      }
     })();
   }
   return globalThis.__atlasPrepare;

@@ -21,8 +21,8 @@ const json=(x:unknown)=>Response.json(x,{headers:{'Cache-Control':'no-store'}});
 const parts=async(c:Params)=>(await c.params).action;
 async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=seg[0],method=req.method,query=req.nextUrl.searchParams,body=()=>req.json();
  if(name==='health'&&method==='GET'){
-  const {ensureLibraryPrepared}=await import('@/lib/runtime-prepare');
-  await ensureLibraryPrepared();
+  // Liveness only. Library prepare runs on first data API via store/db().
+  // Awaiting prepare here blocked Windows CI when the first compile+lock race hung.
   return json({ok:true});
  }
  if(name==='update-status'&&method==='GET'){
