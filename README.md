@@ -12,6 +12,9 @@ Atlas Docs turns local Markdown, API definitions, and structured files into a br
 
 ## Why Atlas Docs?
 
+For the npm package workflow and release instructions, see [Atlas Docs with npm](guides/npm.md).
+The source-checkout instructions below remain available; npm publication is a separate manual step.
+
 Project knowledge often spreads across setup notes, architecture documents, API specs, and database schemas. Atlas Docs gives those files a shared place to browse and maintain.
 
 - **Find the context you need.** Browse by topic, follow related documents, or search across the library.

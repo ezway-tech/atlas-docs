@@ -2,6 +2,9 @@
   "name": "atlas-docs-root",
   "private": true,
   "scripts": {
+    "package:release": "node scripts/package-release.mjs",
+    "test:cli": "node --test scripts/test-cli.mjs",
+    "test:package": "node scripts/test-package.mjs",
     "setup": "npm --prefix app install",
     "dev": "npm --prefix app run dev",
     "build": "npm --prefix app run build",

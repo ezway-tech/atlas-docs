@@ -64,6 +64,9 @@ async function assertEmpty(root){
   try{entries=await readdir(root,{withFileTypes:true});}catch(e){if(e.code==='ENOENT')return;throw e;}
   for(const entry of entries){
     if(entry.name==='.gitkeep'&&entry.isFile())continue;
+    // CLI reference material is not application content and is never replaced.
+    if(entry.name==='AGENTS.md'&&entry.isFile())continue;
+    if(entry.name==='.atlas'&&entry.isDirectory())continue;
     if(entry.name==='db.json'&&entry.isFile()){
       const db=JSON.parse(await readFile(path.join(root,entry.name),'utf8'));
       if(!['assets','folders','comments'].every(k=>Array.isArray(db[k])&&db[k].length===0))throw Error('Library is not empty');

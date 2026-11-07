@@ -5,6 +5,9 @@
 Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one under **Utilities → Language**. Guides use English names for features; on-screen labels follow the selected language.
 ## Install and run
 
+For the npm/npx distribution, use [Atlas Docs with npm](npm.md). The commands and default
+paths below refer to a source checkout unless explicitly marked as npm CLI instructions.
+
 Requires Node.js 22.12 or newer. From the repository root:
 
 ```powershell
@@ -128,11 +131,14 @@ Tests use temporary libraries. The demo integration test requires a production b
 
 ## Root command reference
 
-The root `package.json` only forwards commands; it has no dependencies and needs no root `node_modules`. Use `npm run setup` to install dependencies into `app/node_modules`. These npm commands work on Windows, Linux, and macOS. Run `npm run` to list them.
+The root `package.json` forwards application commands and runs the npm packaging tools; it has no dependencies and needs no root `node_modules`. Use `npm run setup` to install dependencies into `app/node_modules`. These npm commands work on Windows, Linux, and macOS. Run `npm run` to list them.
 
 | Command | Purpose |
 | --- | --- |
 | `npm run setup` | Install or update app dependencies according to its manifest and lockfile |
+| `npm run package:release` | Build in an isolated output directory and create the npm tarball; never publishes |
+| `npm run test:cli` | Check CLI options and agent-guide preservation using temporary directories |
+| `npm run test:package` | Install and exercise the actual tarball outside the checkout |
 | `npm run dev` | Start the development server; initializes missing data automatically |
 | `npm run build` / `npm start` | Build / start the production app |
 | `npm run bootstrap` | Initialize an empty library without starting the app |

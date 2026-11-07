@@ -22,6 +22,14 @@ Atlas Docs is a local Next.js application. React components provide the workspac
 
 Paths in this table are relative to the repository root. The root package forwards npm commands into `app/`; dependencies are installed there.
 
+The npm distribution adds a CLI in `cli/`, a library instruction template in `templates/`,
+and release/test scripts in the root `scripts/`. `npm run package:release` generates
+`dist/npm/` and a tarball. It copies the standalone runtime without build-machine dependencies;
+npm installs production dependencies on the target platform. The CLI explicitly sets `DATA_DIR`
+to the calling directory's `atlas-docs-data/` unless overridden, leaving source and Docker defaults unchanged.
+Generated `.atlas/` guides come from `guides/`; library `AGENTS.md` comes from the template.
+See [npm usage](npm.md) for package installation, agent discovery, and backup boundaries.
+
 ## Data model
 
 `DATA_DIR`, when set, selects the library root. Otherwise it resolves to `../data` from the app working directory. Root npm commands run inside `app/`, so the normal default is the repository's `data/`. Prefer absolute custom paths.

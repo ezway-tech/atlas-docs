@@ -1,0 +1,65 @@
+import {spawn} from 'node:child_process';
+import net from 'node:net';
+import {setTimeout as delay} from 'node:timers/promises';
+import path from 'node:path';
+
+export async function assertPortAvailable(port) {
+  const server = net.createServer();
+  await new Promise((resolve, reject) => {
+    server.once('error', error => reject(Error(`Cannot listen on 127.0.0.1:${port} (${error.code}). Choose another --port.`)));
+    server.listen(port, '127.0.0.1', resolve);
+  });
+  await new Promise(resolve => server.close(resolve));
+}
+
+export function openBrowser(url) {
+  const command = process.platform === 'win32' ? 'rundll32.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const args = process.platform === 'win32' ? ['url.dll,FileProtocolHandler', url] : [url];
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {stdio: 'ignore', windowsHide: true});
+    child.once('error', reject);
+    child.once('exit', code => code === 0 ? resolve() : reject(Error(`Browser opener exited with ${code}`)));
+  });
+}
+
+export async function startServer(packageRoot, options) {
+  const url = `http://127.0.0.1:${options.port}`;
+  const child = spawn(process.execPath, [path.join(packageRoot, 'runtime/server.js')], {
+    cwd: path.join(packageRoot, 'runtime'),
+    env: {...process.env, NODE_ENV: 'production', DATA_DIR: options.dataDir, HOSTNAME: '127.0.0.1', PORT: String(options.port)},
+    stdio: ['ignore', 'inherit', 'inherit', 'ipc'], windowsHide: true,
+  });
+  // A private IPC message allows shutdown tests on Windows, where kill(SIGINT)
+  // terminates a process instead of delivering a console Ctrl+C event.
+  let stopping = false;
+  const stop = () => { stopping = true; if (child.exitCode === null) child.kill('SIGTERM'); };
+  const message = value => { if (value === 'atlas:stop') stop(); };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+  process.on('message', message);
+  const ended = new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', code => resolve(code)); });
+  // Attach immediately, including while waiting for readiness.
+  let exited = false, failure;
+  ended.then(() => { exited = true; }, error => { exited = true; failure = error; });
+  try {
+    let ready = false;
+    for (let i = 0; i < 150 && !exited && !stopping; i++) {
+      try {
+        const response = await fetch(`${url}/api/health`, {signal: AbortSignal.timeout(1000)});
+        if (response.ok && !exited) { ready = true; break; }
+      } catch {}
+      await delay(200);
+    }
+    if (stopping) { await ended; return; }
+    if (!ready) { stop(); await ended; throw failure || Error('Server did not become ready. See the error above.'); }
+    console.log(`[Atlas Docs] Ready: ${url}`);
+    if (options.open) openBrowser(url).catch(error => console.warn(`[Atlas Docs] Could not open browser (${error.message}). Open ${url} manually.`));
+    const code = await ended;
+    if (!stopping && code !== 0) throw Error(`Server exited with code ${code}`);
+  } finally {
+    stop();
+    process.off('SIGINT', stop);
+    process.off('SIGTERM', stop);
+    process.off('message', message);
+  }
+}

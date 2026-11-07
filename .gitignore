@@ -12,3 +12,7 @@ app/scripts/.bundles/
 # Generated from guides/ for bundled Help
 app/src/generated/help.json
 app/public/help-assets/
+
+# npm release output and local CLI libraries
+/dist/
+/atlas-docs-data/

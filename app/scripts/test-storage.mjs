@@ -55,7 +55,12 @@ try{
   await assert.rejects(()=>seedDemo(empty,invalid),/Broken demo wiki link/);
   assert.equal(await readFile(path.join(empty,'db.json'),'utf8'),original);
   assert.deepEqual(await readdir(path.join(empty,'docs')),[]);
+  await writeFile(path.join(empty,'AGENTS.md'),'Personal library instructions');
+  await mkdir(path.join(empty,'.atlas'));
+  await writeFile(path.join(empty,'.atlas','guide.md'),'Managed reference');
   await seedDemo(empty);
+  assert.equal(await readFile(path.join(empty,'AGENTS.md'),'utf8'),'Personal library instructions');
+  assert.equal(await readFile(path.join(empty,'.atlas','guide.md'),'utf8'),'Managed reference');
   const seeded=await readFile(path.join(empty,'db.json'),'utf8');
   const repeat=spawnSync(process.execPath,['scripts/bootstrap.mjs'],{env:{...process.env,DATA_DIR:empty},encoding:'utf8'});assert.equal(repeat.status,0,repeat.stderr);
   assert.equal(await readFile(path.join(empty,'db.json'),'utf8'),seeded);
