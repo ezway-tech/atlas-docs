@@ -17,13 +17,15 @@ export function ensureLibraryPrepared(): Promise<PrepareResult> {
     globalThis.__atlasPrepare = (async () => {
       try {
         const core = await loadCore();
-        const root = process.env.DATA_DIR
-          ? core.canonicalize(path.resolve(process.env.DATA_DIR))
-          : core.resolveAppDataRoot(process.env, process.cwd());
+        const env = process.env;
+        const dataDir = env['DATA_DIR'];
+        const root = dataDir
+          ? core.canonicalize(path.resolve(dataDir))
+          : core.resolveAppDataRoot(env, process.cwd());
 
-        const appVersion = process.env.ATLAS_APP_VERSION || '';
-        const migrateYes = process.env.ATLAS_DOCS_MIGRATE_YES === '1' || process.env.ATLAS_DOCS_MIGRATE_YES === 'true';
-        const agentKitPath = process.env.ATLAS_AGENT_KIT || null;
+        const appVersion = env['ATLAS_APP_VERSION'] || '';
+        const migrateYes = env['ATLAS_DOCS_MIGRATE_YES'] === '1' || env['ATLAS_DOCS_MIGRATE_YES'] === 'true';
+        const agentKitPath = env['ATLAS_AGENT_KIT'] || null;
 
         const result = await core.prepareLibrary({
           libraryRoot: root,
