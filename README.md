@@ -1,6 +1,58 @@
 # Atlas Docs
 
-A local library for Markdown, OpenAPI, YAML, SQL, and JSON, with editing, search, attachments, comments, and revision history. The app interface supports Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Choose the language under **Utilities → Language**; the choice is stored in a browser cookie and does not change library data. These guides and the optional Little Café demo are in English.
+**Keep your project docs organized, readable, and close to your code.**
+
+Atlas Docs turns local Markdown, API definitions, and structured files into a browsable project library. Read, edit, search, and connect your documents in one workspace, with images, comments, and revision history alongside the content.
+
+[Features](#features) · [Quick start](#quick-start) · [Documentation](#documentation)
+
+![Atlas Docs with a folder tree, document reader, and table of contents](guides/assets/originals/overview.png)
+
+*The optional Little Café sample library. New libraries start empty.*
+
+## Why Atlas Docs?
+
+Project knowledge often spreads across setup notes, architecture documents, API specs, and database schemas. Atlas Docs gives those files a shared place to browse and maintain.
+
+- **Find the context you need.** Browse by topic, follow related documents, or search across the library.
+- **Make technical docs easier to read.** View diagrams, API endpoints, and SQL schemas alongside your written explanations.
+- **Keep the files on your machine.** Store documents in a local directory and use Atlas Docs alongside your application repository.
+
+## Features
+
+### Organize once, find it again
+
+Group documents into folders, pin frequent destinations, and jump through an article using its table of contents. Search documents, folders, and comments across the library or within one folder. Links between documents and incoming references help you follow the bigger picture.
+
+### Read more than Markdown
+
+Write explanations with Markdown tables, images, and Mermaid diagrams. Browse OpenAPI definitions with a dedicated endpoint viewer and SQL schemas with a schema viewer. Keep YAML and JSON reference files in the same library, with source views for the details.
+
+### Write in the mode that fits
+
+Use **Visual** for simple prose, **Source** for direct Markdown editing, **Split** to write beside the rendered result, or **Preview** to inspect your draft.
+
+![Atlas Docs visual editor with formatting tools and Visual, Source, Split, and Preview modes](guides/assets/originals/editing.png)
+
+*Editing a document in the Little Café sample library.*
+
+For complex Markdown, such as tables or Mermaid, Visual mode is disabled to protect the syntax. Use Source, Split, or Preview instead. Structured files use source editing and their corresponding view.
+
+### Keep supporting material close
+
+Upload and reuse images and attachments from the resource library. Preview media, see where a resource is used, and insert it into a document. Crop or annotate an image during the insertion workflow to make a screenshot or explanation clearer.
+
+### Add context and revisit changes
+
+Attach comments to selected passages. Inspect saved revisions, compare changes, and restore an earlier version when needed. Export a ZIP backup to preserve the library, including attachments and metadata.
+
+![Atlas Docs document history with saved revisions and a restore action](guides/assets/originals/history.png)
+
+*Reviewing an earlier revision in the Little Café sample library.*
+
+History records changes saved through the app; direct file edits do not create revisions. Retention is limited, so use backups for long-term recovery. Backup restore requires an empty library. See [history and recovery details](guides/operations.md#history).
+
+The interface also includes **light and dark themes**, **customizable keyboard shortcuts**, and **five languages**: Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Change these under **Utilities**; choosing a language does not translate or change your documents. Guides and demo content are in English.
 
 ## Quick start
 
@@ -20,7 +72,11 @@ Or run with Docker:
 docker compose up -d --build
 ```
 
-Docker stores data in `./data` and exposes http://127.0.0.1:3000. There is no login on the write API; keep the application local.
+Docker stores data in `./data` and exposes http://127.0.0.1:3000.
+
+**Run locally:** there is no login on the write API; keep the application local.
+
+**Want to explore first?** Follow the [Little Café demo instructions](guides/operations.md#keep-existing-data-and-try-the-demo-separately) to try documents, diagrams, attachments, and history in a separate empty library without changing your existing data.
 
 ## Use alongside your project
 
@@ -41,23 +97,19 @@ workspace/
 
 Write project documents under `data/docs/`, not `guides/`. Follow the [agent guide](guides/agent-guide.md) for file rules, a document template, and instructions to add to your project's AGENTS.md. Agents working in a sibling repository should not be assumed to discover this repository's instructions automatically.
 
-## In-app Help
-
-Choose **Help** in the sidebar or Utilities menu to open the English guide in a new tab without closing your draft. Help includes local search, a table of contents, and light/dark themes. It is bundled with the app and works without external documentation services.
-
-## Documentation
-
-| Read this | For |
-| --- | --- |
-| [User guide](guides/user-guide.md) | Reading, organizing, editing, resources, comments, and history |
-| [Agent guide](guides/agent-guide.md) | Maintaining project documentation from source evidence |
-| [Architecture](guides/architecture.md) | Source layout and how the application stores and renders data |
-| [Operations](guides/operations.md) | Install, demo, Docker, updates, backups, limits, troubleshooting, and command reference |
-| [Agent entry point](AGENTS.md) | Rules for agents working in this repository |
-
 ## Where your data lives
 
 The default library is `data/` beside `app/`: documents in `docs/`, attachments in `uploads/`, revisions in `history/`, and metadata in `db.json`. `data/` is ignored by Git. Set an absolute `DATA_DIR` to use another library; see [operations](guides/operations.md) for a separate documentation repository and full backup instructions.
+
+## Documentation
+
+- [User guide](guides/user-guide.md) — Reading, organizing, editing, attachments, comments, and history.
+- [Agent guide](guides/agent-guide.md) — Maintaining project documentation from source evidence.
+- [Operations](guides/operations.md) — Installation, demo, Docker, backups, limits, and troubleshooting.
+- [Architecture](guides/architecture.md) — Source layout, storage, and rendering.
+- [Agent entry point](AGENTS.md) — Rules for agents working in this repository.
+
+**Help is also built in.** Choose **Help** in the sidebar or Utilities menu to open the English guide in a new tab without closing your draft. It includes local search, a table of contents, and light/dark themes, without relying on an external documentation service.
 
 ## Source layout
 
