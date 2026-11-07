@@ -41,6 +41,10 @@ workspace/
 
 Write project documents under `data/docs/`, not `guides/`. Follow the [agent guide](guides/agent-guide.md) for file rules, a document template, and instructions to add to your project's AGENTS.md. Agents working in a sibling repository should not be assumed to discover this repository's instructions automatically.
 
+## In-app Help
+
+Choose **Help** in the sidebar or Utilities menu to open the English guide in a new tab without closing your draft. Help includes local search, a table of contents, and light/dark themes. It is bundled with the app and works without external documentation services.
+
 ## Documentation
 
 | Read this | For |

@@ -3,7 +3,7 @@
   "version": "5.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/bootstrap.mjs",
+    "predev": "node scripts/prepare-help.mjs && node scripts/bootstrap.mjs",
     "dev": "next dev --hostname 127.0.0.1",
     "prestart": "node scripts/bootstrap.mjs",
     "start": "next start --hostname 0.0.0.0",
@@ -24,7 +24,10 @@
     "test:history-diff": "node --experimental-strip-types scripts/test-history-diff.mjs",
     "test:ui": "playwright test",
     "test:headings": "node scripts/test-headings.mjs",
-    "test:responsive": "node scripts/test-responsive.mjs"
+    "test:responsive": "node scripts/test-responsive.mjs",
+    "prebuild": "node scripts/prepare-help.mjs",
+    "pretypecheck": "node scripts/prepare-help.mjs",
+    "test:help": "node scripts/test-help.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",

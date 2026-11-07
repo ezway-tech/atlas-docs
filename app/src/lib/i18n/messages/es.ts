@@ -1,6 +1,7 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "utilities.menu.help":"Ayuda",
  "common.close":"Cerca",
  "common.cancel":"Cancelar",
  "common.confirm":"Confirmar",

@@ -55,3 +55,9 @@ ZIP export snapshots library data and includes a versioned manifest with hashes.
 ## Development verification
 
 Use `npm run check` for type checking and storage tests, then run feature-specific checks as appropriate. UI and integration scripts have prerequisites documented in [operations](operations.md). Use temporary libraries. Documentation changes alone require content/link verification, not a production build.
+
+## Bundled Help
+
+`/help` and `/help/[slug]` use a separate read-only layout. The client shell does not mount the library workspace for these routes. A fixed allowlist in `app/scripts/prepare-help.mjs` converts repository Markdown into a generated JSON bundle before dev/build/typecheck. Article text and its search index stay local; unknown slugs return 404. Relative guide links are mapped to Help routes and image paths to `/help-assets/`.
+
+The prepare step also copies `guides/assets/` into generated public assets. Docker copies the Markdown sources before building; the existing public/static copy steps carry the images into the runtime image. Do not edit the generated JSON or public copies. Edit the Markdown or original assets, then rerun the prepare step/build.

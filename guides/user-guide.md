@@ -6,6 +6,13 @@ Atlas Docs organizes a local document library. The interface supports Vietnamese
 
 ## Create your first document
 
+![New document dialog with title, type, and Save highlighted](assets/create-document.png)
+
+1. Enter the title.
+2. Choose the document type; confirm the folder below it.
+3. Save the new document.
+
+
 1. Open the app and create a top-level topic/folder using **New topic**.
 2. In that folder's actions, choose **New document**.
 3. Enter the **Title**, choose the **document type**, and confirm the **Folder**. Choose Markdown for an ordinary article, then **Save**.
@@ -15,6 +22,11 @@ Atlas Docs organizes a local document library. The interface supports Vietnamese
 A library begins empty. To explore prepared content instead, load the optional [Little Café demo](operations.md#optional-little-café-demo) into an empty, separate library. Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. The demo is not required for normal use.
 
 ## Organize your library
+
+![Atlas Docs in English with library navigation and reading panels highlighted](assets/overview.png)
+
+The numbered outlines locate the library navigation and the reading side panel. Use the tree to open an article, then its contents to jump to a heading.
+
 
 Use folder actions to create a **Subfolder**, change **Rename / cover**, or choose an icon. The library supports up to three folder levels. Drag siblings to change their order.
 
@@ -34,6 +46,12 @@ Default library search is Ctrl+K on Windows/Linux or Command+K on macOS. Shortcu
 
 ## Write and edit
 
+![Visual editor showing the mode selector and editable content](assets/editing.png)
+
+1. Select Visual, Source, Split, or Preview.
+2. Edit the content, then use Save in the top toolbar.
+
+
 Choose **Edit**, then a mode:
 
 | Mode | Use it for |
@@ -51,6 +69,17 @@ Use relative links such as `[System overview](../architecture/system-overview.md
 
 ## Images and attachments
 
+![Resource picker with the available demo attachments](assets/insert-resource.png)
+
+Open the highlighted resource picker, then select a file to inspect or insert.
+
+![Image editor with Crop, Draw, and Save and insert highlighted](assets/edit-image.png)
+
+1. Crop the image if needed.
+2. Draw an annotation.
+3. Save and insert the edited copy into the draft.
+
+
 Open **Utilities → Attachments**. Search files, switch grid/list views, and use **Filters** to narrow by type, source, or usage. Preview images, play supported audio/video, download files, and inspect where a resource is used.
 
 To insert an image while editing, choose **Insert resource**, select or upload the resource, and insert it. Pasting an image opens an image workflow. Save the document after inserting it.
@@ -64,6 +93,11 @@ The image editor includes cropping, drawing, text, and undo/redo. For cropping, 
 
 ## Comments and version history
 
+![History dialog for the Latte recipe](assets/history.png)
+
+The highlighted history dialog lets you choose a revision and inspect changes before restoring.
+
+
 Select a passage and add a comment, or use **Write a comment**. Quoted text helps connect the comment to its context. Comments can be edited or deleted through their controls.
 
 Open **History** to inspect revisions and compare changes. Restoring a revision replaces current document content; review the selected revision and resolve any unsaved draft before confirming. A changed save captures the prior content, while an identical save creates no revision.
@@ -71,6 +105,15 @@ Open **History** to inspect revisions and compare changes. Restoring a revision 
 History is limited, not permanent archival storage. Direct edits on disk do not create app revisions. See [history policy](operations.md#history) for retention and [backup instructions](operations.md#backup-and-restore) for full-library recovery.
 
 ## Back up and manage storage
+
+![Backup and restore dialog](assets/backup.png)
+
+Create a ZIP from the highlighted backup dialog. Restore only into an empty library.
+
+![Storage and cleanup dialog](assets/storage.png)
+
+Review storage, then scan files in the highlighted dialog before selecting anything for cleanup.
+
 
 Open **Utilities → Backup & restore** to export a ZIP. Import accepts an empty library only; use a separate data directory to test recovery. Do not erase the working library just to enable import.
 

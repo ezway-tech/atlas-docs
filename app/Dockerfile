@@ -3,6 +3,8 @@ WORKDIR /app
 COPY app/package*.json ./
 RUN npm install --no-audit --no-fund
 COPY app/ .
+COPY guides /guides
+COPY README.md AGENTS.md /
 RUN npm run build
 FROM node:22-alpine
 WORKDIR /app

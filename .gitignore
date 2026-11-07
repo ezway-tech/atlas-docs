@@ -8,3 +8,7 @@ app/out/
 app/test-results/
 app/playwright-report/
 app/scripts/.bundles/
+
+# Generated from guides/ for bundled Help
+app/src/generated/help.json
+app/public/help-assets/

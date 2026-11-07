@@ -203,3 +203,11 @@ On macOS/Linux, use `export DATA_DIR="/absolute/workspace/my-product-docs"`. Kee
 Initialize Git in `my-product-docs` yourself and track `docs/` for text history. For a text-only repository, ignore `/db.json`, `/uploads/`, `/history/`, and temporary or journal files. Upload-backed images require the original library data to render. Do not commit secrets or private uploads accidentally.
 
 Git history of `docs/` is not a complete Atlas Docs backup: it excludes comments, media records, preferences, uploads, and app revisions. Use ZIP export or a stopped-app copy of the whole data root for full recovery. For Docker, change the volume mapping explicitly; the host shell variable does not replace the compose file's `./data:/data` mapping.
+
+## Maintain Help and screenshots
+
+Help is generated automatically by `npm run dev` and `npm run build`. From `app/`, run `node scripts/prepare-help.mjs` to refresh the generated bundle manually. A fresh checkout also prepares it before type checking. The generated JSON and public image copies are ignored by Git; their sources in `guides/` are tracked.
+
+After a production build, run `npm --prefix app run test:help`. It starts a separate server on port 3239, seeds a temporary Little Café library, uses headless Microsoft Edge in English/light mode, and checks Help while capturing walkthrough screenshots. The test never uses the working library. Set `ATLAS_DIST_DIR` to the same value used for an isolated build if applicable. Set `HELP_DEV=1` to test an isolated development server instead. Screenshots are written to `guides/assets/`; unannotated originals are retained in `guides/assets/originals/`. Rebuild after updating screenshots to package them.
+
+Review the screenshots visually before committing: the red numbered outlines identify actual controls, and nearby guide text explains the numbers. Keep browser dimensions and the demo consistent when refreshing images.

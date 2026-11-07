@@ -13,8 +13,8 @@
 .md-embed.md-openapi{max-height:70vh}
 .md-code-monaco .md-monaco{border-top:1px solid var(--line)}
 .md-monaco .monaco-editor,.md-monaco .overflow-guard{border-radius:0 0 8px 8px}
-.top-actions a{display:flex;align-items:center;padding:8px;border-radius:8px;color:var(--body)}
-.top-actions a:hover,.top-actions a.on{background:var(--soft)}
+.top-actions a:not(.top-help){display:flex;align-items:center;padding:8px;border-radius:8px;color:var(--body)}
+.top-actions a:not(.top-help):hover,.top-actions a.on{background:var(--soft)}
 .media-page-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .media-page-tools .upload-zone{width:auto;flex:0 0 auto;padding:12px 16px}
 .media-page-tools .media-filter{flex:1;min-width:180px;margin-top:0}

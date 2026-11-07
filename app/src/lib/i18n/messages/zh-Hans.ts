@@ -1,6 +1,7 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "utilities.menu.help":"帮助",
  "common.close":"关闭",
  "common.cancel":"取消",
  "common.confirm":"确认",
