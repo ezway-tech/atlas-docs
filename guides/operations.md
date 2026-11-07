@@ -16,7 +16,9 @@ npm run bootstrap
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Bootstrap creates an **empty** library. It also runs automatically before `npm run dev` and `npm start`. Repeating it does not replace existing data. For production, run `npm run build`, then `npm start`.
+Open http://127.0.0.1:3000. Bootstrap uses the shared `core` prepare path: it creates an **empty** library when missing, and migrates a legacy library only when `ATLAS_DOCS_MIGRATE_YES=1` is set (the npm CLI can prompt or accept `--yes` instead). It also runs automatically before `npm run dev` and `npm start`. Repeating it does not replace existing user documents. For production, run `npm run build`, then `npm start`.
+
+Libraries store `schemaVersion` in `db.json` (currently 1). Source and Docker still default to repository `data/` and `/data` respectively — not `atlas-docs-data`.
 
 ## Optional Little Café demo
 
@@ -136,9 +138,11 @@ The root `package.json` forwards application commands and runs the npm packaging
 | Command | Purpose |
 | --- | --- |
 | `npm run setup` | Install or update app dependencies according to its manifest and lockfile |
-| `npm run package:release` | Build in an isolated output directory and create the npm tarball; never publishes |
+| `npm run package:release` | Build in an isolated output directory and create the npm tarball plus `.sha256`; never publishes |
+| `npm run test:core` | Shared library checks (inspect, lock, migrate, import schema) using temporary directories |
 | `npm run test:cli` | Check CLI options and agent-guide preservation using temporary directories |
 | `npm run test:package` | Install and exercise the actual tarball outside the checkout |
+| `npm run check:distribution` | Typecheck, storage tests, core tests, and CLI tests |
 | `npm run dev` | Start the development server; initializes missing data automatically |
 | `npm run build` / `npm start` | Build / start the production app |
 | `npm run bootstrap` | Initialize an empty library without starting the app |

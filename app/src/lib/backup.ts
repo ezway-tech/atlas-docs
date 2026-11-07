@@ -215,7 +215,22 @@ async function extractZip(zipPath:string,stage:string,limits:BackupLimits,box:{p
  assertManifest(manifest,hashes);
  const dbPath=path.join(stage,'db.json');
  assertDatabaseShape(JSON.parse(await readFile(dbPath,'utf8')));
+ await prepareImportStageFromCore(stage);
  return {files:count,uncompressed};
+}
+
+async function prepareImportStageFromCore(stage:string){
+ const {loadCore}=await import('./load-core');
+ const core=await loadCore();
+ try{
+  await core.prepareImportStage(stage);
+ }catch(e){
+  const err=e as {code?:string;message?:string};
+  if(err?.code==='library.newerSchema'||err?.code==='migrate.unsupported'||err?.code==='library.dbInvalid'){
+   throw new AppError('errors.backup.dbInvalid',400);
+  }
+  throw e;
+ }
 }
 
 async function libraryEmpty(){

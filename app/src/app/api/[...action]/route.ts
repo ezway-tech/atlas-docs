@@ -20,7 +20,29 @@ type Params={params:Promise<{action:string[]}>};
 const json=(x:unknown)=>Response.json(x,{headers:{'Cache-Control':'no-store'}});
 const parts=async(c:Params)=>(await c.params).action;
 async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=seg[0],method=req.method,query=req.nextUrl.searchParams,body=()=>req.json();
- if(name==='health'&&method==='GET')return json({ok:true});
+ if(name==='health'&&method==='GET'){
+  const {ensureLibraryPrepared}=await import('@/lib/runtime-prepare');
+  await ensureLibraryPrepared();
+  return json({ok:true});
+ }
+ if(name==='update-status'&&method==='GET'){
+  // Reads update cache / optional registry check only. Never runs a package manager.
+  const {loadCore}=await import('@/lib/load-core');
+  const core=await loadCore();
+  const version=process.env.ATLAS_APP_VERSION||'';
+  const packageRoot=process.env.ATLAS_PACKAGE_ROOT||process.cwd();
+  const result=await core.checkForUpdate(packageRoot,version||'0.0.0',{force:false});
+  if(result.skipped&&!result.updateAvailable)return json({updateAvailable:false,skipped:true,reason:result.reason||null});
+  const advice=core.updateAdvice(result.install,result.latestVersion,result.install?.packageName||'atlas-docs');
+  return json({
+   updateAvailable:!!result.updateAvailable,
+   currentVersion:result.currentVersion||version,
+   latestVersion:result.latestVersion||null,
+   command:advice.command,
+   note:advice.note,
+   method:result.install?.method||'unknown',
+  });
+ }
  if(name==='docs'){
    if(method==='GET'&&seg.length===1)return json(await listDocs(localeFromRequest(req)));
    if(method==='POST'&&seg.length===1){const o=await body();const kind=o.kind==='yaml'||o.kind==='sql'||o.kind==='json'?o.kind:'md';return json(await createDoc(String(o.folder),String(o.title),kind));}

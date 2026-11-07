@@ -3,31 +3,62 @@
 Requires Node.js 22.12 or newer. Once the package is published:
 
 ```sh
-npx atlas-docs
+# Run immediately
+npx atlas-docs@latest
+
+# Or install for regular use
+npm install -g atlas-docs
+atlas-docs
+
+# Check and update
+atlas-docs update --check
+atlas-docs update
+
+# Installation and library status
+atlas-docs doctor
 ```
 
-This starts a local server and opens your browser. Keep the terminal running; press Ctrl+C to stop.
-The first run downloads the package and its production dependencies. No source checkout or build is needed.
+`atlas-docs` with no subcommand is the same as `atlas-docs start`. Keep the terminal running; press Ctrl+C to stop.
+The first npx run downloads the package and its production dependencies. No source checkout or build is needed.
+Offline use works after the package is already installed; update checks never block opening the app.
 
 ## Library location
 
-The default library is `atlas-docs-data` in the directory where you run the command.
-Running from another directory selects another default library. The CLI prints the absolute location.
+Default library: `atlas-docs-data` in the directory where you run the command.
+
+Selection order:
+
+1. `--data-dir`
+2. `DATA_DIR`
+3. Nearest `atlas-docs.config.json` walking up from the current directory
+4. `./atlas-docs-data`
+
+Relative `--data-dir` and `DATA_DIR` values resolve from the calling directory.
+`dataDir` inside the config file resolves from the config file's directory.
+A broken config or missing saved path is an error; the CLI does not silently create a different default library.
+Passing `--data-dir` for one run does not rewrite project config.
 
 ```sh
-npx atlas-docs --data-dir ./project-docs --port 3001 --no-open
+atlas-docs library use ./project-docs
+atlas-docs library info
+atlas-docs --data-dir ./project-docs --port 3001 --no-open
+atlas-docs start --yes
 ```
 
-The library selection order is `--data-dir`, then `DATA_DIR`, then `./atlas-docs-data`.
-Relative paths resolve from the calling directory. Point to the library root, not its `docs` subdirectory.
-The server listens only on `127.0.0.1`; default port 3000. A busy port is an error; select another with `--port`.
-`--no-open` disables browser opening. `--help` and `--version` do not initialize a library.
-Do not run multiple servers against the same library; write coordination is within one process only.
+`--yes` confirms schema migration without a prompt (required in non-interactive environments).
+`--help` and `--version` do not initialize a library.
+The server listens only on `127.0.0.1`; default port 3000.
 
-The library contains `docs/`, `db.json`, `uploads/`, and `history/`. Startup only creates missing storage.
-It also creates `AGENTS.md` if absent and maintains reference material under `.atlas/`.
-No demo content is inserted. Small syntax examples are in `.atlas/examples/`; they are not cataloged documents.
-The package cache is disposable; your separate library is not.
+## Schema and locking
+
+Libraries store an integer `schemaVersion` in `db.json` (currently **1**).
+Older libraries without that field are legacy and migrate after confirmation, with a full backup outside the library tree.
+A library with a newer schema than the app is refused; files are not changed.
+Only one Atlas Docs process may hold a library lock at a time. External editors are not blocked by that lock.
+
+### Upgrading from 5.1.0
+
+Package **5.1.0** has no `schemaVersion`, no shared prepare gate, and no cross-process library lock. Those protections cannot be applied retroactively to a running 5.1.0 process. After installing 5.2.0 or newer, open the same library once with confirmation (`atlas-docs --yes` when non-interactive) so migration and locking take effect. Keep the upgrade backup until you have verified documents and attachments.
 
 ## Connect an agent
 
@@ -43,57 +74,45 @@ Verify statements against this project's code and tests.
 ```
 
 The CLI does not change instructions in other repositories. If the library already has an `AGENTS.md`,
-it is preserved; add the suggested guide link yourself. Personal rules belong there, not in generated guides.
-When a managed guide changes, locally edited content is saved under `.atlas/backups/` before replacement.
-Unrecognized files are preserved. Direct document edits do not create app revision history.
+it is preserved. When a managed guide changes, locally edited content is saved under `.atlas/backups/` before replacement.
+Unrecognized files are preserved. Agent-kit sync runs only after the library is schema-compatible.
+Direct document edits do not create app revision history.
 
-## Install globally and update
+## Updates
 
-```sh
-npm install -g atlas-docs
-atlas-docs --data-dir ./project-docs
-```
+`atlas-docs update --check` reports the running version, latest stable (when reachable), detected install method, and how to update.
+`atlas-docs update` applies an automatic update only when the install method is known and safe (for example npm global with the same prefix). Otherwise it prints the exact command and stops.
+Package updates do not migrate every library on the machine; migration happens when that library is opened.
+Stop the running app before replacing the installed package. Library data is not modified by a failed package update.
 
-Stop the running app and back up the library before upgrading. Use `npx atlas-docs@latest` or
-`npm install -g atlas-docs@latest`, then restart with the same library path.
-For a fixed release, use `npx atlas-docs@<version>`. Review release notes before updating.
-Guide versions are recorded in `.atlas/manifest.json`. Existing personal instructions are never overwritten.
+Background update notices use a local cache (at most once per 24 hours). Disable with `ATLAS_DOCS_NO_UPDATE_CHECK=1`. They are off in CI. Notices never upload library paths or document contents.
 
-App ZIP backups contain application data only: `db.json`, `docs/`, `uploads/`, and `history/`.
-They exclude `AGENTS.md` and `.atlas/`, including saved guide edits. Back up personal instructions separately,
-or copy the whole library with the app stopped. Standard guides are recreated by the CLI.
-Import into a library with no application content; the generated guides do not prevent import.
+## Backup boundaries
+
+App ZIP backups contain application data: `db.json`, `docs/`, `uploads/`, and `history/`.
+They exclude `AGENTS.md` and `.atlas/`. Schema upgrades create a separate full filesystem backup outside the library.
+Import into an empty library; generated guides do not prevent import. Backups with a schema newer than the app are refused before the target library changes.
+
+## Source and Docker (different defaults)
+
+This guide is for the npm package. A source checkout still defaults to repository `data/`. Docker still mounts `/data`. See [operations](operations.md). Do not assume npm CLI path rules apply to those entry points.
 
 ## Build and release (maintainers)
 
-From a source checkout, install dependencies with `npm run setup`, then:
+From a source checkout:
 
 ```sh
-npm run check
-npm run test:cli
+npm run setup
+npm run check:distribution
 npm run package:release
 npm run test:package
 ```
 
-Packaging builds the app with a temporary library, writes `dist/npm/`, and creates
-`dist/atlas-docs-<version>.tgz`. The version comes from the app manifest.
-Only production runtime output, CLI, guides, examples, and license are distributed.
-Only external runtime dependencies retained by the build trace are installed by npm on the user's platform.
-Editor/viewer code is already compiled into the runtime; native binaries from the build machine are not bundled.
-
-Before publication, test the tarball locally:
-
-```sh
-npm exec --package ./dist/atlas-docs-<version>.tgz -- atlas-docs --data-dir ./test-library
-```
-
-CI builds one tarball and tests that same artifact on Windows, Linux, and macOS.
-After reviewing those results, use your authorized npm account to publish the tested tarball:
+Packaging builds one `dist/atlas-docs-<version>.tgz` and `dist/atlas-docs-<version>.tgz.sha256`.
+CI builds that artifact once and installs the same file on Windows, Linux, and macOS.
+Publication is manual and is not part of the default maintainer loop in this repository:
 
 ```sh
 npm login
 npm publish ./dist/atlas-docs-<version>.tgz --access public
 ```
-
-Publication is manual. Check package-name ownership and choose an unused version before publishing.
-Source-checkout and Docker commands keep their existing data defaults.

@@ -26,13 +26,31 @@ export async function startServer(packageRoot, options) {
   const url = `http://127.0.0.1:${options.port}`;
   const child = spawn(process.execPath, [path.join(packageRoot, 'runtime/server.js')], {
     cwd: path.join(packageRoot, 'runtime'),
-    env: {...process.env, NODE_ENV: 'production', DATA_DIR: options.dataDir, HOSTNAME: '127.0.0.1', PORT: String(options.port)},
+    env: {
+      ...process.env,
+      ...(options.envExtra || {}),
+      NODE_ENV: 'production',
+      DATA_DIR: options.dataDir,
+      HOSTNAME: '127.0.0.1',
+      PORT: String(options.port),
+    },
     stdio: ['ignore', 'inherit', 'inherit', 'ipc'], windowsHide: true,
   });
   // A private IPC message allows shutdown tests on Windows, where kill(SIGINT)
   // terminates a process instead of delivering a console Ctrl+C event.
   let stopping = false;
-  const stop = () => { stopping = true; if (child.exitCode === null) child.kill('SIGTERM'); };
+  const stop = () => {
+    stopping = true;
+    if (child.exitCode !== null) return;
+    // Prefer a graceful IPC shutdown so lock releaseSync runs on Windows,
+    // where process.kill(SIGTERM) does not deliver a catchable signal.
+    if (child.connected) {
+      try { child.send('atlas:shutdown'); } catch { child.kill('SIGTERM'); }
+    } else {
+      child.kill('SIGTERM');
+    }
+    setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 5000).unref?.();
+  };
   const message = value => { if (value === 'atlas:stop') stop(); };
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
@@ -43,9 +61,9 @@ export async function startServer(packageRoot, options) {
   ended.then(() => { exited = true; }, error => { exited = true; failure = error; });
   try {
     let ready = false;
-    for (let i = 0; i < 150 && !exited && !stopping; i++) {
+    for (let i = 0; i < 300 && !exited && !stopping; i++) {
       try {
-        const response = await fetch(`${url}/api/health`, {signal: AbortSignal.timeout(1000)});
+        const response = await fetch(`${url}/api/health`, {signal: AbortSignal.timeout(5000)});
         if (response.ok && !exited) { ready = true; break; }
       } catch {}
       await delay(200);

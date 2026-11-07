@@ -14,6 +14,7 @@ import {DATA_ROOT} from './data-root';
 import {recoverInterruptedImport} from './import-journal';
 import {effectiveBackupLimits} from './backup-policy';
 import {effectiveHistoryLimits,selectHistoryPrune,HISTORY_DEFAULTS} from './history-policy';
+import {ensureLibraryPrepared} from './runtime-prepare';
 export const ROOT=DATA_ROOT;
 export const docsRoot=path.join(ROOT,'docs');
 export const uploadsRoot=path.join(ROOT,'uploads');
@@ -22,7 +23,7 @@ export const HISTORY_LIMITS=HISTORY_DEFAULTS;
 export type HistoryReason='edit'|'restore';
 export const REV_FILE=/^\d{4}-\d{2}-\d{2}T[\w-]+_[0-9a-f-]{36}\.md$/;
 export const defaults:Settings={theme:'dark',leftWidth:265,rightWidth:335,pinnedFolders:[],hiddenFolders:[],keymap:{}};
-const initial:DB={assets:[],folders:[],comments:[],navigationOrder:{},settings:defaults};
+const initial:DB={schemaVersion:1,assets:[],folders:[],comments:[],navigationOrder:{},settings:defaults};
 let singleton:ReturnType<typeof JSONFilePreset<DB>>|undefined;let serial:Promise<unknown>=Promise.resolve();
 let libraryTail:Promise<unknown>=Promise.resolve();
 const docLocks=new Map<string,Promise<unknown>>();
@@ -30,7 +31,7 @@ const activeTemps=new Set<string>();
 export function withLibraryLock<T>(fn:()=>Promise<T>):Promise<T>{const run=libraryTail.then(fn,fn);libraryTail=run.then(()=>undefined,()=>undefined);return run;}
 export function listActiveTemps(){return [...activeTemps];}
 function withDocLock<T>(id:string,fn:()=>Promise<T>):Promise<T>{const prev=docLocks.get(id)||Promise.resolve();const next=prev.catch(()=>{}).then(fn);docLocks.set(id,next);return next;}
-async function db(){if(!singleton)singleton=(async()=>{await mkdir(ROOT,{recursive:true});await recoverInterruptedImport();return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
+async function db(){if(!singleton)singleton=(async()=>{await ensureLibraryPrepared();await mkdir(ROOT,{recursive:true});await recoverInterruptedImport();return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
 function assetSource(value:unknown):AssetSource{return value==='paste'||value==='edit'?value:'upload';}
 function fill(d:DB){d.assets||=[];for(const asset of d.assets)asset.source=assetSource(asset.source);d.comments||=[];d.folders||=[];d.navigationOrder||={};d.settings={...defaults,...d.settings,keymap:cleanKeymap(d.settings?.keymap)};d.settings.history=effectiveHistoryLimits(d.settings);d.settings.backup=effectiveBackupLimits(d.settings);return d;}
 export async function readDB(){await serial.catch(()=>{});const x=await db();await x.read();return structuredClone(fill(x.data));}

@@ -4,7 +4,10 @@
   "scripts": {
     "package:release": "node scripts/package-release.mjs",
     "test:cli": "node --test scripts/test-cli.mjs",
+    "test:core": "node --test core/test/*.test.mjs",
     "test:package": "node scripts/test-package.mjs",
+    "test:upgrade-artifacts": "node scripts/test-upgrade-artifacts.mjs",
+    "check:distribution": "npm run check && npm run test:core && npm run test:cli",
     "setup": "npm --prefix app install",
     "dev": "npm --prefix app run dev",
     "build": "npm --prefix app run build",

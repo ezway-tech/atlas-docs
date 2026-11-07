@@ -133,5 +133,6 @@
       "operations/stock"
     ],
     "keymap": {}
-  }
+  },
+  "schemaVersion": 1
 }

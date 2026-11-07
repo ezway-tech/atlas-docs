@@ -95,6 +95,12 @@ Replace placeholders with verified instructions before delivery. Only link to fi
 6. Check front matter, supported paths, links, and examples. Reload the app after external edits and confirm the document appears when runtime verification is available. Do not claim this check ran if only the source was inspected.
 7. Report the files changed, checks performed, and remaining uncertainty. Never claim a command or feature works solely because the documentation says so.
 
+## CLI and library compatibility
+
+When using the npm package, available commands include `atlas-docs` / `atlas-docs start`, `atlas-docs library use|info`, `atlas-docs doctor`, and `atlas-docs update [--check]`. Confirm which commands exist in the installed version before documenting them as required steps.
+
+Before bulk disk edits, confirm the library path and schema compatibility (`atlas-docs library info`, `atlas-docs doctor`, or by opening the library once). Do not create a second library because a configured path is broken. Do not treat `.atlas/` guide manifests as the data schema. Schema compatibility comes from `db.json` `schemaVersion`.
+
 ## History and backups
 
 Direct file edits are discovered by catalog scans, but do not call the app save operation and do not create app revision history. Use Git for text change history or the app's editing flow when app revisions are required. Avoid simultaneous browser and agent edits, which can overwrite changes.

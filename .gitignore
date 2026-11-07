@@ -16,3 +16,5 @@ app/public/help-assets/
 # npm release output and local CLI libraries
 /dist/
 /atlas-docs-data/
+/.atlas-docs-upgrade-backups/
+atlas-docs.config.json
