@@ -70,7 +70,8 @@ export async function startServer(packageRoot, options) {
     }
     if (stopping) { await ended; return; }
     if (!ready) { stop(); await ended; throw failure || Error('Server did not become ready. See the error above.'); }
-    console.log(`[Atlas Docs] Ready: ${url}`);
+    // Write+flush so piped CI capture on Windows sees readiness promptly.
+    process.stdout.write(`[Atlas Docs] Ready: ${url}\n`);
     if (options.open) openBrowser(url).catch(error => console.warn(`[Atlas Docs] Could not open browser (${error.message}). Open ${url} manually.`));
     const code = await ended;
     if (!stopping && code !== 0) throw Error(`Server exited with code ${code}`);

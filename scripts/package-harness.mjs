@@ -65,11 +65,16 @@ export function createServerTracker() {
       child.on('error', error => {
         logs += error.message;
       });
-      for (let i = 0; i < 300; i++) {
+      for (let i = 0; i < 450; i++) {
         if (child.exitCode !== null) throw Error(logs || `CLI exited with ${child.exitCode}`);
         if (logs.includes('[Atlas Docs] Ready:')) {
           return {child, url: `http://127.0.0.1:${p}`, p, viaNpx, logs};
         }
+        // Windows CI may buffer CLI stdout; /api/health is the real readiness signal.
+        try {
+          const response = await fetch(`http://127.0.0.1:${p}/api/health`, {signal: AbortSignal.timeout(2000)});
+          if (response.ok) return {child, url: `http://127.0.0.1:${p}`, p, viaNpx, logs};
+        } catch {}
         await delay(200);
       }
       throw Error(`Startup timeout: ${logs}`);
