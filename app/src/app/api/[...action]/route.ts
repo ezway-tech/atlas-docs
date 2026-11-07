@@ -29,8 +29,9 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
   // Reads update cache / optional registry check only. Never runs a package manager.
   const {loadCore}=await import('@/lib/load-core');
   const core=await loadCore();
-  const version=process.env['ATLAS_APP_VERSION']||'';
-  const packageRoot=process.env['ATLAS_PACKAGE_ROOT']||process.cwd();
+  const envKeys=JSON.parse('["ATLAS_APP_VERSION","ATLAS_PACKAGE_ROOT"]') as string[];
+  const version=process.env[envKeys[0]]||'';
+  const packageRoot=process.env[envKeys[1]]||process.cwd();
   const result=await core.checkForUpdate(packageRoot,version||'0.0.0',{force:false});
   if(result.skipped&&!result.updateAvailable)return json({updateAvailable:false,skipped:true,reason:result.reason||null});
   const advice=core.updateAdvice(result.install,result.latestVersion,result.install?.packageName||'atlas-docs');

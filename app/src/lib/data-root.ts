@@ -1,4 +1,5 @@
 import path from 'node:path';
 
-// Dynamic env read so Next/webpack does not bake DATA_DIR at build time.
-export const DATA_ROOT = path.resolve(process.env['DATA_DIR'] || path.join(process.cwd(), '..', 'data'));
+// Opaque key so Next/webpack does not replace DATA_DIR with undefined at build time.
+const dataDirKey = (JSON.parse('["DATA_DIR"]') as string[])[0];
+export const DATA_ROOT = path.resolve(process.env[dataDirKey] || path.join(process.cwd(), '..', 'data'));
