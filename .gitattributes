@@ -1,0 +1,2 @@
+# Keep demo upload sizes stable across OS checkouts (no CRLF expansion).
+examples/little-cafe/uploads/** -text
