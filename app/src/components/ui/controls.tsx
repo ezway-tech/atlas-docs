@@ -2,6 +2,7 @@
 import React,{useEffect,useId,useState} from 'react';
 import {Slider as RSlider,Popover as RPopover} from 'radix-ui';
 import {HexColorPicker} from 'react-colorful';
+import {useLocale} from '../LocaleProvider';
 export const cx=(...parts:(string|undefined|false)[])=>parts.filter(Boolean).join(' ');
 export type ButtonProps=React.ComponentPropsWithRef<'button'>&{variant?:'primary'|'secondary'|'ghost'|'danger';size?:'sm'|'md'|'lg'};
 export function Button({variant,size='md',className,type='button',...props}:ButtonProps){return <button type={type} className={cx('ui-button',variant&&`btn ${variant}`,`ui-size-${size}`,className)} {...props}/>;}
@@ -16,7 +17,9 @@ export function NumberInput({value,onValueChange,min,max,step=1,...props}:Omit<R
 }
 export function Slider({value,onValueChange,label,className,...props}:Omit<React.ComponentPropsWithRef<typeof RSlider.Root>,'value'|'onValueChange'>&{value:number;onValueChange:(v:number)=>void;label:string}){return <RSlider.Root {...props} value={[value]} onValueChange={v=>onValueChange(v[0])} className={cx('ui-slider',className)}><RSlider.Track className="ui-slider-track"><RSlider.Range className="ui-slider-range"/></RSlider.Track><RSlider.Thumb className="ui-slider-thumb" aria-label={label}/></RSlider.Root>;}
 export function Popover({trigger,children,label,open,onOpenChange}:{trigger:React.ReactElement;children:React.ReactNode;label:string;open?:boolean;onOpenChange?:(v:boolean)=>void}){return <RPopover.Root open={open} onOpenChange={onOpenChange}><RPopover.Trigger asChild>{trigger}</RPopover.Trigger><RPopover.Portal><RPopover.Content aria-label={label} data-ui-popup="" className="ui-popover" sideOffset={6} collisionPadding={12}>{children}</RPopover.Content></RPopover.Portal></RPopover.Root>;}
-export function ColorPicker({value,onValueChange,disabled,label='Màu'}:{value:string;onValueChange:(v:string)=>void;disabled?:boolean;label?:string}){
+export function ColorPicker({value,onValueChange,disabled,label}:{value:string;onValueChange:(v:string)=>void;disabled?:boolean;label?:string}){
+ const {t}=useLocale();
+ const resolved=label??t('imageEditor.color');
  const [draft,setDraft]=useState(value);useEffect(()=>setDraft(value),[value]);
- return <Popover label={label} trigger={<Button className="ui-color-trigger" disabled={disabled} aria-label={label}><span style={{background:value}}/>{value.toUpperCase()}</Button>}><HexColorPicker color={value} onChange={onValueChange}/><Field label="Mã màu HEX"><Input value={draft} onChange={e=>{setDraft(e.target.value);if(/^#[0-9a-f]{6}$/i.test(e.target.value))onValueChange(e.target.value);}} onBlur={()=>setDraft(value)}/></Field><div className="ui-color-swatches">{['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#000000','#ffffff'].map(color=><IconButton key={color} label={color} style={{background:color}} onClick={()=>onValueChange(color)}/>)}</div></Popover>;
+ return <Popover label={resolved} trigger={<Button className="ui-color-trigger" disabled={disabled} aria-label={resolved}><span style={{background:value}}/>{value.toUpperCase()}</Button>}><HexColorPicker color={value} onChange={onValueChange}/><Field label={t('common.hexColor')}><Input value={draft} onChange={e=>{setDraft(e.target.value);if(/^#[0-9a-f]{6}$/i.test(e.target.value))onValueChange(e.target.value);}} onBlur={()=>setDraft(value)}/></Field><div className="ui-color-swatches">{['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#000000','#ffffff'].map(color=><IconButton key={color} label={color} style={{background:color}} onClick={()=>onValueChange(color)}/>)}</div></Popover>;
 }

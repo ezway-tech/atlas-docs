@@ -9,6 +9,7 @@ import type {UnzipFile} from 'fflate';
 import {ROOT,invalidateLibrary,readDB,withLibraryLock,historyOverLimit} from './store';
 import {assertDatabaseShape,assertLimits,assertManifest,classifyEntry,effectiveBackupLimits,tooManyBytes,tooManyFiles,zipTooBig,type BackupLimits,type BackupManifest} from './backup-policy';
 import {JOURNAL_PATH,recoverInterruptedImport,writeImportJournal,type ImportJournal} from './import-journal';
+import {AppError,isAppError} from './i18n/errors';
 
 const CHUNK=64*1024;
 const DIRS=['docs','uploads','history'] as const;
@@ -35,7 +36,7 @@ async function walk(dir:string,prefix:string,out:ListedFile[]){
   const rel=prefix+'/'+item.name,abs=path.join(dir,item.name);
   if(item.isDirectory())await walk(abs,rel,out);
   else if(item.isFile()){
-   if(classifyEntry(rel)!=='data')throw Error('Đường dẫn không an toàn: '+rel);
+   if(classifyEntry(rel)!=='data')throw new AppError('errors.backup.unsafePath',400,{rel});
    const info=await stat(abs);
    out.push({rel,abs,size:info.size,mtimeMs:info.mtimeMs});
   }
@@ -60,7 +61,7 @@ async function copySnapshot(files:ListedFile[],snap:string,limits:BackupLimits,b
  for(const file of files){
   sample(box);
   const now=await stat(file.abs);
-  if(now.size!==file.size||now.mtimeMs!==file.mtimeMs)throw Error('Dữ liệu thay đổi trong lúc xuất backup.');
+  if(now.size!==file.size||now.mtimeMs!==file.mtimeMs)throw new AppError('errors.backup.changedDuringExport');
   bytes+=now.size;
   if(files.length>limits.maxDataFiles)throw tooManyFiles(files.length,limits.maxDataFiles);
   if(bytes>limits.maxUncompressedBytes)throw tooManyBytes(bytes,limits.maxUncompressedBytes);
@@ -76,7 +77,7 @@ async function copySnapshot(files:ListedFile[],snap:string,limits:BackupLimits,b
     const slice=Buffer.from(buf.subarray(0,bytesRead));
     hash.update(slice);await out.write(slice);pos+=bytesRead;read+=bytesRead;sample(box);
    }
-   if(read!==file.size)throw Error('Dữ liệu thay đổi trong lúc xuất backup.');
+   if(read!==file.size)throw new AppError('errors.backup.changedDuringExport');
   }finally{await src.close();await out.close();}
   hashes.set(file.rel,hash.digest('hex'));
  }
@@ -133,7 +134,7 @@ export async function exportZip(options:BackupOptions={}){
    if(options.duringSnapshot)await options.duringSnapshot();
    const hashes=await copySnapshot(files,snap,limits,box);
    const again=await listDataFiles(ROOT);
-   if(!sameListing(files,again))throw Error('Dữ liệu thay đổi trong lúc xuất backup.');
+   if(!sameListing(files,again))throw new AppError('errors.backup.changedDuringExport');
    const manifest:BackupManifest={format:'atlas-docs',version:1,createdAt:new Date().toISOString(),files:Object.fromEntries(hashes)};
    await writeFile(path.join(snap,'atlas-manifest.json'),JSON.stringify(manifest));
    return {files,uncompressed};
@@ -150,7 +151,7 @@ export async function exportZip(options:BackupOptions={}){
 function inside(root:string,rel:string){
  const dest=path.resolve(root,...rel.split('/'));
  const diff=path.relative(path.resolve(root),dest);
- if(diff.startsWith('..')||path.isAbsolute(diff))throw Error('Đường dẫn thoát khỏi thư mục đích: '+rel);
+ if(diff.startsWith('..')||path.isAbsolute(diff))throw new AppError('errors.backup.escapeDest',400,{rel});
  return dest;
 }
 
@@ -163,7 +164,7 @@ async function extractZip(zipPath:string,stage:string,limits:BackupLimits,box:{p
  unzipper.register(UnzipInflate);unzipper.register(UnzipPassThrough);
  unzipper.onfile=(file:UnzipFile)=>{
   const kind=classifyEntry(file.name);
-  if(kind==='invalid'){stop(Error('Đường dẫn không an toàn: '+file.name));file.ondata=()=>{};try{file.start();}catch(e){stop(e as Error);}return;}
+  if(kind==='invalid'){stop(new AppError('errors.backup.unsafePath',400,{rel:file.name}));file.ondata=()=>{};try{file.start();}catch(e){stop(e as Error);}return;}
   let fd=-1;const hash=createHash('sha256');
   unfinished++;
   if(kind!=='directory'){const dest=inside(stage,file.name);mkdirSync(path.dirname(dest),{recursive:true});fd=openSync(dest,'w');}
@@ -181,7 +182,7 @@ async function extractZip(zipPath:string,stage:string,limits:BackupLimits,box:{p
      if(fd>=0){closeSync(fd);fd=-1;}
      if(kind==='directory')return;
      if(kind==='manifest'){manifestPath=inside(stage,file.name);return;}
-     if(hashes.has(file.name))throw Error('Tên tệp trùng: '+file.name);
+     if(hashes.has(file.name))throw new AppError('errors.backup.duplicateName',400,{name:file.name});
      count++;
      if(count>limits.maxDataFiles)throw tooManyFiles(count,limits.maxDataFiles);
      hashes.set(file.name,hash.digest('hex'));
@@ -202,13 +203,14 @@ async function extractZip(zipPath:string,stage:string,limits:BackupLimits,box:{p
  }catch(e){
   input.destroy();
   if(fatal)throw fatal;
-  throw e instanceof Error&&/^(Vượt quá|Đường dẫn|Tên tệp|Không phải|Checksum|Danh sách)/.test(e.message)?e:Error('ZIP hỏng hoặc bị cắt giữa chừng.');
+  if(isAppError(e))throw e;
+  throw new AppError('errors.backup.zipCorrupt');
  }
  if(fatal)throw fatal;
- if(unfinished)throw Error('ZIP hỏng hoặc bị cắt giữa chừng.');
- if(!manifestPath)throw Error('Không phải bản sao lưu Atlas.');
+ if(unfinished)throw new AppError('errors.backup.zipCorrupt');
+ if(!manifestPath)throw new AppError('errors.backup.notAtlas');
  const manifestStat=await stat(manifestPath);
- if(manifestStat.size>8*1024*1024)throw Error('Manifest quá lớn.');
+ if(manifestStat.size>8*1024*1024)throw new AppError('errors.backup.manifestTooBig');
  const manifest=JSON.parse(await readFile(manifestPath,'utf8')) as unknown;
  assertManifest(manifest,hashes);
  const dbPath=path.join(stage,'db.json');
@@ -261,12 +263,12 @@ export async function importZip(zipPath:string,options:BackupOptions={}){
  await recoverInterruptedImport();
  const zipStat=await stat(zipPath);
  if(zipStat.size>limits.maxZipBytes)throw zipTooBig(zipStat.size,limits.maxZipBytes);
- if(!await libraryEmpty())throw Error('Import only into empty data');
+ if(!await libraryEmpty())throw new AppError('errors.backup.importEmptyOnly');
  const stage=await mkdirTemp('atlas-import-');
  try{
   const extracted=await extractZip(zipPath,stage,limits,box);
   await withLibraryLock(async()=>{
-   if(!await libraryEmpty())throw Error('Import only into empty data');
+   if(!await libraryEmpty())throw new AppError('errors.backup.importEmptyOnly');
    await commitStage(stage,options.deleteZip===false?null:zipPath,options);
   });
   const historyOver=await historyOverLimit();
@@ -280,7 +282,7 @@ export async function importZip(zipPath:string,options:BackupOptions={}){
 
 export async function receiveZip(body:ReadableStream<Uint8Array>|null,limits?:BackupLimits){
  const cap=await activeLimits(limits);
- if(!body)throw Error('Cần tệp ZIP.');
+ if(!body)throw new AppError('errors.backup.zipRequired');
  const file=path.join(os.tmpdir(),`atlas-zip-${randomUUID()}.zip`);
  const out=createWriteStream(file);
  const reader=body.getReader();

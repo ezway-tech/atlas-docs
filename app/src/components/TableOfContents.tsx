@@ -5,6 +5,7 @@ import {headingTree,type Heading,type HeadingNode} from '@/lib/headings';
 import {Select} from './ui/select';
 import {Button,Popover} from './ui/controls';
 import {Tooltip} from './Tooltip';
+import {useLocale} from './LocaleProvider';
 
 const RANGE_KEY='atlas-toc-range',COLLAPSED_KEY='atlas-toc-collapsed';
 export function useTableOfContents(headings:Heading[],docId:string){
@@ -23,24 +24,26 @@ export function useTableOfContents(headings:Heading[],docId:string){
 }
 type TocState=ReturnType<typeof useTableOfContents>;
 export function TableOfContentsActions({state}:{state:TocState}){
+ const {t}=useLocale();
  const {range,collapsed,branches,changeRange,changeCollapsed}=state;
  return <div className="toc-actions">
- <Tooltip content="Thu gọn tất cả"><Button aria-label="Thu gọn tất cả" disabled={!branches.length} onClick={()=>changeCollapsed(branches)}><ChevronsDownUp size={14}/></Button></Tooltip>
- <Tooltip content="Mở tất cả"><Button aria-label="Mở tất cả" disabled={!collapsed.size} onClick={()=>changeCollapsed([])}><ChevronsUpDown size={14}/></Button></Tooltip>
- <Popover label="Cấu hình mục lục" trigger={<Button aria-label="Cấu hình mục lục" title="Cấu hình mục lục"><Settings size={14}/></Button>}><div className="toc-filters">
-  <label>Từ cấp<Select label="Từ cấp" value={String(range[0])} onValueChange={v=>changeRange([Number(v),range[1]])} options={[1,2,3,4,5,6].filter(n=>n<=range[1]).map(n=>({value:String(n),label:`H${n}`}))}/></label>
-  <label>Đến cấp<Select label="Đến cấp" value={String(range[1])} onValueChange={v=>changeRange([range[0],Number(v)])} options={[1,2,3,4,5,6].filter(n=>n>=range[0]).map(n=>({value:String(n),label:`H${n}`}))}/></label>
+ <Tooltip content={t('toc.collapseAll')}><Button aria-label={t('toc.collapseAll')} disabled={!branches.length} onClick={()=>changeCollapsed(branches)}><ChevronsDownUp size={14}/></Button></Tooltip>
+ <Tooltip content={t('toc.expandAll')}><Button aria-label={t('toc.expandAll')} disabled={!collapsed.size} onClick={()=>changeCollapsed([])}><ChevronsUpDown size={14}/></Button></Tooltip>
+ <Popover label={t('toc.config.label')} trigger={<Button aria-label={t('toc.config.label')} title={t('toc.config.label')}><Settings size={14}/></Button>}><div className="toc-filters">
+  <label>{t('toc.fromLevel')}<Select label={t('toc.fromLevel')} value={String(range[0])} onValueChange={v=>changeRange([Number(v),range[1]])} options={[1,2,3,4,5,6].filter(n=>n<=range[1]).map(n=>({value:String(n),label:`H${n}`}))}/></label>
+  <label>{t('toc.toLevel')}<Select label={t('toc.toLevel')} value={String(range[1])} onValueChange={v=>changeRange([range[0],Number(v)])} options={[1,2,3,4,5,6].filter(n=>n>=range[0]).map(n=>({value:String(n),label:`H${n}`}))}/></label>
  </div></Popover></div>;
 }
 export default function TableOfContents({headings,state,activeId,onJump}:{headings:Heading[];state:TocState;activeId:string;onJump:(heading:Heading,index:number)=>void}){
+ const {t}=useLocale();
  const {nodes,collapsed,changeCollapsed}=state;
  function render(nodes:HeadingNode[]):React.ReactNode{return <ul>{nodes.map(node=>{
   const hasChildren=node.children.length>0,closed=collapsed.has(node.id);
   return <li key={node.id}><div className="toc-row">
-   {hasChildren?<Button className="toc-toggle" aria-label={`${closed?'Mở rộng':'Thu gọn'} ${node.title}`} aria-expanded={!closed} onClick={()=>changeCollapsed(closed?[...collapsed].filter(id=>id!==node.id):[...collapsed,node.id])}>{closed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}</Button>:<span className="toc-spacer"/>}
+   {hasChildren?<Button className="toc-toggle" aria-label={`${closed?t('toc.toggle.expand'):t('toc.toggle.collapse')} ${node.title}`} aria-expanded={!closed} onClick={()=>changeCollapsed(closed?[...collapsed].filter(id=>id!==node.id):[...collapsed,node.id])}>{closed?<ChevronRight size={14}/>:<ChevronDown size={14}/>}</Button>:<span className="toc-spacer"/>}
    <a href={'#'+node.id} aria-current={activeId===node.id?'location':undefined} className={activeId===node.id?'active':''} onClick={event=>{event.preventDefault();onJump(node,headings.findIndex(h=>h.id===node.id));}}>{node.title}</a>
   </div>{hasChildren&&!closed&&render(node.children)}</li>;
  })}</ul>;}
  return <div className="toc-panel">
- {nodes.length?<nav className="toc-tree" aria-label="Mục lục tài liệu">{render(nodes)}</nav>:<p className="toc-empty">{headings.length?'Không có tiêu đề trong khoảng đã chọn.':'Bài chưa có tiêu đề.'}</p>}</div>;
+ {nodes.length?<nav className="toc-tree" aria-label={t('toc.navAria')}>{render(nodes)}</nav>:<p className="toc-empty">{headings.length?t('toc.empty.outOfRange'):t('toc.empty.noHeadings')}</p>}</div>;
 }

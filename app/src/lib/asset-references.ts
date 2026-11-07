@@ -3,6 +3,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {ROOT,docsRoot,historyRoot,uploadsRoot,REV_FILE,listActiveTemps,readDB,readLibrary,writeDB,withLibraryLock,invalidateLibrary} from './store';
 import {invalidateStorageStats} from './storage-stats';
+import {AppError} from './i18n/errors';
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TEMP=/\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/i;
@@ -94,7 +95,7 @@ export async function scanCleanup():Promise<CleanupReport>{
   if(current)continue;
   if(found.uncertain&&!history)continue;
   const group=history?'history':'unreferenced';
-  const reason=group==='history'?'Được dùng trong lịch sử.':'Có trong thư viện nhưng không thấy tham chiếu. Có thể là tệp bạn muốn giữ.';
+  const reason=group==='history'?'storage.cleanup.reason.usedInHistory':'storage.cleanup.reason.unreferencedMaybeKeep';
   rows.set(id,{id:asset.id,kind:'asset',group,size:info.size,mtimeMs:info.mtimeMs,reason,filename:asset.filename,recent:Date.parse(asset.createdAt)>=recentCut,storedName:asset.storedName});
  }
  const orphans:{name:string;bytes:number}[]=[];
@@ -115,7 +116,7 @@ export async function scanCleanup():Promise<CleanupReport>{
   const rel=path.relative(docsRoot,abs);
   if(rel.startsWith('..'))return;
   const id='temp:'+createHash('sha256').update(rel).digest('hex').slice(0,16);
-  rows.set(id,{id,kind:'temp',group:'temp',size:info.size,mtimeMs:info.mtimeMs,reason:'Tệp tạm của lần lưu đã kết thúc.',abs});
+  rows.set(id,{id,kind:'temp',group:'temp',size:info.size,mtimeMs:info.mtimeMs,reason:'storage.cleanup.reason.tempSaveEnded',abs});
  });
  const at=new Date().toISOString();
  preview={at,rows};
@@ -134,8 +135,8 @@ async function walkTemps(dir:string,fn:(abs:string)=>Promise<void>){
 }
 
 export async function applyCleanup(scannedAt:string,ids:unknown){
- if(!preview||preview.at!==scannedAt)throw Error('Bản xem trước đã cũ. Hãy quét lại.');
- if(!Array.isArray(ids)||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)throw Error('Danh sách tệp không hợp lệ.');
+ if(!preview||preview.at!==scannedAt)throw new AppError('errors.cleanup.previewStale');
+ if(!Array.isArray(ids)||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)throw new AppError('errors.cleanup.invalidIdList');
  const chosen=ids as string[];
  return withLibraryLock(async()=>{
   const found=await collectReferences();
@@ -146,22 +147,22 @@ export async function applyCleanup(scannedAt:string,ids:unknown){
   const planned:{id:string;abs:string;assetId?:string;size:number}[]=[];
   for(const id of chosen){
    const row=id.startsWith('temp:')?preview!.rows.get(id):preview!.rows.get(id.toLowerCase());
-   if(!row){failed.push({id,error:'Không có trong bản xem trước.'});continue;}
-   if(row.group==='history'){skipped.push({id,reason:'Được dùng trong lịch sử.'});continue;}
+   if(!row){failed.push({id,error:'errors.cleanup.notInPreview'});continue;}
+   if(row.group==='history'){skipped.push({id,reason:'storage.cleanup.reason.usedInHistory'});continue;}
    if(row.kind==='temp'){
-    if(!row.abs||!TEMP.test(path.basename(row.abs))||path.relative(docsRoot,row.abs).startsWith('..')){failed.push({id,error:'Tệp tạm không còn hợp lệ.'});continue;}
-    if(listActiveTemps().some(item=>path.resolve(item)===path.resolve(row.abs!))){skipped.push({id,reason:'Tệp tạm đang được dùng.'});continue;}
-    let info;try{info=await lstat(row.abs);}catch{failed.push({id,error:'Tệp không còn.'});continue;}
-    if(info.isSymbolicLink()||info.size!==row.size||info.mtimeMs!==row.mtimeMs){skipped.push({id,reason:'Tệp đã đổi.'});continue;}
+    if(!row.abs||!TEMP.test(path.basename(row.abs))||path.relative(docsRoot,row.abs).startsWith('..')){failed.push({id,error:'errors.cleanup.tempInvalid'});continue;}
+    if(listActiveTemps().some(item=>path.resolve(item)===path.resolve(row.abs!))){skipped.push({id,reason:'storage.cleanup.reason.tempInUse'});continue;}
+    let info;try{info=await lstat(row.abs);}catch{failed.push({id,error:'errors.cleanup.fileGone'});continue;}
+    if(info.isSymbolicLink()||info.size!==row.size||info.mtimeMs!==row.mtimeMs){skipped.push({id,reason:'storage.cleanup.reason.fileChanged'});continue;}
     planned.push({id,abs:row.abs,size:info.size});continue;
    }
    const asset=db.assets.find(item=>item.id.toLowerCase()===row.id.toLowerCase());
-   if(!asset){failed.push({id,error:'Bản ghi không còn.'});continue;}
+   if(!asset){failed.push({id,error:'errors.cleanup.recordGone'});continue;}
    const key=asset.id.toLowerCase();
-   if(found.current.has(key)||found.history.has(key)||found.uncertain){skipped.push({id,reason:found.history.has(key)&&!found.current.has(key)?'Được dùng trong lịch sử.':'Đang được dùng hoặc chưa đủ thông tin.'});continue;}
+   if(found.current.has(key)||found.history.has(key)||found.uncertain){skipped.push({id,reason:found.history.has(key)&&!found.current.has(key)?'storage.cleanup.reason.usedInHistory':'storage.cleanup.reason.inUseOrUncertain'});continue;}
    const abs=path.join(uploadsRoot,asset.storedName);
-   let info;try{info=await lstat(abs);}catch{failed.push({id,error:'Tệp không còn trên đĩa.'});continue;}
-   if(info.isSymbolicLink()||info.size!==row.size||info.mtimeMs!==row.mtimeMs){skipped.push({id,reason:'Tệp đã đổi.'});continue;}
+   let info;try{info=await lstat(abs);}catch{failed.push({id,error:'errors.cleanup.fileGoneOnDisk'});continue;}
+   if(info.isSymbolicLink()||info.size!==row.size||info.mtimeMs!==row.mtimeMs){skipped.push({id,reason:'storage.cleanup.reason.fileChanged'});continue;}
    planned.push({id:asset.id,abs,assetId:asset.id,size:info.size});
   }
   const assetIds=planned.flatMap(item=>item.assetId?[item.assetId]:[]);

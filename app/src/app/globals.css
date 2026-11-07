@@ -178,8 +178,9 @@ button.aside-toggle{width:calc(100% - 10px);padding:0;text-align:left;cursor:poi
  .history-footer-btns{width:100%}
  .history-footer-btns .btn.primary{flex:1}
 }
-.tools-trigger{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
-.tools-trigger svg{width:16px;height:16px}
+.tools-trigger{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;min-width:0;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.tools-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:12em}
+.tools-trigger svg{width:16px;height:16px;flex-shrink:0}
 @media(max-width:700px){.top-actions .tools-trigger{justify-content:center;align-items:center;width:42px;height:42px;padding:0;gap:0;border:0;background:transparent}.top-actions .tools-trigger svg:last-child{display:none}}
 .library-modal{width:min(720px,96vw);max-height:min(860px,calc(100dvh - 48px));overflow:auto}
 .library-modal .modal-heading{position:sticky;top:0;z-index:2;align-items:center;background:var(--surface);padding-bottom:8px}

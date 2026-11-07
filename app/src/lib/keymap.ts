@@ -1,3 +1,7 @@
+import {AppError} from './i18n/errors';
+import {DEFAULT_LOCALE} from './i18n/locales';
+import {translate} from './i18n/translate';
+
 export type Chord={mod?:boolean;alt?:boolean;shift?:boolean;key:string};
 export type Keymap=Record<string,Chord|null>;
 export type Scope='global'|'library'|'reader'|'editor'|'source'|'resource'|'image'|'history';
@@ -6,96 +10,102 @@ export type FieldMode=boolean|'source';
 export type Command={id:string;label:string;group:GroupId;scope:Scope;default:Chord|null;allowInField:FieldMode;alias?:Chord};
 export type KeyRuntime={dialog:string|null;search:boolean;menu:boolean;resource:boolean;editing:boolean;source:boolean;doc:boolean};
 
+const t=(key:string)=>translate(DEFAULT_LOCALE,key);
+
 export const groups:{id:GroupId;label:string}[]=[
- {id:'chung',label:'Chung'},
- {id:'thu-vien',label:'Thư viện'},
- {id:'doc',label:'Đọc bài'},
- {id:'soan',label:'Soạn thảo'},
- {id:'tai-nguyen',label:'Tài nguyên'},
- {id:'anh',label:'Chỉnh ảnh'},
+ {id:'chung',label:t('keymap.groups.chung')},
+ {id:'thu-vien',label:t('keymap.groups.thu-vien')},
+ {id:'doc',label:t('keymap.groups.doc')},
+ {id:'soan',label:t('keymap.groups.soan')},
+ {id:'tai-nguyen',label:t('keymap.groups.tai-nguyen')},
+ {id:'anh',label:t('keymap.groups.anh')},
 ];
 
 const mod=(key:string,extra:Partial<Chord>={}):Chord=>({mod:true,key,...extra});
 const bare=(key:string):Chord=>({key});
 
+function command(id:string,group:GroupId,scope:Scope,defaults:Chord|null,allowInField:FieldMode,alias?:Chord):Command{
+ return {id,label:t(`keymap.commands.${id}`),group,scope,default:defaults,allowInField,alias};
+}
+
 export const commands:Command[]=[
- {id:'search',label:'Tìm thư viện',group:'chung',scope:'global',default:mod('k'),allowInField:true},
- {id:'keymap',label:'Mở phím tắt',group:'chung',scope:'global',default:bare('?'),allowInField:false},
- {id:'theme',label:'Đổi giao diện',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'panel.left',label:'Ẩn hoặc hiện thư viện',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'panel.right',label:'Ẩn hoặc hiện bình luận',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'home',label:'Về trang chủ',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'media',label:'Mở tài nguyên',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'export',label:'Xuất ZIP',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'import',label:'Import ZIP',group:'chung',scope:'global',default:null,allowInField:false},
- {id:'topic.new',label:'Tạo chủ đề',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'doc.new',label:'Bài viết mới',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'folder.child',label:'Folder con',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'folder.edit',label:'Sửa folder',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'tree.expand',label:'Mở tất cả thư mục',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'tree.collapse',label:'Thu gọn tất cả thư mục',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'branch.expand',label:'Mở nhánh hiện tại',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'branch.collapse',label:'Thu gọn nhánh hiện tại',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'folder.pin',label:'Ghim hoặc bỏ ghim',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'folder.hide',label:'Ẩn hoặc hiện khỏi sidebar',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'search.folder',label:'Tìm trong thư mục',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'folder.delete',label:'Xóa folder',group:'thu-vien',scope:'library',default:null,allowInField:false},
- {id:'find',label:'Tìm trong bài',group:'doc',scope:'reader',default:mod('f'),allowInField:false},
- {id:'comment',label:'Bình luận vùng chọn',group:'doc',scope:'reader',default:mod('m',{alt:true}),allowInField:false},
- {id:'doc.edit',label:'Sửa bài',group:'doc',scope:'reader',default:null,allowInField:false},
- {id:'history',label:'Lịch sử',group:'doc',scope:'reader',default:null,allowInField:false},
- {id:'history.restore',label:'Khôi phục phiên bản',group:'doc',scope:'history',default:null,allowInField:false},
- {id:'tab.comments',label:'Tab bình luận',group:'doc',scope:'reader',default:null,allowInField:false},
- {id:'tab.toc',label:'Tab mục lục',group:'doc',scope:'reader',default:null,allowInField:false},
- {id:'doc.delete',label:'Xóa bài',group:'doc',scope:'reader',default:null,allowInField:false},
- {id:'comment.delete',label:'Xóa bình luận',group:'doc',scope:'reader',default:null,allowInField:false},
- {id:'save',label:'Lưu',group:'soan',scope:'editor',default:mod('s'),allowInField:true},
- {id:'edit.close',label:'Đóng bài đang sửa',group:'soan',scope:'editor',default:null,allowInField:false},
- {id:'insert.asset',label:'Chèn tài nguyên',group:'soan',scope:'editor',default:null,allowInField:false},
- {id:'mode.visual',label:'Chế độ Visual',group:'soan',scope:'editor',default:null,allowInField:false},
- {id:'mode.source',label:'Chế độ Source',group:'soan',scope:'editor',default:null,allowInField:false},
- {id:'mode.split',label:'Chế độ Split',group:'soan',scope:'editor',default:null,allowInField:false},
- {id:'mode.preview',label:'Chế độ Preview',group:'soan',scope:'editor',default:null,allowInField:false},
- {id:'format.paragraph',label:'Đoạn văn',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.h1',label:'Tiêu đề 1',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.h4',label:'Tiêu đề 4',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.h5',label:'Tiêu đề 5',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.h6',label:'Tiêu đề 6',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.h2',label:'Tiêu đề 2',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.h3',label:'Tiêu đề 3',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.bold',label:'Đậm',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.italic',label:'Nghiêng',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.link',label:'Liên kết',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.list',label:'Danh sách',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.number',label:'Danh sách số',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.task',label:'Việc cần làm',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.quote',label:'Trích dẫn',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.code',label:'Code',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.table',label:'Bảng',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.mermaid',label:'Sơ đồ',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'format.divider',label:'Đường kẻ',group:'soan',scope:'source',default:null,allowInField:'source'},
- {id:'resource.find',label:'Tìm tài nguyên',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'resource.upload',label:'Tải tệp lên',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'resource.view',label:'Đổi dạng lưới hoặc danh sách',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'resource.copy',label:'Sao chép liên kết',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'resource.download',label:'Tải xuống',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'resource.rename',label:'Đổi tên tệp',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'resource.delete',label:'Xóa tệp',group:'tai-nguyen',scope:'resource',default:null,allowInField:false},
- {id:'image.select',label:'Chọn',group:'anh',scope:'image',default:bare('v'),allowInField:false},
- {id:'image.crop',label:'Cắt',group:'anh',scope:'image',default:bare('c'),allowInField:false},
- {id:'image.pen',label:'Vẽ',group:'anh',scope:'image',default:bare('b'),allowInField:false},
- {id:'image.arrow',label:'Mũi tên',group:'anh',scope:'image',default:bare('a'),allowInField:false},
- {id:'image.rect',label:'Khung',group:'anh',scope:'image',default:bare('r'),allowInField:false},
- {id:'image.text',label:'Chữ',group:'anh',scope:'image',default:bare('t'),allowInField:false},
- {id:'image.remove',label:'Xóa nét',group:'anh',scope:'image',default:bare('Delete'),allowInField:false},
- {id:'image.undo',label:'Hoàn tác ảnh',group:'anh',scope:'image',default:mod('z'),allowInField:true},
- {id:'image.redo',label:'Làm lại ảnh',group:'anh',scope:'image',default:mod('z',{shift:true}),alias:mod('y'),allowInField:true},
+ command('search','chung','global',mod('k'),true),
+ command('keymap','chung','global',bare('?'),false),
+ command('theme','chung','global',null,false),
+ command('panel.left','chung','global',null,false),
+ command('panel.right','chung','global',null,false),
+ command('home','chung','global',null,false),
+ command('media','chung','global',null,false),
+ command('export','chung','global',null,false),
+ command('import','chung','global',null,false),
+ command('topic.new','thu-vien','library',null,false),
+ command('doc.new','thu-vien','library',null,false),
+ command('folder.child','thu-vien','library',null,false),
+ command('folder.edit','thu-vien','library',null,false),
+ command('tree.expand','thu-vien','library',null,false),
+ command('tree.collapse','thu-vien','library',null,false),
+ command('branch.expand','thu-vien','library',null,false),
+ command('branch.collapse','thu-vien','library',null,false),
+ command('folder.pin','thu-vien','library',null,false),
+ command('folder.hide','thu-vien','library',null,false),
+ command('search.folder','thu-vien','library',null,false),
+ command('folder.delete','thu-vien','library',null,false),
+ command('find','doc','reader',mod('f'),false),
+ command('comment','doc','reader',mod('m',{alt:true}),false),
+ command('doc.edit','doc','reader',null,false),
+ command('history','doc','reader',null,false),
+ command('history.restore','doc','history',null,false),
+ command('tab.comments','doc','reader',null,false),
+ command('tab.toc','doc','reader',null,false),
+ command('doc.delete','doc','reader',null,false),
+ command('comment.delete','doc','reader',null,false),
+ command('save','soan','editor',mod('s'),true),
+ command('edit.close','soan','editor',null,false),
+ command('insert.asset','soan','editor',null,false),
+ command('mode.visual','soan','editor',null,false),
+ command('mode.source','soan','editor',null,false),
+ command('mode.split','soan','editor',null,false),
+ command('mode.preview','soan','editor',null,false),
+ command('format.paragraph','soan','source',null,'source'),
+ command('format.h1','soan','source',null,'source'),
+ command('format.h4','soan','source',null,'source'),
+ command('format.h5','soan','source',null,'source'),
+ command('format.h6','soan','source',null,'source'),
+ command('format.h2','soan','source',null,'source'),
+ command('format.h3','soan','source',null,'source'),
+ command('format.bold','soan','source',null,'source'),
+ command('format.italic','soan','source',null,'source'),
+ command('format.link','soan','source',null,'source'),
+ command('format.list','soan','source',null,'source'),
+ command('format.number','soan','source',null,'source'),
+ command('format.task','soan','source',null,'source'),
+ command('format.quote','soan','source',null,'source'),
+ command('format.code','soan','source',null,'source'),
+ command('format.table','soan','source',null,'source'),
+ command('format.mermaid','soan','source',null,'source'),
+ command('format.divider','soan','source',null,'source'),
+ command('resource.find','tai-nguyen','resource',null,false),
+ command('resource.upload','tai-nguyen','resource',null,false),
+ command('resource.view','tai-nguyen','resource',null,false),
+ command('resource.copy','tai-nguyen','resource',null,false),
+ command('resource.download','tai-nguyen','resource',null,false),
+ command('resource.rename','tai-nguyen','resource',null,false),
+ command('resource.delete','tai-nguyen','resource',null,false),
+ command('image.select','anh','image',bare('v'),false),
+ command('image.crop','anh','image',bare('c'),false),
+ command('image.pen','anh','image',bare('b'),false),
+ command('image.arrow','anh','image',bare('a'),false),
+ command('image.rect','anh','image',bare('r'),false),
+ command('image.text','anh','image',bare('t'),false),
+ command('image.remove','anh','image',bare('Delete'),false),
+ command('image.undo','anh','image',mod('z'),true),
+ command('image.redo','anh','image',mod('z',{shift:true}),true,bare('y')),
 ];
 
 export const fixedKeys:{label:string;keys:string}[]=[
- {label:'Đóng lớp trên cùng',keys:'Escape'},
- {label:'Kết quả sau trong ô tìm',keys:'Enter'},
- {label:'Kết quả trước trong ô tìm',keys:'Shift+Enter'},
+ {label:t('keymap.fixed.closeTop'),keys:'Escape'},
+ {label:t('keymap.fixed.findNext'),keys:'Enter'},
+ {label:t('keymap.fixed.findPrev'),keys:'Shift+Enter'},
 ];
 
 const byId=new Map(commands.map(command=>[command.id,command]));
@@ -147,10 +157,10 @@ function reserved(chord:Chord){
 }
 
 function chordAllowed(command:Command,chord:Chord){
- if(reserved(chord))return 'Phím này dành cho trình duyệt';
+ if(reserved(chord))return 'keymap.validation.browserReserved';
  if(command.scope==='image')return '';
  if(command.id==='keymap'&&sameChord(chord,bare('?')))return '';
- if(!chord.mod&&!chord.alt)return 'Lệnh này cần Ctrl hoặc Alt';
+ if(!chord.mod&&!chord.alt)return 'keymap.validation.needsModifier';
  return '';
 }
 
@@ -206,18 +216,18 @@ function parseChord(value:unknown):Chord|null{
 }
 
 export function sanitizeKeymap(input:unknown):Keymap{
- if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Keymap không hợp lệ');
+ if(!input||typeof input!=='object'||Array.isArray(input))throw new AppError('keymap.validation.invalidMap');
  const next:Keymap={};
  for(const [id,value] of Object.entries(input as Record<string,unknown>)){
   const command=commandById(id);
   if(!command)continue;
   if(value===null){next[id]=null;continue;}
   const chord=parseChord(value);
-  if(!chord)throw Error('Phím không hợp lệ');
+  if(!chord)throw new AppError('keymap.validation.invalidKey');
   const reason=chordAllowed(command,chord);
-  if(reason)throw Error(reason);
+  if(reason)throw new AppError(reason);
   const other=conflictWith(id,chord,next);
-  if(other)throw Error('Đang dùng cho '+other.label);
+  if(other)throw new AppError('keymap.validation.conflict',400,{label:other.id});
   next[id]=chord;
  }
  return next;

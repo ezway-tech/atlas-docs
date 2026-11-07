@@ -2,6 +2,7 @@ import {mkdir,readFile,rename,rm,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {DATA_ROOT} from './data-root';
+import {AppError} from './i18n/errors';
 
 export const JOURNAL_PATH=path.join(DATA_ROOT,'.import-journal.json');
 const PREVIOUS_DB=path.join(DATA_ROOT,'.db.json.import-previous');
@@ -31,11 +32,11 @@ export async function recoverInterruptedImport(){
  let raw:string;
  try{raw=await readFile(JOURNAL_PATH,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
  const journal=JSON.parse(raw) as ImportJournal;
- if(!journal||(journal.status!=='preparing'&&journal.status!=='committed'))throw Error('Nhật ký nhập không hợp lệ.');
- if(journal.stage&&!insideTmp(journal.stage))throw Error('Nhật ký nhập có thư mục tạm không hợp lệ.');
- if(journal.zip&&!insideTmp(journal.zip))throw Error('Nhật ký nhập có tệp ZIP không hợp lệ.');
- if(journal.previousDb&&path.resolve(journal.previousDb)!==path.resolve(PREVIOUS_DB))throw Error('Nhật ký nhập có bản cơ sở dữ liệu không hợp lệ.');
- const exact=(items:string[])=>{for(const item of items)if(!DEST[path.resolve(item)])throw Error('Nhật ký nhập có đường dẫn không hợp lệ.');};
+ if(!journal||(journal.status!=='preparing'&&journal.status!=='committed'))throw new AppError('errors.importJournal.invalid');
+ if(journal.stage&&!insideTmp(journal.stage))throw new AppError('errors.importJournal.badStage');
+ if(journal.zip&&!insideTmp(journal.zip))throw new AppError('errors.importJournal.badZip');
+ if(journal.previousDb&&path.resolve(journal.previousDb)!==path.resolve(PREVIOUS_DB))throw new AppError('errors.importJournal.badDb');
+ const exact=(items:string[])=>{for(const item of items)if(!DEST[path.resolve(item)])throw new AppError('errors.importJournal.badPath');};
  exact(journal.removed||[]);exact(journal.committed||[]);
  if(journal.status==='preparing'){
   for(const dest of journal.committed||[])await rm(dest,{recursive:true,force:true});

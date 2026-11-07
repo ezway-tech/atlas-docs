@@ -1,5 +1,9 @@
 # Little Café image assets
 
+[Documentation home](../README.md)
+
+Paths below are relative to the repository root.
+
 Created using the built-in OpenAI ImageGen tool. These are generated photographic-style images, not photographs of a real café. Both outputs are 1536 × 1024 PNGs. Existing asset IDs and filenames are preserved for compatibility.
 
 ## Menu cover

@@ -16,6 +16,7 @@
     "test:references": "npm --prefix app run test:references",
     "test:history-policy": "npm --prefix app run test:history-policy",
     "test:library-ui": "npm --prefix app run test:library-ui",
+    "test:i18n": "npm --prefix app run test:i18n",
     "test:resources": "npm --prefix app run test:resources",
     "test:demo": "npm --prefix app run test:demo",
     "test:ui": "npm --prefix app run test:ui",

@@ -6,6 +6,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {X,Minus,Plus,Expand,Minimize} from 'lucide-react';
 import {useKeymap} from './KeymapProvider';
 import {Tooltip} from './Tooltip';
+import {useLocale} from './LocaleProvider';
 
 export type ZoomMode='medium'|'fullscreen';
 type Props={initialMode?:ZoomMode;image?:{src:string;alt:string};svg?:string;onClose:()=>void};
@@ -67,6 +68,7 @@ function measureSvg(svgEl:SVGSVGElement){
 }
 
 export default function ZoomLayer({image,svg,onClose,initialMode='fullscreen'}:Props){
+  const {t}=useLocale();
   const [mode,setMode]=useState<ZoomMode>(initialMode);
   const frame=useRef<HTMLDivElement>(null);
   const box=useRef<HTMLDivElement>(null);
@@ -150,14 +152,14 @@ export default function ZoomLayer({image,svg,onClose,initialMode='fullscreen'}:P
   useEffect(()=>km.pushLayer('zoom',70,()=>{onClose();return true;}),[km,onClose]);
 
 
-  return <Dialog closeOnOutside={mode==='medium'} overlayClassName={`zoom-overlay zoom-${mode}`} title="Phóng to" onOpenChange={v=>{if(!v)onClose();}}>
-    <div className="zoom-layer" data-mode={mode} role="dialog" aria-label="Phóng to">
+  return <Dialog closeOnOutside={mode==='medium'} overlayClassName={`zoom-overlay zoom-${mode}`} title={t('preview.zoom.title')} onOpenChange={v=>{if(!v)onClose();}}>
+    <div className="zoom-layer" data-mode={mode} role="dialog" aria-label={t('preview.zoom.title')}>
       <div className="zoom-bar">
-        <UiButton aria-label="Thu nhỏ" disabled={view.scale<=0.05} onClick={()=>zoomAt(1/1.2)}><Minus size={18}/></UiButton>
-        <Tooltip content="Vừa khung"><UiButton className="zoom-scale" aria-label="Vừa khung" onClick={()=>fit()}><output aria-label="Tỷ lệ phóng to">{Math.round(view.scale*100)}%</output></UiButton></Tooltip>
-        <UiButton aria-label="Phóng lớn" disabled={view.scale>=4} onClick={()=>zoomAt(1.2)}><Plus size={18}/></UiButton>
-        <UiButton aria-label={mode==='medium'?'Toàn màn hình':'Khung vừa'} onClick={()=>{fitMode.current=true;setMode(v=>v==='medium'?'fullscreen':'medium');scheduleFit();}}>{mode==='medium'?<Expand size={18}/>:<Minimize size={18}/>}</UiButton>
-        <Tooltip content="Đóng"><UiButton type="button" className="zoom-icon" aria-label="Đóng" onClick={onClose}><X size={18}/></UiButton></Tooltip>
+        <UiButton aria-label={t('preview.zoom.zoomOut')} disabled={view.scale<=0.05} onClick={()=>zoomAt(1/1.2)}><Minus size={18}/></UiButton>
+        <Tooltip content={t('preview.zoom.fit')}><UiButton className="zoom-scale" aria-label={t('preview.zoom.fit')} onClick={()=>fit()}><output aria-label={t('preview.zoom.scaleAria')}>{Math.round(view.scale*100)}%</output></UiButton></Tooltip>
+        <UiButton aria-label={t('preview.zoom.zoomIn')} disabled={view.scale>=4} onClick={()=>zoomAt(1.2)}><Plus size={18}/></UiButton>
+        <UiButton aria-label={mode==='medium'?t('preview.zoom.fullscreen'):t('preview.zoom.medium')} onClick={()=>{fitMode.current=true;setMode(v=>v==='medium'?'fullscreen':'medium');scheduleFit();}}>{mode==='medium'?<Expand size={18}/>:<Minimize size={18}/>}</UiButton>
+        <Tooltip content={t('common.close')}><UiButton type="button" className="zoom-icon" aria-label={t('common.close')} onClick={onClose}><X size={18}/></UiButton></Tooltip>
       </div>
       <div className="zoom-frame" ref={bindFrame}
         onPointerDown={e=>{if(e.button!==0)return;fitMode.current=false;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);drag.current={px:e.clientX,py:e.clientY,x:viewRef.current.x,y:viewRef.current.y};}}

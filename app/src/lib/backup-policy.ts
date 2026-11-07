@@ -1,3 +1,7 @@
+import {AppError} from './i18n/errors';
+import {DEFAULT_LOCALE} from './i18n/locales';
+import {translate} from './i18n/translate';
+
 export const MIB=1024*1024;
 
 export type BackupLimits={maxUncompressedBytes:number;maxZipBytes:number;maxDataFiles:number};
@@ -14,11 +18,17 @@ const DATA_ROOTS=['docs','uploads','history'] as const;
 
 export function formatBytes(n:number){if(!Number.isFinite(n)||n<0)return '0 B';if(n<1024)return Math.round(n)+' B';if(n<MIB)return Math.round(n/1024)+' KiB';const mib=n/MIB;return (Math.round(mib*10)/10)+' MiB';}
 
-export function tooManyFiles(actual:number,limit:number){return new Error(`Vượt quá ${limit} tệp dữ liệu (đang có ${actual}).`);}
-export function tooManyBytes(actual:number,limit:number){return new Error(`Vượt quá ${formatBytes(limit)} dữ liệu chưa nén (đang có ${formatBytes(actual)}).`);}
-export function zipTooBig(actual:number,limit:number){return new Error(`Vượt quá ${formatBytes(limit)} dung lượng ZIP (đang có ${formatBytes(actual)}).`);}
+export function tooManyFiles(actual:number,limit:number){return new AppError('errors.backup.tooManyFiles',400,{actual:String(actual),limit:String(limit)});}
+export function tooManyBytes(actual:number,limit:number){return new AppError('errors.backup.tooManyBytes',400,{actual:formatBytes(actual),limit:formatBytes(limit)});}
+export function zipTooBig(actual:number,limit:number){return new AppError('errors.backup.zipTooBig',400,{actual:formatBytes(actual),limit:formatBytes(limit)});}
 
 function finiteInt(n:unknown):n is number{return typeof n==='number'&&Number.isInteger(n)&&n>=1;}
+
+const LIMIT_LABEL_KEYS:Record<keyof BackupLimits,string>={
+ maxUncompressedBytes:'backup.limits.dataMiB',
+ maxZipBytes:'backup.limits.zipMiB',
+ maxDataFiles:'backup.limits.fileCount',
+};
 
 export function effectiveBackupLimits(settings:{backup?:Partial<BackupLimits>}|null|undefined):BackupLimits{
  const b=settings?.backup;
@@ -27,13 +37,13 @@ export function effectiveBackupLimits(settings:{backup?:Partial<BackupLimits>}|n
 }
 
 export function parseBackupLimits(input:unknown):BackupLimits{
- if(!input||typeof input!=='object')throw Error('Giới hạn backup không hợp lệ.');
+ if(!input||typeof input!=='object')throw new AppError('errors.backup.limitsInvalid');
  const o=input as Record<string,unknown>;
  const limits={maxUncompressedBytes:o.maxUncompressedBytes,maxZipBytes:o.maxZipBytes,maxDataFiles:o.maxDataFiles};
- const labels:Record<keyof BackupLimits,string>={maxUncompressedBytes:'Dung lượng chưa nén',maxZipBytes:'Dung lượng ZIP',maxDataFiles:'Số tệp dữ liệu'};
- for(const key of Object.keys(labels) as (keyof BackupLimits)[]){
+ for(const key of Object.keys(LIMIT_LABEL_KEYS) as (keyof BackupLimits)[]){
   const n=limits[key];
-  if(!finiteInt(n)||n>BACKUP_LIMIT_CEILING[key])throw Error(`${labels[key]} phải là số nguyên từ 1 đến ${key==='maxDataFiles'?BACKUP_LIMIT_CEILING[key]:formatBytes(BACKUP_LIMIT_CEILING[key])}.`);
+  const max=key==='maxDataFiles'?String(BACKUP_LIMIT_CEILING[key]):formatBytes(BACKUP_LIMIT_CEILING[key]);
+  if(!finiteInt(n)||n>BACKUP_LIMIT_CEILING[key])throw new AppError('errors.backup.limitOutOfRange',400,{label:translate(DEFAULT_LOCALE,LIMIT_LABEL_KEYS[key]),max});
  }
  return limits as BackupLimits;
 }
@@ -59,40 +69,40 @@ export function classifyEntry(name:string):'data'|'manifest'|'directory'|'invali
 }
 
 export function assertManifest(manifest:unknown,actual:Map<string,string>){
- if(!manifest||typeof manifest!=='object'||Array.isArray(manifest))throw Error('Không phải bản sao lưu Atlas.');
+ if(!manifest||typeof manifest!=='object'||Array.isArray(manifest))throw new AppError('errors.backup.notAtlas');
  const m=manifest as {format?:unknown;version?:unknown;files?:unknown};
- if(m.format!=='atlas-docs'||m.version!==1||!m.files||typeof m.files!=='object'||Array.isArray(m.files))throw Error('Không phải bản sao lưu Atlas.');
- if(!actual.has('db.json'))throw Error('Không phải bản sao lưu Atlas.');
+ if(m.format!=='atlas-docs'||m.version!==1||!m.files||typeof m.files!=='object'||Array.isArray(m.files))throw new AppError('errors.backup.notAtlas');
+ if(!actual.has('db.json'))throw new AppError('errors.backup.notAtlas');
  const files=m.files as Record<string,unknown>;
  const keys=Object.keys(files);
- if(new Set(keys).size!==keys.length)throw Error('Tên tệp trùng trong manifest.');
- if(keys.length!==actual.size)throw Error(`Danh sách tệp không khớp manifest (${actual.size} tệp, manifest ghi ${keys.length}).`);
+ if(new Set(keys).size!==keys.length)throw new AppError('errors.backup.duplicateManifestName');
+ if(keys.length!==actual.size)throw new AppError('errors.backup.manifestMismatch',400,{actual:String(actual.size),expected:String(keys.length)});
  for(const key of keys){
-  if(typeof files[key]!=='string'||!actual.has(key))throw Error('Danh sách tệp không khớp manifest: '+key);
-  if(files[key]!==actual.get(key))throw Error('Checksum không khớp: '+key);
+  if(typeof files[key]!=='string'||!actual.has(key))throw new AppError('errors.backup.manifestMismatchKey',400,{key});
+  if(files[key]!==actual.get(key))throw new AppError('errors.backup.checksum',400,{key});
  }
- for(const key of actual.keys())if(!(key in files))throw Error('Danh sách tệp không khớp manifest: '+key);
+ for(const key of actual.keys())if(!(key in files))throw new AppError('errors.backup.manifestMismatchKey',400,{key});
 }
 
 export function assertDatabaseShape(value:unknown){
- if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Cơ sở dữ liệu không hợp lệ.');
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new AppError('errors.backup.dbInvalid');
  const db=value as Record<string,unknown>;
- if(!Array.isArray(db.comments)||!Array.isArray(db.folders)||!Array.isArray(db.assets))throw Error('Cơ sở dữ liệu không hợp lệ.');
+ if(!Array.isArray(db.comments)||!Array.isArray(db.folders)||!Array.isArray(db.assets))throw new AppError('errors.backup.dbInvalid');
  for(const asset of db.assets){
-  if(!asset||typeof asset!=='object')throw Error('Cơ sở dữ liệu không hợp lệ.');
+  if(!asset||typeof asset!=='object')throw new AppError('errors.backup.dbInvalid');
   const row=asset as Record<string,unknown>;
-  if(typeof row.id!=='string'||typeof row.storedName!=='string')throw Error('Cơ sở dữ liệu không hợp lệ.');
-  if(!row.storedName||row.storedName.includes('/')||row.storedName.includes('\\')||row.storedName.includes('..')||row.storedName.startsWith('.'))throw Error('Liên kết tệp đính kèm không hợp lệ.');
+  if(typeof row.id!=='string'||typeof row.storedName!=='string')throw new AppError('errors.backup.dbInvalid');
+  if(!row.storedName||row.storedName.includes('/')||row.storedName.includes('\\')||row.storedName.includes('..')||row.storedName.startsWith('.'))throw new AppError('errors.backup.attachmentLink');
  }
  for(const folder of db.folders){
-  if(!folder||typeof folder!=='object')throw Error('Cơ sở dữ liệu không hợp lệ.');
+  if(!folder||typeof folder!=='object')throw new AppError('errors.backup.dbInvalid');
   const row=folder as Record<string,unknown>;
-  if(typeof row.path!=='string'||row.path.includes('..')||row.path.includes('\\'))throw Error('Liên kết thư mục không hợp lệ.');
-  if(row.imageId!=null&&typeof row.imageId!=='string')throw Error('Liên kết ảnh bìa không hợp lệ.');
+  if(typeof row.path!=='string'||row.path.includes('..')||row.path.includes('\\'))throw new AppError('errors.backup.folderLink');
+  if(row.imageId!=null&&typeof row.imageId!=='string')throw new AppError('errors.backup.coverLink');
  }
  for(const comment of db.comments){
-  if(!comment||typeof comment!=='object')throw Error('Cơ sở dữ liệu không hợp lệ.');
+  if(!comment||typeof comment!=='object')throw new AppError('errors.backup.dbInvalid');
   const row=comment as Record<string,unknown>;
-  if(typeof row.content!=='string'||typeof row.docId!=='string')throw Error('Liên kết bình luận không hợp lệ.');
+  if(typeof row.content!=='string'||typeof row.docId!=='string')throw new AppError('errors.backup.commentLink');
  }
 }

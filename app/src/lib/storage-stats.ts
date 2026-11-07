@@ -4,7 +4,7 @@ import {ROOT,REV_FILE,readDB} from './store';
 import {effectiveBackupLimits,formatBytes,type BackupLimits} from './backup-policy';
 
 export type StorageGroup={bytes:number;files:number};
-export type StorageWarning={level:'warn'|'block';text:string};
+export type StorageWarning={level:'warn'|'block';key:string;params:Record<string,string|number>};
 export type StorageStats={
  scannedAt:string;totalBytes:number;totalFiles:number;backupBytes:number;backupFiles:number;complete:boolean;
  documents:StorageGroup;history:StorageGroup;historyMeta:StorageGroup;observed:StorageGroup;attachments:StorageGroup;database:StorageGroup;
@@ -74,12 +74,14 @@ async function scan():Promise<StorageStats>{
   if(backup){stats.backupBytes+=bytes;stats.backupFiles++;}
  });
  stats.zipEstimateBytes=stats.backupBytes+stats.backupFiles*128;
- const warn=(used:number,limit:number,label:string,bytes:boolean)=>{
-  if(used>limit)stats.warnings.push({level:'block',text:`Không backup được: ${label} vượt hạn (${bytes?formatBytes(used):used} / ${bytes?formatBytes(limit):limit}).`});
-  else if(limit>0&&used>=limit*0.8)stats.warnings.push({level:'warn',text:`${label} đã đạt ${Math.floor(used/limit*100)}% hạn.`});
+ const warn=(used:number,limit:number,labelKey:string,bytes:boolean)=>{
+  const usedLabel=bytes?formatBytes(used):used;
+  const limitLabel=bytes?formatBytes(limit):limit;
+  if(used>limit)stats.warnings.push({level:'block',key:'storage.warning.backupBlock',params:{label:labelKey,used:usedLabel,limit:limitLabel}});
+  else if(limit>0&&used>=limit*0.8)stats.warnings.push({level:'warn',key:'storage.warning.backupPercent',params:{label:labelKey,percent:Math.floor(used/limit*100)}});
  };
- warn(stats.backupBytes,limits.maxUncompressedBytes,'Dung lượng chưa nén',true);
- warn(stats.backupFiles,limits.maxDataFiles,'Số tệp',false);
- warn(stats.zipEstimateBytes,limits.maxZipBytes,'Ước tính ZIP',true);
+ warn(stats.backupBytes,limits.maxUncompressedBytes,'storage.limit.data',true);
+ warn(stats.backupFiles,limits.maxDataFiles,'storage.limit.files',false);
+ warn(stats.zipEstimateBytes,limits.maxZipBytes,'storage.limit.zipEstimate',true);
  return stats;
 }

@@ -13,6 +13,7 @@ import ZoomLayer,{type ZoomMode} from './ZoomLayer';
 import SourceEditor,{embedHeight,monacoLanguage,type EditorRef} from './SourceEditor';
 import OpenApiView from './OpenApiView';
 import SqlView from './SqlView';
+import {useLocale} from './LocaleProvider';
 
 function hash(t:string){let n=2166136261;for(const c of t){n=Math.imul(n^c.charCodeAt(0),16777619);}return (n>>>0).toString(36);}
 export function plain(node:React.ReactNode):string{if(typeof node==='string'||typeof node==='number')return String(node);if(Array.isArray(node))return node.map(plain).join('');if(React.isValidElement<{children?:React.ReactNode}>(node))return plain(node.props.children);return '';}
@@ -50,6 +51,7 @@ function atlasTheme(dark:boolean){
 }
 
 function Diagram({code,onZoom,dark}:{code:string;onZoom:(svg:string,mode:ZoomMode)=>void;dark:boolean}){
+  const {t}=useLocale();
   const ref=useRef<HTMLDivElement>(null),[error,setError]=useState('');
   useEffect(()=>{
     let cancelled=false;
@@ -82,7 +84,7 @@ function Diagram({code,onZoom,dark}:{code:string;onZoom:(svg:string,mode:ZoomMod
     return()=>{cancelled=true;};
   },[code,dark]);
   const open=(mode:ZoomMode)=>{const html=ref.current?.innerHTML||'';if(html.includes('<svg'))onZoom(html,mode);};
-  return <div className="diagram zoom-preview">{error?<pre>{error}</pre>:<><UiButton type="button" className="diagram-open" aria-label="Phóng to sơ đồ" onClick={()=>open('medium')}><div className="diagram-scroll"><div ref={ref}/></div></UiButton><UiButton className="preview-fullscreen" aria-label="Xem sơ đồ toàn màn hình" onClick={()=>open('fullscreen')}><Expand size={18}/></UiButton></>}</div>;
+  return <div className="diagram zoom-preview">{error?<pre>{error}</pre>:<><UiButton type="button" className="diagram-open" aria-label={t('reader.zoomDiagram')} onClick={()=>open('medium')}><div className="diagram-scroll"><div ref={ref}/></div></UiButton><UiButton className="preview-fullscreen" aria-label={t('reader.zoomDiagramFullscreen')} onClick={()=>open('fullscreen')}><Expand size={18}/></UiButton></>}</div>;
 }
 
 function FenceMonaco({value,language,dark}:{value:string;language:string;dark:boolean}){
@@ -91,23 +93,25 @@ function FenceMonaco({value,language,dark}:{value:string;language:string;dark:bo
 }
 
 function Code({children,language,onZoom,dark}:{children:React.ReactNode;language:string;onZoom:(svg:string,mode:ZoomMode)=>void;dark:boolean}){
+  const {t}=useLocale();
   const [copied,setCopied]=useState(false),value=String(children||'').replace(/\n$/,'');
   const lang=language.trim().toLowerCase();
   if(lang==='mermaid')return <Diagram code={value} onZoom={onZoom} dark={dark}/>;
   if(lang==='sql')return <div className="md-embed md-sql"><SqlView source={value} dark={dark} diagramOnly compact/></div>;
   if((lang==='yaml'||lang==='yml')&&looksLikeOpenApi(value))return <div className="md-embed md-openapi"><OpenApiView source={value} dark={dark}/></div>;
   const monacoLang=monacoLanguage(lang);
-  if(monacoLang)return <div className="code-block md-code-monaco"><div className="code-heading"><span>{language.toUpperCase()||'TEXT'}</span><Tooltip content={copied?'Đã sao chép':'Sao chép'}><UiButton type="button" aria-label="Sao chép" onClick={async()=>{await navigator.clipboard.writeText(value);setCopied(true);setTimeout(()=>setCopied(false),1100);}}>{copied?<Check size={14}/>:<Copy size={14}/>}</UiButton></Tooltip></div><FenceMonaco value={value} language={monacoLang} dark={dark}/></div>;
-  return <div className="code-block"><div className="code-heading"><span>{language.toUpperCase()||'TEXT'}</span><Tooltip content={copied?'Đã sao chép':'Sao chép'}><UiButton type="button" aria-label="Sao chép" onClick={async()=>{await navigator.clipboard.writeText(value);setCopied(true);setTimeout(()=>setCopied(false),1100);}}>{copied?<Check size={14}/>:<Copy size={14}/>}</UiButton></Tooltip></div><pre><code>{value}</code></pre></div>;
+  const copyTip=copied?t('common.copied'):t('common.copy');
+  if(monacoLang)return <div className="code-block md-code-monaco"><div className="code-heading"><span>{language.toUpperCase()||'TEXT'}</span><Tooltip content={copyTip}><UiButton type="button" aria-label={t('common.copy')} onClick={async()=>{await navigator.clipboard.writeText(value);setCopied(true);setTimeout(()=>setCopied(false),1100);}}>{copied?<Check size={14}/>:<Copy size={14}/>}</UiButton></Tooltip></div><FenceMonaco value={value} language={monacoLang} dark={dark}/></div>;
+  return <div className="code-block"><div className="code-heading"><span>{language.toUpperCase()||'TEXT'}</span><Tooltip content={copyTip}><UiButton type="button" aria-label={t('common.copy')} onClick={async()=>{await navigator.clipboard.writeText(value);setCopied(true);setTimeout(()=>setCopied(false),1100);}}>{copied?<Check size={14}/>:<Copy size={14}/>}</UiButton></Tooltip></div><pre><code>{value}</code></pre></div>;
 }
 
-function highlight(children:React.ReactNode,comments:Comment[],open:(id:string)=>void):React.ReactNode{
+function highlight(children:React.ReactNode,comments:Comment[],open:(id:string)=>void,goLabel:string):React.ReactNode{
   if(typeof children==='string'){
     const matches=comments.filter(c=>c.quote&&children.includes(c.quote));if(!matches.length)return children;
-    let cursor=0;const result:React.ReactNode[]=[];while(cursor<children.length){const first=matches.map(c=>({c,i:children.indexOf(c.quote,cursor)})).filter(x=>x.i>=0).sort((a,b)=>a.i-b.i)[0];if(!first){result.push(children.slice(cursor));break;}result.push(children.slice(cursor,first.i));result.push(<Tooltip key={`${cursor}-${first.c.id}`} content="Đi tới bình luận"><mark onClick={()=>open(first.c.id)} className="comment-mark">{first.c.quote}</mark></Tooltip>);cursor=first.i+first.c.quote.length;}return result;
+    let cursor=0;const result:React.ReactNode[]=[];while(cursor<children.length){const first=matches.map(c=>({c,i:children.indexOf(c.quote,cursor)})).filter(x=>x.i>=0).sort((a,b)=>a.i-b.i)[0];if(!first){result.push(children.slice(cursor));break;}result.push(children.slice(cursor,first.i));result.push(<Tooltip key={`${cursor}-${first.c.id}`} content={goLabel}><mark onClick={()=>open(first.c.id)} className="comment-mark">{first.c.quote}</mark></Tooltip>);cursor=first.i+first.c.quote.length;}return result;
   }
-  if(Array.isArray(children))return children.map((x,i)=><React.Fragment key={i}>{highlight(x,comments,open)}</React.Fragment>);
-  if(React.isValidElement<{children?:React.ReactNode}>(children))return React.cloneElement(children,{},highlight(children.props.children,comments,open));return children;
+  if(Array.isArray(children))return children.map((x,i)=><React.Fragment key={i}>{highlight(x,comments,open,goLabel)}</React.Fragment>);
+  if(React.isValidElement<{children?:React.ReactNode}>(children))return React.cloneElement(children,{},highlight(children.props.children,comments,open,goLabel));return children;
 }
 
 const SPEC_EXT=/\.(md|ya?ml|sql|json)$/i;
@@ -125,6 +129,7 @@ function resolveDocHref(docId:string,href:string){
 }
 
 export default function Markdown({content,docId,comments=[],activeId,onComment,findBlock,dark=false}:{content:string;docId:string;comments?:Comment[];activeId?:string|null;onComment?:(id:string)=>void;findBlock?:string;dark?:boolean}){
+  const {t}=useLocale();
   const [zoom,setZoom]=useState<{image?:{src:string;alt:string};svg?:string;mode:ZoomMode}|null>(null);
   const articleRef=useRef<HTMLElement>(null),openerIndex=useRef(-1);
   const openZoom=(value:NonNullable<typeof zoom>)=>{
@@ -135,7 +140,7 @@ export default function Markdown({content,docId,comments=[],activeId,onComment,f
     setZoom(null);
     requestAnimationFrame(()=>articleRef.current?.querySelectorAll('button')[openerIndex.current]?.focus());
   };
-  const annotate=(tag:'p'|'h1'|'h2'|'h3'|'li'|'blockquote',children:React.ReactNode,rest:Record<string,unknown>)=>{const text=plain(children),id=blockId(text);const found=comments.filter(c=>c.blockId===id||(!!c.quote&&text.includes(c.quote))),active=found.some(c=>c.id===activeId);const result=highlight(children,found,onComment||(()=>{}));const pins=onComment&&found.length>0?<span className="comment-pins">{found.map((c,i)=><Tooltip key={c.id} content={`Bình luận ${i+1}`}><UiButton type="button" onClick={()=>onComment(c.id)} aria-label={`Bình luận ${i+1}`} className={c.id===activeId?'focused':''}><MessageCircle size={13}/>{i+1}</UiButton></Tooltip>)}</span>:null;const props={...rest,'data-block':id,className:`md-block ${found.length?'has-comment':''} ${active?'active-comment':''} ${id===findBlock?'find-current':''}`};switch(tag){case'p':return <p {...props}>{result}{pins}</p>;case'h1':return <h1 {...props}>{result}{pins}</h1>;case'h2':return <h2 {...props}>{result}{pins}</h2>;case'h3':return <h3 {...props}>{result}{pins}</h3>;case'li':return <li {...props}>{result}{pins}</li>;default:return <blockquote {...props}>{result}{pins}</blockquote>;}};
+  const annotate=(tag:'p'|'h1'|'h2'|'h3'|'li'|'blockquote',children:React.ReactNode,rest:Record<string,unknown>)=>{const text=plain(children),id=blockId(text);const found=comments.filter(c=>c.blockId===id||(!!c.quote&&text.includes(c.quote))),active=found.some(c=>c.id===activeId);const result=highlight(children,found,onComment||(()=>{}),t('reader.commentGoTo'));const pins=onComment&&found.length>0?<span className="comment-pins">{found.map((c,i)=><Tooltip key={c.id} content={t('reader.commentPin',{n:i+1})}><UiButton type="button" onClick={()=>onComment(c.id)} aria-label={t('reader.commentPin',{n:i+1})} className={c.id===activeId?'focused':''}><MessageCircle size={13}/>{i+1}</UiButton></Tooltip>)}</span>:null;const props={...rest,'data-block':id,className:`md-block ${found.length?'has-comment':''} ${active?'active-comment':''} ${id===findBlock?'find-current':''}`};switch(tag){case'p':return <p {...props}>{result}{pins}</p>;case'h1':return <h1 {...props}>{result}{pins}</h1>;case'h2':return <h2 {...props}>{result}{pins}</h2>;case'h3':return <h3 {...props}>{result}{pins}</h3>;case'li':return <li {...props}>{result}{pins}</li>;default:return <blockquote {...props}>{result}{pins}</blockquote>;}};
   const components={
     p:({children,...rest}:any)=>annotate('p',children,rest),
     h1:({children,...rest}:any)=>annotate('h1',children,rest),
@@ -153,7 +158,7 @@ export default function Markdown({content,docId,comments=[],activeId,onComment,f
       const url=String(href||'');
       return <a href={url} target={url.startsWith('http')?'_blank':undefined} rel="noreferrer">{children}</a>;
     },
-    img:({src,alt}:any)=><span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?`Phóng to ảnh: ${alt}`:"Phóng to ảnh"} onClick={()=>openZoom({mode:'medium',image:{src:String(src||''),alt:String(alt||'Ảnh minh họa')}})}><img className="md-image" src={src} alt={alt||'Ảnh minh họa'}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?`Xem ảnh toàn màn hình: ${alt}`:'Xem ảnh toàn màn hình'} onClick={()=>openZoom({mode:'fullscreen',image:{src:String(src||''),alt:String(alt||'Ảnh minh họa')}})}><Expand size={18}/></UiButton></span>,
+    img:({src,alt}:any)=>{const altText=String(alt||t('reader.imageAltDefault'));return <span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomImage')} onClick={()=>openZoom({mode:'medium',image:{src:String(src||''),alt:altText}})}><img className="md-image" src={src} alt={altText}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomFullscreen')} onClick={()=>openZoom({mode:'fullscreen',image:{src:String(src||''),alt:altText}})}><Expand size={18}/></UiButton></span>;},
     code:({children,className,...rest}:any)=><code className={className} {...rest}>{children}</code>
   };
   const wiki=markdownWiki(content);

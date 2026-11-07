@@ -3,6 +3,7 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronLeft,ChevronRight} from 'lucide-react';
 import {Button as UiButton} from './ui/controls';
 import {buildHistoryDiff,type Cell,type Row,type Segment} from '@/lib/history-diff';
+import {useLocale} from './LocaleProvider';
 
 export type DiffMode='split'|'unified';
 
@@ -35,15 +36,16 @@ function scrollToHunk(root:HTMLDivElement|null,index:number){
  const top=el.getBoundingClientRect().top-root.getBoundingClientRect().top+root.scrollTop-headH-4;
  root.scrollTo({top:Math.max(0,top)});
 }
-function Block({segment,mode,open,onToggle}:{segment:Segment;mode:DiffMode;open:boolean;onToggle:()=>void}){
+function Block({segment,mode,open,onToggle,expandLabel,collapseLabel}:{segment:Segment;mode:DiffMode;open:boolean;onToggle:()=>void;expandLabel:string;collapseLabel:string}){
  if(segment.type==='skip'){
-  if(!open)return <UiButton type="button" className="diff-skip" onClick={onToggle}>⋯ {segment.count} dòng không đổi — mở rộng</UiButton>;
-  return <div className="diff-expanded">{mode==='split'?<SplitRows rows={segment.rows}/>:<div className="diff-unified">{unifiedLines(segment.rows)}</div>}<UiButton type="button" className="diff-skip" onClick={onToggle}>Thu gọn {segment.count} dòng không đổi</UiButton></div>;
+  if(!open)return <UiButton type="button" className="diff-skip" onClick={onToggle}>{expandLabel}</UiButton>;
+  return <div className="diff-expanded">{mode==='split'?<SplitRows rows={segment.rows}/>:<div className="diff-unified">{unifiedLines(segment.rows)}</div>}<UiButton type="button" className="diff-skip" onClick={onToggle}>{collapseLabel}</UiButton></div>;
  }
  return <div className="diff-hunk" data-hunk={segment.index}>{mode==='split'?<SplitRows rows={segment.rows}/>:<div className="diff-unified">{unifiedLines(segment.rows)}</div>}</div>;
 }
 
 export default function Diff({before,after,mode,canSplit,onMode,onShowContent}:{before:string;after:string;mode:DiffMode;canSplit:boolean;onMode:(mode:DiffMode)=>void;onShowContent?:()=>void}){
+ const {t}=useLocale();
  const result=useMemo(()=>buildHistoryDiff(before,after),[before,after]);
  const [hunk,setHunk]=useState(0);
  const [open,setOpen]=useState<Record<string,boolean>>({});
@@ -61,23 +63,23 @@ export default function Diff({before,after,mode,canSplit,onMode,onShowContent}:{
   setHunk(index);
   scrollToHunk(scroller.current,index);
  }
- if(result.identical)return <div className="history-empty">Nội dung giống bản hiện tại</div>;
- if(result.tooLarge)return <div className="history-empty">Tài liệu quá dài để tính diff từng dòng.<div className="history-diff-actions">{onShowContent&&<UiButton className="btn ghost" type="button" onClick={onShowContent}>Xem nội dung bản này</UiButton>}</div></div>;
+ if(result.identical)return <div className="history-empty">{t('history.diff.identical')}</div>;
+ if(result.tooLarge)return <div className="history-empty">{t('history.diff.tooLarge')}<div className="history-diff-actions">{onShowContent&&<UiButton className="btn ghost" type="button" onClick={onShowContent}>{t('history.diff.viewThisVersion')}</UiButton>}</div></div>;
  return <div className="history-diff">
   <div className="history-diff-bar">
    {result.hunks>1&&<span className="history-diff-nav">
-    <UiButton type="button" aria-label="Vùng trước" disabled={hunk<=0} onClick={()=>go(hunk-1)}><ChevronLeft size={16}/></UiButton>
-    <span className="history-diff-pos">Vùng {hunk+1}/{result.hunks}</span>
-    <UiButton type="button" aria-label="Vùng sau" disabled={hunk>=result.hunks-1} onClick={()=>go(hunk+1)}><ChevronRight size={16}/></UiButton>
+    <UiButton type="button" aria-label={t('history.diff.hunkPrev')} disabled={hunk<=0} onClick={()=>go(hunk-1)}><ChevronLeft size={16}/></UiButton>
+    <span className="history-diff-pos">{t('history.diff.hunkPos',{current:hunk+1,total:result.hunks})}</span>
+    <UiButton type="button" aria-label={t('history.diff.hunkNext')} disabled={hunk>=result.hunks-1} onClick={()=>go(hunk+1)}><ChevronRight size={16}/></UiButton>
    </span>}
    <span className="history-mode">
-    <UiButton type="button" className={mode==='split'?'active':''} aria-pressed={mode==='split'} disabled={!canSplit} onClick={()=>onMode('split')}>Song song</UiButton>
-    <UiButton type="button" className={mode==='unified'?'active':''} aria-pressed={mode==='unified'} onClick={()=>onMode('unified')}>Gộp</UiButton>
+    <UiButton type="button" className={mode==='split'?'active':''} aria-pressed={mode==='split'} disabled={!canSplit} onClick={()=>onMode('split')}>{t('history.diff.mode.split')}</UiButton>
+    <UiButton type="button" className={mode==='unified'?'active':''} aria-pressed={mode==='unified'} onClick={()=>onMode('unified')}>{t('history.diff.mode.unified')}</UiButton>
    </span>
   </div>
   <div className="history-diff-view" ref={scroller}>
-   {mode==='split'&&<div className="diff-split-row diff-split-head"><div>Bản đã chọn</div><div>Hiện tại</div></div>}
-   {result.segments.map(segment=><Block key={segment.type==='skip'?segment.key:'h'+segment.index} segment={segment} mode={mode} open={segment.type==='skip'?!!open[segment.key]:false} onToggle={()=>segment.type==='skip'&&setOpen(state=>({...state,[segment.key]:!state[segment.key]}))}/>)}
+   {mode==='split'&&<div className="diff-split-row diff-split-head"><div>{t('history.diff.col.before')}</div><div>{t('history.diff.col.after')}</div></div>}
+   {result.segments.map(segment=><Block key={segment.type==='skip'?segment.key:'h'+segment.index} segment={segment} mode={mode} open={segment.type==='skip'?!!open[segment.key]:false} onToggle={()=>segment.type==='skip'&&setOpen(state=>({...state,[segment.key]:!state[segment.key]}))} expandLabel={t('history.diff.skip.expand',{count:segment.type==='skip'?segment.count:0})} collapseLabel={t('history.diff.skip.collapse',{count:segment.type==='skip'?segment.count:0})}/>)}
   </div>
  </div>;
 }

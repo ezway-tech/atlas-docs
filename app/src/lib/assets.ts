@@ -1,3 +1,5 @@
+import {AppError} from './i18n/errors';
+
 export const MAX_ASSET_SIZE = 50 * 1024 * 1024;
 export const ASSET_TYPES: Record<string, string> = {
   png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif',
@@ -17,13 +19,13 @@ export function assetKind(mime:string) {
 }
 export const assetAccept = (imagesOnly=false) => Object.entries(ASSET_TYPES).filter(([,mime])=>!imagesOnly||assetKind(mime)==='image').map(([ext])=>'.'+ext).join(',');
 export function validateAsset(file:{name:string;size:number;type:string},imagesOnly=false){
-  if(!file.size) throw Error('Tệp rỗng.');
-  if(file.size>MAX_ASSET_SIZE) throw Error('Tệp vượt quá 50 MB.');
+  if(!file.size) throw new AppError('errors.asset.empty');
+  if(file.size>MAX_ASSET_SIZE) throw new AppError('errors.asset.tooLarge');
   const ext=assetExtension(file.name), mime=ASSET_TYPES[ext];
-  if(!mime || (imagesOnly&&assetKind(mime)!=='image')) throw Error('Định dạng tệp không được hỗ trợ.');
+  if(!mime || (imagesOnly&&assetKind(mime)!=='image')) throw new AppError('errors.asset.unsupportedType');
   const aliases:Record<string,string[]>={zip:['application/x-zip-compressed'],wav:['audio/x-wav','audio/wave'],csv:['application/vnd.ms-excel','text/plain'],json:['text/plain']};
-  if(file.type && file.type!=='application/octet-stream' && file.type!==mime && !aliases[ext]?.includes(file.type)) throw Error('Đuôi tệp không khớp loại nội dung.');
-  if(file.name.length>180 || /[\x00-\x1f/\\]/.test(file.name)) throw Error('Tên tệp không hợp lệ.');
+  if(file.type && file.type!=='application/octet-stream' && file.type!==mime && !aliases[ext]?.includes(file.type)) throw new AppError('errors.asset.extensionMismatch');
+  if(file.name.length>180 || /[\x00-\x1f/\\]/.test(file.name)) throw new AppError('errors.asset.invalidName');
   return {ext:'.'+ext,mime};
 }
 export const assetSize=(size:number)=>size<1024?`${size} B`:size<1024*1024?`${(size/1024).toFixed(1)} KB`:`${(size/1024/1024).toFixed(1)} MB`;

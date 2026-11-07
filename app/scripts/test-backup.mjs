@@ -50,20 +50,20 @@ try{
  const manifest=(files)=>({format:'atlas-docs',version:1,createdAt:'2026-01-01T00:00:00.000Z',files});
  const goodFiles={'db.json':db};
  const good=manifest({ 'db.json':sha(db) });
- await assert.rejects(async()=>backup.importZip(await saveZip('short.zip',{}),{deleteZip:false,limits:huge}),/ZIP hỏng|Không phải bản sao lưu/);
+ await assert.rejects(async()=>backup.importZip(await saveZip('short.zip',{}),{deleteZip:false,limits:huge}),/ZIP hỏng|Không phải bản sao lưu|corrupt|Not an Atlas/);
  assert.deepEqual(await snapshot(root),before);
- await assert.rejects(async()=>backup.importZip(await saveZip('bad-manifest.zip',{'db.json':db,'atlas-manifest.json':strToU8('{"format":"nope","version":1,"files":{}}')}),{deleteZip:false,limits:huge}),/Không phải bản sao lưu/);
- await assert.rejects(async()=>backup.importZip(await saveZip('checksum.zip',{'db.json':db,'atlas-manifest.json':strToU8(JSON.stringify(manifest({'db.json':'00'})))}),{deleteZip:false,limits:huge}),/Checksum không khớp/);
- await assert.rejects(async()=>backup.importZip(await saveZip('extra.zip',{'db.json':db,'docs/a.md':strToU8('x'),'atlas-manifest.json':strToU8(JSON.stringify(good))}),{deleteZip:false,limits:huge}),/không khớp manifest/);
- await assert.rejects(async()=>backup.importZip(await saveZip('missing.zip',{'atlas-manifest.json':strToU8(JSON.stringify(good))}),{deleteZip:false,limits:huge}),/không khớp manifest|Không phải bản sao lưu/);
- await assert.rejects(async()=>backup.importZip(await saveZip('escape.zip',{'../outside.txt':strToU8('nope'),'atlas-manifest.json':strToU8('{}')}),{deleteZip:false,limits:huge}),/Đường dẫn không an toàn|Không phải bản sao lưu|ZIP hỏng/);
+ await assert.rejects(async()=>backup.importZip(await saveZip('bad-manifest.zip',{'db.json':db,'atlas-manifest.json':strToU8('{"format":"nope","version":1,"files":{}}')}),{deleteZip:false,limits:huge}),/Không phải bản sao lưu|Not an Atlas/);
+ await assert.rejects(async()=>backup.importZip(await saveZip('checksum.zip',{'db.json':db,'atlas-manifest.json':strToU8(JSON.stringify(manifest({'db.json':'00'})))}),{deleteZip:false,limits:huge}),/Checksum/);
+ await assert.rejects(async()=>backup.importZip(await saveZip('extra.zip',{'db.json':db,'docs/a.md':strToU8('x'),'atlas-manifest.json':strToU8(JSON.stringify(good))}),{deleteZip:false,limits:huge}),/không khớp manifest|does not match the manifest/);
+ await assert.rejects(async()=>backup.importZip(await saveZip('missing.zip',{'atlas-manifest.json':strToU8(JSON.stringify(good))}),{deleteZip:false,limits:huge}),/không khớp manifest|Không phải bản sao lưu|Not an Atlas|does not match the manifest/);
+ await assert.rejects(async()=>backup.importZip(await saveZip('escape.zip',{'../outside.txt':strToU8('nope'),'atlas-manifest.json':strToU8('{}')}),{deleteZip:false,limits:huge}),/Đường dẫn không an toàn|Không phải bản sao lưu|ZIP hỏng|Unsafe path|Not an Atlas|corrupt/);
  assert.deepEqual(await snapshot(root),before);
  assert.equal(await readdir(outside).then(names=>names.length),0);
  const valid=await saveZip('valid.zip',{...goodFiles,'atlas-manifest.json':strToU8(JSON.stringify(good))});
  const truncated=path.join(zips,'cut.zip');
  const whole=await readFile(valid);
  await writeFile(truncated,whole.subarray(0,Math.max(8,Math.floor(whole.length/2))));
- await assert.rejects(()=>backup.importZip(truncated,{deleteZip:false,limits:huge}),/ZIP hỏng|Không phải bản sao lưu|Checksum/);
+ await assert.rejects(()=>backup.importZip(truncated,{deleteZip:false,limits:huge}),/ZIP hỏng|Không phải bản sao lưu|Checksum|corrupt|Not an Atlas/);
  assert.deepEqual(await snapshot(root),before);
 
  await store.createFolder('','Notes',null);
@@ -71,9 +71,9 @@ try{
  await store.saveDoc('notes/hello','---\ntitle: "Hello"\n---\n\n# Hello\n');
  const listed=await backup.listDataFiles(root);
  const bytes=listed.reduce((sum,file)=>sum+file.size,0);
- await assert.rejects(()=>backup.exportZip({limits:{...huge,maxDataFiles:listed.length-1}}),/tệp dữ liệu/);
- await assert.rejects(()=>backup.exportZip({limits:{...huge,maxUncompressedBytes:bytes-1}}),/chưa nén/);
- await assert.rejects(()=>backup.exportZip({limits:{...huge,maxZipBytes:1}}),/ZIP/);
+ await assert.rejects(()=>backup.exportZip({limits:{...huge,maxDataFiles:listed.length-1}}),/tệp dữ liệu|Too many data files|data files/i);
+ await assert.rejects(()=>backup.exportZip({limits:{...huge,maxUncompressedBytes:bytes-1}}),/chưa nén|Uncompressed|uncompressed/i);
+ await assert.rejects(()=>backup.exportZip({limits:{...huge,maxZipBytes:1}}),/ZIP/i);
  const exported=await backup.exportZip({limits:{...huge,maxDataFiles:listed.length,maxUncompressedBytes:bytes}});
  assert.equal(exported.files,listed.length);
  const zipCopy=path.join(zips,'round.zip');
@@ -86,7 +86,7 @@ try{
  assert.equal(Object.keys(opened).filter(name=>name.endsWith('/')).length,0);
  assert.ok(opened['atlas-manifest.json']);
  const back=await backup.importZip(zipCopy,{deleteZip:false,limits:huge}).catch(e=>e);
- assert.match(String(back),/empty data/);
+ assert.match(String(back),/empty data|empty library/i);
  assert.deepEqual(await snapshot(root),await snapshot(other));
 
  const changed=await assert.rejects(()=>backup.exportZip({duringSnapshot:async()=>{await writeFile(path.join(root,'docs','notes','hello.md'),'changed while exporting');}}));

@@ -4,12 +4,15 @@ import React,{useEffect,useRef} from 'react';
 import dynamic from 'next/dynamic';
 import type {OnMount} from '@monaco-editor/react';
 import type {editor as MonacoEditor} from 'monaco-editor';
+import {useLocale} from './LocaleProvider';
 
 const Monaco=dynamic(()=>import('@monaco-editor/react'),{ssr:false});
 
 export type Format='paragraph'|'h1'|'h2'|'h3'|'h4'|'h5'|'h6'|'bold'|'italic'|'link'|'list'|'number'|'task'|'quote'|'code'|'table'|'mermaid'|'divider';
 export type SourceLang='markdown'|'yaml'|'sql'|'json';
-export function formatting(kind:Format,text=''){const t=text||'Văn bản';switch(kind){case'paragraph':return t;case'h1':return '# '+t;case'h4':return '#### '+t;case'h5':return '##### '+t;case'h6':return '###### '+t;case'h2':return '## '+t;case'h3':return '### '+t;case'bold':return `**${t}**`;case'italic':return `*${t}*`;case'link':return `[${t}](https://example.com)`;case'list':return '- '+(text||'Mục 1');case'number':return '1. '+(text||'Mục 1');case'task':return '- [ ] '+(text||'Cần làm');case'quote':return '> '+t;case'code':return '\n```bash\n'+(text||'echo hello')+'\n```\n';case'table':return '\n| Cột 1 | Cột 2 |\n| --- | --- |\n| A | B |\n';case'mermaid':return '\n```mermaid\nflowchart LR\n A --> B\n```\n';case'divider':return '\n---\n';}}
+export type FormatSamples={text:string;listItem:string;task:string;col1:string;col2:string};
+const DEFAULT_SAMPLES:FormatSamples={text:'Text',listItem:'Item 1',task:'To do',col1:'Column 1',col2:'Column 2'};
+export function formatting(kind:Format,text='',samples:FormatSamples=DEFAULT_SAMPLES){const body=text||samples.text;switch(kind){case'paragraph':return body;case'h1':return '# '+body;case'h4':return '#### '+body;case'h5':return '##### '+body;case'h6':return '###### '+body;case'h2':return '## '+body;case'h3':return '### '+body;case'bold':return `**${body}**`;case'italic':return `*${body}*`;case'link':return `[${body}](https://example.com)`;case'list':return '- '+(text||samples.listItem);case'number':return '1. '+(text||samples.listItem);case'task':return '- [ ] '+(text||samples.task);case'quote':return '> '+body;case'code':return '\n```bash\n'+(text||'echo hello')+'\n```\n';case'table':return `\n| ${samples.col1} | ${samples.col2} |\n| --- | --- |\n| A | B |\n`;case'mermaid':return '\n```mermaid\nflowchart LR\n A --> B\n```\n';case'divider':return '\n---\n';}}
 export type EditorRef={insert:(value:string)=>void;format:(value:Format)=>void;jumpToLine:(line:number)=>void};
 export type ImagePaste=(file:File,insert:(markdown:string)=>void)=>void;
 
@@ -51,6 +54,9 @@ export function embedHeight(source:string,max=360,min=120,line=18){
 }
 
 export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown',language,readOnly=false,height='68vh',onImagePaste,onHeadingChange}:{value:string;onChange:(v:string)=>void;apiRef:React.MutableRefObject<EditorRef|null>;dark:boolean;lang?:SourceLang;language?:string;readOnly?:boolean;height?:string;onImagePaste?:ImagePaste;onHeadingChange?:(level:number)=>void}){
+  const {t}=useLocale();
+  const samplesRef=useRef<FormatSamples>(DEFAULT_SAMPLES);
+  samplesRef.current={text:t('editor.insertSample.text'),listItem:t('editor.insertSample.listItem'),task:t('editor.insertSample.task'),col1:t('editor.insertSample.col1'),col2:t('editor.insertSample.col2')};
   const headingChangeRef=useRef(onHeadingChange);headingChangeRef.current=onHeadingChange;
   const editor=useRef<MonacoEditor.IStandaloneCodeEditor|null>(null);
   const pasteRef=useRef(onImagePaste);
@@ -76,7 +82,8 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
       format:name=>{
         if(readOnlyRef.current)return;
         const ed=editor.current;
-        if(!ed){onChangeRef.current(valueRef.current+'\n'+formatting(name));return;}
+        const samples=samplesRef.current;
+        if(!ed){onChangeRef.current(valueRef.current+'\n'+formatting(name,'',samples));return;}
         const model=ed.getModel();
         const sel=ed.getSelection();
         if(model&&sel&&(name==='paragraph'||/^h[1-6]$/.test(name))){
@@ -88,7 +95,7 @@ export default function SourceEditor({value,onChange,apiRef,dark,lang='markdown'
           const inserted=change.text.split('\n');ed.setPosition({lineNumber:change.first+inserted.length-1,column:inserted[inserted.length-1].length+1});ed.focus();return;
         }
         const picked=model&&sel?model.getValueInRange(sel):'';
-        replaceSelection(ed,formatting(name,picked));
+        replaceSelection(ed,formatting(name,picked,samples));
       }
     };
   },[apiRef]);

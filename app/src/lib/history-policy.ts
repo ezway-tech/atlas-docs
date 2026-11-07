@@ -1,3 +1,5 @@
+import {AppError} from './i18n/errors';
+
 export const HISTORY_DEFAULTS={maxCount:50,maxBytes:10*1024*1024};
 export const HISTORY_CEILING={maxCount:500,maxBytes:64*1024*1024};
 
@@ -14,10 +16,10 @@ export function effectiveHistoryLimits(settings:{history?:Partial<HistoryLimits>
 }
 
 export function parseHistoryLimits(input:unknown):HistoryLimits{
- if(!input||typeof input!=='object')throw Error('Hạn mức lịch sử không hợp lệ.');
+ if(!input||typeof input!=='object')throw new AppError('errors.history.limitsInvalid');
  const o=input as Record<string,unknown>;
- if(!finiteInt(o.maxCount)||o.maxCount>HISTORY_CEILING.maxCount)throw Error(`Số bản phải là số nguyên từ 1 đến ${HISTORY_CEILING.maxCount}.`);
- if(!finiteInt(o.maxBytes)||o.maxBytes>HISTORY_CEILING.maxBytes)throw Error(`Dung lượng nội dung lịch sử phải là số nguyên byte từ 1 đến ${HISTORY_CEILING.maxBytes}.`);
+ if(!finiteInt(o.maxCount)||o.maxCount>HISTORY_CEILING.maxCount)throw new AppError('errors.history.maxCountRange',400,{max:HISTORY_CEILING.maxCount});
+ if(!finiteInt(o.maxBytes)||o.maxBytes>HISTORY_CEILING.maxBytes)throw new AppError('errors.history.maxBytesRange',400,{max:HISTORY_CEILING.maxBytes});
  return {maxCount:o.maxCount,maxBytes:o.maxBytes};
 }
 

@@ -39,7 +39,7 @@ try{
  await rm(path.join(root,'uploads',extra+'.bin'));
  await store.saveDoc('topic/note','---\ntitle: "Note"\n---\n\n![a](/api/media/'+current+')\n![b](/api/media/'+loose+')\n');
  const partial=await refs.applyCleanup(scan.scannedAt,[historyId,looseId,extraId]);
- assert.ok(partial.skipped.some(item=>item.id===historyId&&item.reason.includes('lịch sử')));
+ assert.ok(partial.skipped.some(item=>item.id===historyId&&(item.reason.includes('lịch sử')||item.reason==='storage.cleanup.reason.usedInHistory')));
  assert.ok(partial.skipped.some(item=>item.id===looseId));
  assert.ok(partial.failed.some(item=>item.id===extraId));
  assert.equal(partial.deleted.includes(looseId),false);

@@ -18,6 +18,7 @@
     "test:references": "node --experimental-strip-types scripts/test-references.mjs",
     "test:history-policy": "node --experimental-strip-types scripts/test-history-policy.mjs",
     "test:library-ui": "node scripts/test-library-ui.mjs",
+    "test:i18n": "node scripts/test-i18n.mjs",
     "test:demo": "node scripts/test-demo.mjs",
     "test:resources": "node --experimental-strip-types scripts/test-resources.mjs",
     "test:history-diff": "node --experimental-strip-types scripts/test-history-diff.mjs",

@@ -83,7 +83,7 @@ export async function readSqlSchema(sql:string):Promise<SqlSchema>{
   if(!/create\s+table/i.test(sql))return {tables:[],edges:[]};
   const mod=await import('node-sql-parser') as {Parser?:ParserCtor;default?:{Parser?:ParserCtor}};
   const Parser=mod.Parser||mod.default?.Parser;
-  if(!Parser)return {tables:[],edges:[],error:'Không tải được bộ đọc SQL.'};
+  if(!Parser)return {tables:[],edges:[],error:'docKind.sql.parserFailed'};
   const parser=new Parser();
   let last='';
   for(const database of ['Postgresql','MySQL']){

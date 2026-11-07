@@ -76,6 +76,6 @@ function same(a:Chord,b:Chord){return !!a.mod===!!b.mod&&!!a.alt===!!b.alt&&!!a.
 
 export function useKeymap(){
  const value=useContext(Ctx);
- if(!value)throw Error('Keymap chưa được bật');
+ if(!value)throw Error('Keymap is not available');
  return value;
 }
