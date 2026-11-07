@@ -68,3 +68,33 @@ jobs:
         env:
           ATLAS_TEST_OLD_TARBALL: release-artifacts/atlas-docs-5.1.0.tgz
           ATLAS_TEST_OLD_TARBALL_SHA256: release-artifacts/atlas-docs-5.1.0.tgz.sha256
+  release-candidate:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-tarball
+          path: dist
+      - name: Print release-candidate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -la dist
+          for f in dist/*.tgz.sha256; do
+            echo "=== $f ==="
+            cat "$f"
+            echo
+            tgz="${f%.sha256}"
+            expected=$(awk '{print tolower($1)}' "$f")
+            actual=$(sha256sum "$tgz" | awk '{print tolower($1)}')
+            test "$actual" = "$expected"
+            echo "Verified $tgz sha256=$actual"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate
+          path: |
+            dist/*.tgz
+            dist/*.sha256
+          if-no-files-found: error

@@ -22,8 +22,10 @@
 ### Recovery
 
 - Interrupted schema migration uses `.atlas-migrate-journal.json` and the upgrade backup directory.
+- Recovery restores the **full** upgrade-backup tree (not only `db.json`), then clears the journal; the backup directory is kept.
 - Do not roll back by only installing an older app when the schema already advanced; restore the pre-upgrade backup instead.
-- Cross-artifact upgrade from the pinned `release-artifacts/atlas-docs-5.1.0.tgz` fixture is exercised by `npm run test:upgrade-artifacts` (fails if the fixture or checksum is missing).
+- Cross-artifact upgrade from the pinned `release-artifacts/atlas-docs-5.1.0.tgz` fixture is exercised by `npm run test:upgrade-artifacts` (fails if the fixture or checksum is missing), including real process aborts at migrate checkpoints and CLI `--yes` resume.
+- `ATLAS_TEST_MIGRATE_ABORT` is a **test-only** hook (`after-backup` | `after-journal` | `after-data` | `before-complete`) that exits with code 97; production and normal CLI never set it.
 
 ### Note on 5.1.0
 

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
-import {access, readFile} from 'node:fs/promises';
+import {access, readFile, readdir} from 'node:fs/promises';
+import path from 'node:path';
 import net from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import {npmArgs} from './process.mjs';
@@ -125,4 +126,68 @@ export async function json(url, method = 'GET', body) {
   });
   assert.equal(response.status, 200, await response.clone().text());
   return response.json();
+}
+
+async function walkRelativeFiles(root, relative = '') {
+  const dir = path.join(root, relative);
+  let entries;
+  try {
+    entries = await readdir(dir, {withFileTypes: true});
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+  const out = [];
+  for (const entry of entries) {
+    const rel = relative ? `${relative}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...await walkRelativeFiles(root, rel));
+    else if (entry.isFile()) out.push(rel);
+  }
+  return out;
+}
+
+/**
+ * Checksums for data that must survive upgrade/recovery.
+ * db.json is hashed without schemaVersion so legacy ↔ v1 compares equal for user payload.
+ */
+export async function contentChecksumMap(libraryRoot) {
+  const root = path.resolve(libraryRoot);
+  const map = {};
+  const includeRoots = ['docs', 'uploads', 'history'];
+  for (const top of includeRoots) {
+    for (const rel of await walkRelativeFiles(root, top)) {
+      map[rel] = await sha256File(path.join(root, rel));
+    }
+  }
+  for (const name of ['AGENTS.md']) {
+    try {
+      await access(path.join(root, name));
+      map[name] = await sha256File(path.join(root, name));
+    } catch {}
+  }
+  // Personal / backup guides under .atlas (exclude live managed kit copies that upgrades replace).
+  for (const rel of await walkRelativeFiles(root, '.atlas/backups')) {
+    map[rel] = await sha256File(path.join(root, rel));
+  }
+  try {
+    const db = JSON.parse(await readFile(path.join(root, 'db.json'), 'utf8'));
+    const {schemaVersion: _drop, ...rest} = db;
+    map['db.json#payload'] = createHash('sha256').update(stableStringify(rest)).digest('hex');
+  } catch {}
+  return map;
+}
+
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+}
+
+export function assertChecksumMapsEqual(expected, actual, label = 'content') {
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  const missing = [...keys].filter(k => expected[k] && !actual[k]);
+  const extra = [...keys].filter(k => actual[k] && !expected[k]);
+  const changed = [...keys].filter(k => expected[k] && actual[k] && expected[k] !== actual[k]);
+  assert.deepEqual({missing, extra, changed}, {missing: [], extra: [], changed: []}, `${label} checksum mismatch`);
 }

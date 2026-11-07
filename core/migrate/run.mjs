@@ -1,12 +1,24 @@
-import {readFile, writeFile, rename, unlink, mkdir, access} from 'node:fs/promises';
+import {readFile, writeFile, rename, unlink, mkdir, access, cp} from 'node:fs/promises';
 import path from 'node:path';
 import {AtlasError} from '../errors.mjs';
-import {canonicalize, migrateJournalPath} from '../paths.mjs';
+import {canonicalize, migrateJournalPath, LOCK_FILE, MIGRATE_JOURNAL} from '../paths.mjs';
 import {createFullBackup, verifyFullBackup} from '../full-backup.mjs';
 import {acquireLibraryLock} from '../lock.mjs';
 import {CURRENT_SCHEMA_VERSION} from '../schema.mjs';
 import {inspectLibrary} from '../inspect.mjs';
 import {planMigration} from './registry.mjs';
+
+/** Test-only abort points. Production never sets ATLAS_TEST_MIGRATE_ABORT. */
+const ABORT_EXIT = 97;
+const ABORT_POINTS = new Set(['after-backup', 'after-journal', 'after-data', 'before-complete']);
+
+function maybeAbort(point) {
+  const wanted = process.env.ATLAS_TEST_MIGRATE_ABORT;
+  if (!wanted || wanted !== point) return;
+  if (!ABORT_POINTS.has(wanted)) return;
+  // Hard-stop the process so recovery must survive a real crash (finally may not run).
+  process.exit(ABORT_EXIT);
+}
 
 async function writeJournal(root, journal) {
   const file = migrateJournalPath(root);
@@ -31,8 +43,30 @@ async function readJournal(root) {
 }
 
 /**
+ * Restore every file listed in an upgrade backup into the library (atomic per file).
+ * Does not delete the backup. Skips lock/journal names if present in the backup map.
+ */
+export async function restoreUpgradeBackup(libraryRoot, backupDir) {
+  const root = canonicalize(libraryRoot);
+  const manifest = await verifyFullBackup(backupDir);
+  await mkdir(root, {recursive: true});
+  for (const relative of Object.keys(manifest.files)) {
+    const base = relative.split('/')[0];
+    if (base === LOCK_FILE || base === MIGRATE_JOURNAL || relative === 'atlas-upgrade-manifest.json') continue;
+    const from = path.join(backupDir, relative);
+    const to = path.join(root, relative);
+    await access(from);
+    await mkdir(path.dirname(to), {recursive: true});
+    const tmp = `${to}.${process.pid}.restore.tmp`;
+    await cp(from, tmp);
+    await rename(tmp, to);
+  }
+  return manifest;
+}
+
+/**
  * Recover an interrupted migration when a verified backup exists.
- * Restores db.json from the backup and clears the journal. Does not delete the backup.
+ * Restores the full upgrade backup tree and clears the journal. Does not delete the backup.
  */
 export async function recoverInterruptedMigration(libraryRoot, {restore = true} = {}) {
   const root = canonicalize(libraryRoot);
@@ -47,13 +81,7 @@ export async function recoverInterruptedMigration(libraryRoot, {restore = true} 
   }
   await verifyFullBackup(journal.backupDir);
   if (restore) {
-    const src = path.join(journal.backupDir, 'db.json');
-    await access(src);
-    const dest = path.join(root, 'db.json');
-    const bytes = await readFile(src);
-    const tmp = `${dest}.recover.tmp`;
-    await writeFile(tmp, bytes);
-    await rename(tmp, dest);
+    await restoreUpgradeBackup(root, journal.backupDir);
   }
   await clearJournal(root);
   return {recovered: true, backupDir: journal.backupDir, journal};
@@ -111,6 +139,7 @@ export async function migrateLibrary(libraryRoot, {
     const backup = await createFullBackup(root, parent);
     await verifyFullBackup(backup.backupDir);
     log(`[Atlas Docs] Upgrade backup: ${backup.backupDir}`);
+    maybeAbort('after-backup');
 
     await writeJournal(root, {
       status: 'running',
@@ -121,6 +150,7 @@ export async function migrateLibrary(libraryRoot, {
       startedAt: new Date().toISOString(),
       completedSteps: [],
     });
+    maybeAbort('after-journal');
 
     for (const step of steps) {
       await step.precheck(root);
@@ -130,7 +160,9 @@ export async function migrateLibrary(libraryRoot, {
       journal.completedSteps.push(step.id);
       await writeJournal(root, journal);
     }
+    maybeAbort('after-data');
 
+    maybeAbort('before-complete');
     // Clear the journal before inspect so the library is not classified as interrupted.
     await clearJournal(root);
 
@@ -149,3 +181,5 @@ export async function migrateLibrary(libraryRoot, {
     if (ownLock) await lock.release();
   }
 }
+
+export {ABORT_EXIT as MIGRATE_ABORT_EXIT, ABORT_POINTS as MIGRATE_ABORT_POINTS};

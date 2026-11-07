@@ -52,7 +52,7 @@ The server listens only on `127.0.0.1`; default port 3000.
 ## Schema and locking
 
 Libraries store an integer `schemaVersion` in `db.json` (currently **1**).
-Older libraries without that field are legacy and migrate after confirmation, with a full backup outside the library tree.
+Older libraries without that field are legacy and migrate after confirmation, with a full backup outside the library tree. If a migration is interrupted, the next confirmed start recovers by restoring that full backup tree, then continues. The env var `ATLAS_TEST_MIGRATE_ABORT` exists only for automated crash tests and must not be set in normal use.
 A library with a newer schema than the app is refused; files are not changed.
 Only one Atlas Docs process may hold a library lock at a time. External editors are not blocked by that lock.
 

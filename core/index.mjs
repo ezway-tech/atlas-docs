@@ -18,7 +18,13 @@ export {installAgentKit, safePath} from './agent-kit.mjs';
 export {initEmptyLibrary} from './init.mjs';
 export {prepareLibrary} from './prepare.mjs';
 export {planMigration, listMigrations, productionMigrations} from './migrate/registry.mjs';
-export {migrateLibrary, recoverInterruptedMigration} from './migrate/run.mjs';
+export {
+  migrateLibrary,
+  recoverInterruptedMigration,
+  restoreUpgradeBackup,
+  MIGRATE_ABORT_EXIT,
+  MIGRATE_ABORT_POINTS,
+} from './migrate/run.mjs';
 export {prepareImportStage, ensureDbSchemaVersionFile} from './import-schema.mjs';
 export {checkForUpdate, updateCheckDisabled, updateAdvice, isNewerVersion, fetchLatestVersion} from './update/check.mjs';
 export {detectInstallMethod} from './update/detect.mjs';

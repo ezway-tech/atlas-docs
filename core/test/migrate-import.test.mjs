@@ -37,7 +37,7 @@ test('import stage migrates legacy and rejects newer schema without writing targ
   }
 });
 
-test('interrupted migration journal recovers from upgrade backup', async () => {
+test('interrupted migration journal recovers full tree from upgrade backup', async () => {
   const root = await temp();
   try {
     const lib = path.join(root, 'lib');
@@ -48,13 +48,13 @@ test('interrupted migration journal recovers from upgrade backup', async () => {
     delete legacy.schemaVersion;
     legacy.comments = [{id: 'c1', docId: 'a/b', content: 'keep-me', quote: '', blockId: '', createdAt: '2020-01-01T00:00:00.000Z', resolved: false}];
     await writeFile(path.join(lib, 'db.json'), JSON.stringify(legacy, null, 2));
+    await writeFile(path.join(lib, 'docs', 'note.md'), 'doc-body\n');
+    await writeFile(path.join(lib, 'AGENTS.md'), 'personal-agents\n');
 
-    // Simulate mid-migration: backup exists, journal present, db partially stamped then reverted
     const backupParent = path.join(root, 'backups');
     const migrated = await migrateLibrary(lib, {confirm: true, backupParentDir: backupParent, log() {}});
     assert.equal(migrated.migrated, true);
 
-    // Reintroduce journal and corrupt db to schema missing while backup remains
     await writeFile(path.join(lib, MIGRATE_JOURNAL), JSON.stringify({
       status: 'running',
       from: null,
@@ -64,13 +64,16 @@ test('interrupted migration journal recovers from upgrade backup', async () => {
       startedAt: new Date().toISOString(),
     }));
     await writeFile(path.join(lib, 'db.json'), JSON.stringify(legacy, null, 2));
+    await writeFile(path.join(lib, 'docs', 'note.md'), 'corrupted\n');
+    await writeFile(path.join(lib, 'AGENTS.md'), 'corrupted-agents\n');
     assert.equal((await inspectLibrary(lib)).state, 'interrupted');
 
     const recovery = await recoverInterruptedMigration(lib);
     assert.equal(recovery.recovered, true);
     const db = JSON.parse(await readFile(path.join(lib, 'db.json'), 'utf8'));
-    // Backup was taken after migration completed in this simulation path — restore brings schema 1 copy.
     assert.equal(db.comments[0].content, 'keep-me');
+    assert.equal(await readFile(path.join(lib, 'docs', 'note.md'), 'utf8'), 'doc-body\n');
+    assert.equal(await readFile(path.join(lib, 'AGENTS.md'), 'utf8'), 'personal-agents\n');
     assert.equal((await inspectLibrary(lib)).state !== 'interrupted', true);
   } finally {
     await rm(root, {recursive: true, force: true});

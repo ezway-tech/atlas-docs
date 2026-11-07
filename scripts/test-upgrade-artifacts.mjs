@@ -1,16 +1,22 @@
 /**
  * Real cross-artifact upgrade: atlas-docs 5.1.0 → current release tarball.
  * Missing old/new artifact or checksum mismatch fails the run (no SKIP success).
+ * Also kills migrate at each ATLAS_TEST_MIGRATE_ABORT point and recovers via normal CLI --yes.
  */
 import assert from 'node:assert/strict';
-import {access, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile, stat} from 'node:fs/promises';
+import {access, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
-import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {npmArgs, run} from './process.mjs';
-import {assertTarballChecksum, createServerTracker, json} from './package-harness.mjs';
+import {
+  assertTarballChecksum,
+  createServerTracker,
+  json,
+  contentChecksumMap,
+  assertChecksumMapsEqual,
+} from './package-harness.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const appVersion = JSON.parse(await readFile(path.join(repo, 'app/package.json'), 'utf8')).version;
@@ -19,11 +25,27 @@ const older = path.resolve(process.env.ATLAS_TEST_OLD_TARBALL || path.join(repo,
 const olderChecksum = path.resolve(
   process.env.ATLAS_TEST_OLD_TARBALL_SHA256 || path.join(repo, 'release-artifacts/atlas-docs-5.1.0.tgz.sha256'),
 );
+const abortRunner = path.join(repo, 'scripts/migrate-abort-runner.mjs');
+const ABORT_POINTS = ['after-backup', 'after-journal', 'after-data', 'before-complete'];
+const MIGRATE_ABORT_EXIT = 97;
+const JOURNAL = '.atlas-migrate-journal.json';
 
 function fail(message) {
   console.error(`FAIL: ${message}`);
   process.exitCode = 1;
   throw Error(message);
+}
+
+/** Assert expected protected paths survived; allow extra keys (e.g. new guide backups). */
+function assertProtectedPreserved(expected, actual, label) {
+  const expectedFiltered = {};
+  const actualSubset = {};
+  for (const [key, hash] of Object.entries(expected)) {
+    if (key.startsWith('.atlas/guides/')) continue;
+    expectedFiltered[key] = hash;
+    actualSubset[key] = actual[key];
+  }
+  assertChecksumMapsEqual(expectedFiltered, actualSubset, label);
 }
 
 try {
@@ -52,6 +74,7 @@ delete env.DATA_DIR;
 delete env.ATLAS_DOCS_MIGRATE_YES;
 delete env.ATLAS_AGENT_KIT;
 delete env.ATLAS_CORE_PATH;
+delete env.ATLAS_TEST_MIGRATE_ABORT;
 
 const cwd = path.join(temp, 'dự án có dấu');
 const library = path.join(cwd, 'project-library');
@@ -59,8 +82,6 @@ const oldInstall = path.join(temp, 'old');
 const newInstall = path.join(temp, 'new');
 const coldCopy = path.join(temp, 'cold-pre-upgrade');
 const tracker = createServerTracker();
-
-const hashText = value => createHash('sha256').update(value).digest('hex');
 
 async function listUpgradeBackups() {
   const parent = path.join(path.dirname(library), '.atlas-docs-upgrade-backups');
@@ -75,6 +96,24 @@ async function listUpgradeBackups() {
 
 async function readDb() {
   return JSON.parse(await readFile(path.join(library, 'db.json'), 'utf8'));
+}
+
+async function journalExists() {
+  try {
+    await access(path.join(library, JOURNAL));
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+function spawnMigrateAbort(abortPoint, corePath) {
+  return spawnSync(
+    process.execPath,
+    [abortRunner, library, corePath, abortPoint, appVersion],
+    {encoding: 'utf8', windowsHide: true, cwd, env: {...env}, timeout: 120_000},
+  );
 }
 
 try {
@@ -117,7 +156,6 @@ try {
 
   await tracker.stop(oldServer);
 
-  // Personal instructions after stop (and after 5.1.0 agent-kit install on start).
   const personalAgents = 'Personal upgrade rules — do not overwrite';
   const personalGuide = 'Edited agent guide body for upgrade test';
   await writeFile(path.join(library, 'AGENTS.md'), personalAgents);
@@ -139,18 +177,23 @@ try {
     agents: personalAgents,
     guide: personalGuide,
     historyCount: history.versions.length,
-    dbHash: hashText(JSON.stringify(dbBefore)),
   };
+  const preChecksums = await contentChecksumMap(library);
 
   await cp(library, coldCopy, {recursive: true});
 
   // --- B: upgrade with current package ---
   await run(npmArgs(['install', '--prefix', newInstall, '--no-audit', '--no-fund', newer]), {cwd, env});
   const newCli = path.join(newInstall, 'node_modules/atlas-docs/bin/atlas-docs.mjs');
+  const corePath = path.join(newInstall, 'node_modules/atlas-docs/core/index.mjs');
   const newVer = spawnSync(process.execPath, [newCli, '--version'], {encoding: 'utf8', windowsHide: true, cwd, env});
   assert.equal(newVer.status, 0, newVer.stderr || newVer.stdout);
   assert.equal(newVer.stdout.trim(), appVersion, `Expected new CLI ${appVersion}, got ${newVer.stdout.trim()}`);
   assert.notEqual(newVer.stdout.trim(), '5.1.0');
+
+  const core = await import(pathToFileURL(corePath).href);
+  assert.equal(core.MIGRATE_ABORT_EXIT, MIGRATE_ABORT_EXIT);
+  assert.ok(core.MIGRATE_ABORT_POINTS.has('after-backup'));
 
   const backupsBeforeUpgrade = await listUpgradeBackups();
   const upgraded = await tracker.start(newCli, {
@@ -188,13 +231,12 @@ try {
   }
   const historyAfter = await json(upgraded.url + '/api/history?id=' + encodeURIComponent(doc.id));
   assert.ok(historyAfter.versions.length >= snapshot.historyCount);
+  assertProtectedPreserved(preChecksums, await contentChecksumMap(library), 'happy-path upgrade');
 
   const backupsAfterUpgrade = await listUpgradeBackups();
   assert.ok(backupsAfterUpgrade.length > backupsBeforeUpgrade.length, 'Expected an upgrade backup outside the library');
   const newestBackup = backupsAfterUpgrade[backupsAfterUpgrade.length - 1];
   await access(path.join(newestBackup, 'atlas-upgrade-manifest.json'));
-  const corePath = path.join(newInstall, 'node_modules/atlas-docs/core/index.mjs');
-  const core = await import(pathToFileURL(corePath).href);
   await core.verifyFullBackup(newestBackup);
 
   await tracker.stop(upgraded);
@@ -214,8 +256,7 @@ try {
   assert.equal(backupsAfterRerun.length, backupsBeforeRerun.length, 'Re-run must not create another upgrade backup');
   await tracker.stop(rerun);
 
-  // --- D: interrupted migration recovery ---
-  // Restore library to a mid-upgrade state using the real upgrade backup, then recover.
+  // --- D: interrupted migration recovery (API + CLI with simulated journal) ---
   await rm(library, {recursive: true, force: true});
   await cp(coldCopy, library, {recursive: true});
   const journal = {
@@ -227,27 +268,25 @@ try {
     startedAt: new Date().toISOString(),
     completedSteps: [],
   };
-  await writeFile(path.join(library, '.atlas-migrate-journal.json'), `${JSON.stringify(journal, null, 2)}\n`);
-  // Leave db as legacy (cold copy) while journal claims migration in progress.
+  await writeFile(path.join(library, JOURNAL), `${JSON.stringify(journal, null, 2)}\n`);
   assert.equal((await readDb()).schemaVersion, undefined);
 
   const recovered = await core.recoverInterruptedMigration(library);
   assert.equal(recovered.recovered, true);
   try {
-    await access(path.join(library, '.atlas-migrate-journal.json'));
+    await access(path.join(library, JOURNAL));
     fail('Migrate journal should be cleared after recovery');
   } catch (error) {
     assert.equal(error.code, 'ENOENT');
   }
-  // Upgrade backup is taken before transform; recovery restores the pre-upgrade db.
   const dbRecovered = await readDb();
   assert.equal(dbRecovered.schemaVersion, undefined);
   const docParts = doc.id.split('/');
   const docFile = path.join(library, 'docs', ...docParts.slice(0, -1), `${docParts.at(-1)}.md`);
   assert.equal(await readFile(docFile, 'utf8'), snapshot.raw);
   assert.equal(await readFile(path.join(library, 'AGENTS.md'), 'utf8'), snapshot.agents);
+  assertProtectedPreserved(preChecksums, await contentChecksumMap(library), 'api recover');
 
-  // Complete migration after recovery.
   const afterRecover = await tracker.start(newCli, {
     cwd,
     env,
@@ -258,10 +297,9 @@ try {
   assert.equal(await (await fetch(afterRecover.url + '/api/media/' + media.id)).text(), snapshot.mediaBytes);
   await tracker.stop(afterRecover);
 
-  // Also prove recovery path via CLI when journal present on a fresh cold+journal setup.
   await rm(library, {recursive: true, force: true});
   await cp(coldCopy, library, {recursive: true});
-  await writeFile(path.join(library, '.atlas-migrate-journal.json'), `${JSON.stringify({...journal, backupDir: newestBackup}, null, 2)}\n`);
+  await writeFile(path.join(library, JOURNAL), `${JSON.stringify({...journal, backupDir: newestBackup}, null, 2)}\n`);
   const cliRecover = await tracker.start(newCli, {
     cwd,
     env,
@@ -272,7 +310,69 @@ try {
   assert.equal((await json(cliRecover.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
   await tracker.stop(cliRecover);
 
-  console.log('PASS: upgrade 5.1.0 → ' + appVersion + ' (seed, migrate+backup, re-run, interrupt/recover)');
+  // --- E: real process kill at each abort point, then normal CLI --yes ---
+  for (const abortPoint of ABORT_POINTS) {
+    console.log(`Abort point: ${abortPoint}`);
+    await rm(library, {recursive: true, force: true});
+    await cp(coldCopy, library, {recursive: true});
+    assert.equal((await readDb()).schemaVersion, undefined);
+    const backupsBeforeAbort = await listUpgradeBackups();
+
+    const killed = spawnMigrateAbort(abortPoint, corePath);
+    assert.equal(
+      killed.status,
+      MIGRATE_ABORT_EXIT,
+      `${abortPoint}: expected exit ${MIGRATE_ABORT_EXIT}, got ${killed.status}\n${killed.stdout}\n${killed.stderr}`,
+    );
+
+    const hasJournal = await journalExists();
+    if (abortPoint === 'after-backup') {
+      assert.equal(hasJournal, false, 'after-backup must not leave a migrate journal');
+    } else {
+      assert.equal(hasJournal, true, `${abortPoint} must leave a migrate journal`);
+      const j = JSON.parse(await readFile(path.join(library, JOURNAL), 'utf8'));
+      assert.equal(j.status, 'running');
+      assert.ok(j.backupDir, `${abortPoint} journal needs backupDir`);
+      await core.verifyFullBackup(j.backupDir);
+    }
+    const backupsAfterAbort = await listUpgradeBackups();
+    assert.ok(backupsAfterAbort.length > backupsBeforeAbort.length, `${abortPoint}: expected upgrade backup`);
+
+    if (abortPoint === 'after-data' || abortPoint === 'before-complete') {
+      assert.equal((await readDb()).schemaVersion, 1, `${abortPoint}: data steps already applied`);
+    } else {
+      assert.equal((await readDb()).schemaVersion, undefined, `${abortPoint}: data must still be legacy`);
+    }
+
+    const resumed = await tracker.start(newCli, {
+      cwd,
+      env,
+      args: ['--data-dir', library, '--yes'],
+    });
+    assert.equal((await readDb()).schemaVersion, 1, `${abortPoint}: schemaVersion 1 after CLI resume`);
+    assert.equal((await json(resumed.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
+    assert.equal(await (await fetch(resumed.url + '/api/media/' + media.id)).text(), snapshot.mediaBytes);
+    assert.equal(await readFile(path.join(library, 'AGENTS.md'), 'utf8'), snapshot.agents);
+    assertProtectedPreserved(preChecksums, await contentChecksumMap(library), `resume after ${abortPoint}`);
+    await tracker.stop(resumed);
+
+    const backupsBeforeSecond = await listUpgradeBackups();
+    const second = await tracker.start(newCli, {
+      cwd,
+      env,
+      args: ['--data-dir', library],
+    });
+    assert.doesNotMatch(second.logs, /migrate schema|Migration complete/i, second.logs);
+    assert.equal((await readDb()).schemaVersion, 1);
+    assert.equal(await listUpgradeBackups().then(list => list.length), backupsBeforeSecond.length);
+    await tracker.stop(second);
+  }
+
+  console.log(
+    'PASS: upgrade 5.1.0 → ' +
+      appVersion +
+      ' (seed, migrate+backup, re-run, interrupt/recover, abort-kill×4)',
+  );
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
