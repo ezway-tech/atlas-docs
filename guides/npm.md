@@ -106,11 +106,17 @@ npm run setup
 npm run check:distribution
 npm run package:release
 npm run test:package
+npm run test:upgrade-artifacts
 ```
 
 Packaging builds one `dist/atlas-docs-<version>.tgz` and `dist/atlas-docs-<version>.tgz.sha256`.
-CI builds that artifact once and installs the same file on Windows, Linux, and macOS.
-Publication is manual and is not part of the default maintainer loop in this repository:
+Build, test, and publish from your local machine; this repository has no CI workflow.
+The package tests use temporary libraries. The upgrade test also uses the pinned
+5.1.0 package in `scripts/fixtures/`; keep that directory as a test fixture.
+Local tests verify only the operating system on which you run them.
+
+After the checks pass, publish the tarball (replace `<version>` with the version in
+`app/package.json`; do not publish the private root or app package):
 
 ```sh
 npm login

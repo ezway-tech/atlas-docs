@@ -1,5 +1,25 @@
 .git
 data
-app/node_modules
+atlas-docs-data
+.atlas-docs-upgrade-backups
+atlas-docs.config.json
+dist
+scripts/fixtures
+**/node_modules
+**/.env
+**/.env.*
+**/*.log
+**/coverage
 app/.next
+app/.next-*
+app/out
+app/build
+app/test-results
+app/playwright-report
+app/src/generated/help.json
+app/public/help-assets
+app/next-env.d.ts
 **/*.tsbuildinfo
+
+# Development-only tooling
+scripts/tests

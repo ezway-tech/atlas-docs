@@ -29,16 +29,14 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".next-headings-check/types/**/*.ts",
-    ".next-resource-check/types/**/*.ts",
-    ".next-responsive-check/types/**/*.ts",
-    ".next-verify/types/**/*.ts",
-    ".next/types/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     "next-env.d.ts",
-    ".next-ui-tools/types/**/*.ts",
-    ".next-npm-release/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next-npm-release/types/**/*.ts",
+    "test-results/builds/headings-check/types/**/*.ts",
+    "test-results/builds/responsive-check/types/**/*.ts",
+    "test-results/builds/help-check/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

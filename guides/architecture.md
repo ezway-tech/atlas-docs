@@ -8,8 +8,8 @@ Atlas Docs is a local Next.js application. React components provide the workspac
 
 | Location | Responsibility |
 | --- | --- |
-| `core/` | Shared library logic: path resolve, inspect, schema, lock, migrate, full backup, agent-kit, update check (no Next.js, no terminal UI) |
-| `cli/` | Argument parsing, prompts, browser open, command router (`start`, `library`, `doctor`, `update`) |
+| `app/src/library/` | Shared library logic: path resolve, inspect, schema, lock, migrate, full backup, agent-kit, update check (no Next.js, no terminal UI) |
+| `app/src/cli/` | Argument parsing, prompts, browser open, command router (`start`, `library`, `doctor`, `update`) |
 | `app/src/app/` | Next.js layout, page routes, CSS, and catch-all API route |
 | `app/src/components/Workspace.tsx` | Main library navigation, reading, editing, search, and dialogs |
 | `app/src/components/` | Markdown/OpenAPI/SQL viewers, visual/source editors, resource library, history and utility dialogs |
@@ -21,12 +21,16 @@ Atlas Docs is a local Next.js application. React components provide the workspac
 | `app/src/lib/` | Shared types, history/backup policies, asset validation, parsing, and shortcuts |
 | `app/src/lib/i18n/` | Locale detection, message catalogs, formatting helpers, and API error keys |
 | `app/src/middleware.ts` | Sets the `atlas-locale` cookie from Accept-Language on first visit |
-| `app/scripts/` | Bootstrap (calls core), demo seeding, and tests |
+| `scripts/setup/` | Library bootstrap and demo seeding |
+| `scripts/tests/app/` | App tests and browser fixtures |
 | `examples/little-cafe/` | Optional sample content copied into an empty library |
-| `templates/` | Library `AGENTS.md` template and agent-kit composition inputs |
-| `scripts/` | Release packaging, CLI/package tests, agent-kit composer |
+| `scripts/templates/` | Library `AGENTS.md` template and agent-kit composition inputs |
+| `scripts/build/` | Release packaging, Help preparation, agent-kit composer, and process helper |
+| `scripts/tests/` | App, library, CLI, and package tests; shared test helpers |
 
 Paths in this table are relative to the repository root. The root package forwards npm commands into `app/`; dependencies are installed there.
+
+All development tools live under `scripts/`. Node tools outside the app resolve dependencies through `scripts/dependencies.mjs`; no root dependency installation is needed. Tests are grouped into `app`, `library`, `cli`, and `package`, with shared helpers. New test builds, bundles, reports, and Help captures go under `app/test-results/`. Older ignored build caches may remain locally; they are not source folders.
 
 The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source and Docker keep their existing data defaults (`../data` and `/data`); the npm CLI defaults to `./atlas-docs-data` unless `--data-dir`, `DATA_DIR`, or `atlas-docs.config.json` selects another path. See [npm usage](npm.md).
 
@@ -87,6 +91,6 @@ Use `npm run check` for type checking and storage tests, `npm run test:core` for
 
 ## Bundled Help
 
-`/help` and `/help/[slug]` use a separate read-only layout. The client shell does not mount the library workspace for these routes. A fixed allowlist in `app/scripts/prepare-help.mjs` converts repository Markdown into a generated JSON bundle before dev/build/typecheck. Article text and its search index stay local; unknown slugs return 404. Relative guide links are mapped to Help routes and image paths to `/help-assets/`.
+`/help` and `/help/[slug]` use a separate read-only layout. The client shell does not mount the library workspace for these routes. A fixed allowlist in `scripts/build/prepare-help.mjs` converts repository Markdown into a generated JSON bundle before dev/build/typecheck. Article text and its search index stay local; unknown slugs return 404. Relative guide links are mapped to Help routes and image paths to `/help-assets/`.
 
 The prepare step also copies `guides/assets/` into generated public assets. Docker copies the Markdown sources before building; the existing public/static copy steps carry the images into the runtime image. Do not edit the generated JSON or public copies. Edit the Markdown or original assets, then rerun the prepare step/build.

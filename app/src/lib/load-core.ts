@@ -20,7 +20,7 @@ export async function loadCore(): Promise<any> {
   const candidates = [
     fromEnv,
     packageRoot ? path.join(packageRoot, 'core', 'index.mjs') : '',
-    path.join(process.cwd(), '..', 'core', 'index.mjs'),
+    path.join(process.cwd(), 'src', 'library', 'index.mjs'),
     path.join(process.cwd(), '..', 'lib', 'index.mjs'),
     path.join(process.cwd(), 'core', 'index.mjs'),
     path.join(process.cwd(), 'lib', 'index.mjs'),

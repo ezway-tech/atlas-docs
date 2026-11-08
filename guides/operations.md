@@ -77,6 +77,32 @@ docker compose run --rm --no-deps -v atlas-cafe-demo:/data -p 127.0.0.1:3001:300
 
 Open http://127.0.0.1:3001 for that demo. There is no login on the write API; keep the application local.
 
+### Publish to Docker Hub locally
+
+From the repository root, use PowerShell and replace `your-dockerhub-user` with
+your Docker Hub namespace. Run each step only after the previous step succeeds:
+
+```powershell
+$releaseVersion = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
+$imageName = 'your-dockerhub-user/atlas-docs'
+docker build -f app/Dockerfile -t "${imageName}:${releaseVersion}" .
+docker run --rm -p 127.0.0.1:3001:3000 "${imageName}:${releaseVersion}"
+```
+
+Open http://127.0.0.1:3001 and check the app, then stop the container with Ctrl+C.
+No working library is mounted; the test container's data is discarded when it exits.
+Publish the checked image:
+
+```powershell
+docker login
+docker push "${imageName}:${releaseVersion}"
+docker tag "${imageName}:${releaseVersion}" "${imageName}:latest"
+docker push "${imageName}:latest"
+```
+
+This builds for the local Docker engine's platform. There is no CI workflow.
+npm publishing has a separate [local release checklist](npm.md#build-and-release-maintainers).
+
 ## Where data lives
 
 The library is `data/` next to `app/`, or the absolute directory in `DATA_DIR`. It holds `db.json`, `docs/`, `uploads/`, and `history/`. `history/<doc-id>/<timestamp>_<uuid>.md` is one revision; the matching `.json` file is its metadata. `history/observed/` is a copy of current document content written on save. Nothing reads that copy, and version cleanup does not delete it.
@@ -116,24 +142,24 @@ Existing local data is preserved when it stops being tracked by Git. Older commi
 From the repository root:
 
 ```powershell
-npm run test:storage
+npm --prefix app run test:storage
 npm run typecheck
 npm run build
-npm run test:resources
-npm run test:demo
-npm run test:backup
-npm run test:storage-stats
-npm run test:references
-npm run test:history-policy
+npm --prefix app run test:resources
+npm --prefix app run test:demo
+npm --prefix app run test:backup
+npm --prefix app run test:storage-stats
+npm --prefix app run test:references
+npm --prefix app run test:history-policy
 ```
 
-`npm run test:backup-load` is separate. It builds large temporary libraries and is not part of the normal check.
+`npm --prefix app run test:backup-load` is separate. It builds large temporary libraries and is not part of the normal check.
 
 Tests use temporary libraries. The demo integration test requires a production build and Microsoft Edge for browser checks. Docker is not required for local use.
 
-## Root command reference
+## Command reference
 
-The root `package.json` forwards application commands and runs the npm packaging tools; it has no dependencies and needs no root `node_modules`. Use `npm run setup` to install dependencies into `app/node_modules`. These npm commands work on Windows, Linux, and macOS. Run `npm run` to list them.
+The root `package.json` keeps the common app and release commands; it has no dependencies and needs no root `node_modules`. Use `npm run setup` to install dependencies into `app/node_modules`. Run `npm run` for common commands or `npm --prefix app run` for detailed app tests. Run Docker Compose directly. All commands below run from the repository root.
 
 | Command | Purpose |
 | --- | --- |
@@ -142,6 +168,7 @@ The root `package.json` forwards application commands and runs the npm packaging
 | `npm run test:core` | Shared library checks (inspect, lock, migrate, import schema) using temporary directories |
 | `npm run test:cli` | Check CLI options and agent-guide preservation using temporary directories |
 | `npm run test:package` | Install and exercise the actual tarball outside the checkout |
+| `npm run test:upgrade-artifacts` | Verify upgrade from the pinned 5.1.0 tarball to the locally built release, using temporary libraries |
 | `npm run check:distribution` | Typecheck, storage tests, core tests, and CLI tests |
 | `npm run dev` | Start the development server; initializes missing data automatically |
 | `npm run build` / `npm start` | Build / start the production app |
@@ -149,19 +176,19 @@ The root `package.json` forwards application commands and runs the npm packaging
 | `npm run seed:demo` | Load Little Café into an empty library, with the app stopped |
 | `npm run check` | Run typecheck and storage tests; no production build required |
 | `npm run typecheck` | Check TypeScript types |
-| `npm run test:storage` | Check bootstrap, demo validation, and data preservation |
-| `npm run test:backup` | Check shared backup limits, round-trip, and interrupted import |
-| `npm run test:backup-load` | Measure large backup export and import; not part of the normal check |
-| `npm run test:storage-stats` | Check storage groups against files on disk |
-| `npm run test:references` | Check cleanup preview, history references, and partial delete |
-| `npm run test:history-policy` | Check history limits, restore protection, and import without pruning |
-| `npm run test:library-ui` | Check the utilities menu, backup screen, and cleanup flow in a temporary library |
-| `npm run test:i18n` | Check locale detection, catalog key parity, and translation fallback |
-| `npm run test:resources` / `npm run test:demo` | Integration checks; run build first |
-| `npm run test:ui` / `npm run test:headings` / `npm run test:responsive` | UI, heading, and mobile shell tests; require Microsoft Edge |
-| `npm run docker:up` | Build and start Docker in the background |
-| `npm run docker:stop` | Stop Docker without deleting data |
-| `npm run docker:logs` / `npm run docker:status` | Follow container logs / show status |
+| `npm --prefix app run test:storage` | Check bootstrap, demo validation, and data preservation |
+| `npm --prefix app run test:backup` | Check shared backup limits, round-trip, and interrupted import |
+| `npm --prefix app run test:backup-load` | Measure large backup export and import; not part of the normal check |
+| `npm --prefix app run test:storage-stats` | Check storage groups against files on disk |
+| `npm --prefix app run test:references` | Check cleanup preview, history references, and partial delete |
+| `npm --prefix app run test:history-policy` | Check history limits, restore protection, and import without pruning |
+| `npm --prefix app run test:library-ui` | Check the utilities menu, backup screen, and cleanup flow in a temporary library |
+| `npm --prefix app run test:i18n` | Check locale detection, catalog key parity, and translation fallback |
+| `npm --prefix app run test:resources` / `npm --prefix app run test:demo` | Integration checks; run build first |
+| `npm --prefix app run test:ui` / `npm --prefix app run test:headings` / `npm --prefix app run test:responsive` | UI, heading, and mobile shell tests; require Microsoft Edge |
+| `docker compose up -d --build` | Build and start Docker in the background |
+| `docker compose stop` | Stop Docker without deleting data |
+| `docker compose logs -f` / `docker compose ps` | Follow container logs / show status |
 
 Extra arguments are forwarded, for example `npm run dev -- --port 3001`. `DATA_DIR` is inherited by all forwarded app commands.
 
@@ -216,8 +243,12 @@ Git history of `docs/` is not a complete Atlas Docs backup: it excludes comments
 
 ## Maintain Help and screenshots
 
-Help is generated automatically by `npm run dev` and `npm run build`. From `app/`, run `node scripts/prepare-help.mjs` to refresh the generated bundle manually. A fresh checkout also prepares it before type checking. The generated JSON and public image copies are ignored by Git; their sources in `guides/` are tracked.
+Maintain translations directly in `app/src/lib/i18n/messages/`, then run
+`npm --prefix app run test:i18n`. The one-time catalog generation and translation patch scripts
+have been removed; the checked-in TypeScript catalogs are the source of truth.
 
-After a production build, run `npm --prefix app run test:help`. It starts a separate server on port 3239, seeds a temporary Little Café library, uses headless Microsoft Edge in English/light mode, and checks Help while capturing walkthrough screenshots. The test never uses the working library. Set `ATLAS_DIST_DIR` to the same value used for an isolated build if applicable. Set `HELP_DEV=1` to test an isolated development server instead. Screenshots are written to `guides/assets/`; unannotated originals are retained in `guides/assets/originals/`. Rebuild after updating screenshots to package them.
+Help is generated automatically by `npm run dev` and `npm run build`. From the repository root, run `node scripts/build/prepare-help.mjs` to refresh the generated bundle manually. A fresh checkout also prepares it before type checking. The generated JSON and public image copies are ignored by Git; their sources in `guides/` are tracked.
+
+After a production build, run `npm --prefix app run test:help`. It starts a separate server on port 3239, seeds a temporary Little Café library, uses headless Microsoft Edge in English/light mode, and checks Help while capturing walkthrough screenshots. The test never uses the working library. Set `ATLAS_DIST_DIR` to the same value used for an isolated build if applicable. Set `HELP_DEV=1` to test an isolated development server instead. Screenshots are written to `app/test-results/help-assets/`, with unannotated images in its `originals/` directory. To deliberately refresh guide images, set `HELP_SCREENSHOT_DIR` to the absolute `guides/assets/` path, review the results, then rebuild. Normal tests do not change guide images.
 
 Review the screenshots visually before committing: the red numbered outlines identify actual controls, and nearby guide text explains the numbers. Keep browser dimensions and the demo consistent when refreshing images.

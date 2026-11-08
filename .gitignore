@@ -1,3 +1,12 @@
+# Local dependencies, environment, and tool output at any level
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+coverage/
+
 /data/**
 !/data/.gitkeep
 
@@ -7,7 +16,6 @@ app/.next-*/
 app/out/
 app/test-results/
 app/playwright-report/
-app/scripts/.bundles/
 
 # Generated from guides/ for bundled Help
 app/src/generated/help.json

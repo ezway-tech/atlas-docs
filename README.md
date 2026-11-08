@@ -119,7 +119,9 @@ The default library is `data/` beside `app/`: documents in `docs/`, attachments 
 - `app/src/app/`: Next.js routes, layout, styles, and HTTP API.
 - `app/src/components/`: workspace, editors, viewers, and dialogs.
 - `app/src/lib/`: file storage, metadata, history, backup, and validation.
-- `app/scripts/`: bootstrap, demo seeding, and verification scripts.
+- `app/src/library/`: shared library initialization, locking, migration, and recovery.
+- `app/src/cli/`: terminal commands for the npm installation.
+- `scripts/`: build and setup tools, tests, templates, and fixtures.
 - `examples/little-cafe/`: optional sample library; [demo image prompts](guides/demo-image-prompts.md) are documented under `guides/`.
 
 ## Development
