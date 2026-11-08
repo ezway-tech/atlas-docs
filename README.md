@@ -12,8 +12,7 @@ Atlas Docs turns local Markdown, API definitions, and structured files into a br
 
 ## Why Atlas Docs?
 
-For the npm package workflow and release instructions, see [Atlas Docs with npm](guides/npm.md).
-The source-checkout instructions below remain available; npm publication is a separate manual step.
+For the published npm package, see [Atlas Docs with npm](guides/npm.md). For the Docker Hub image, see [Docker Hub image](guides/operations.md#docker-hub-image-end-users). The source-checkout instructions below remain available for development.
 
 Project knowledge often spreads across setup notes, architecture documents, API specs, and database schemas. Atlas Docs gives those files a shared place to browse and maintain.
 
@@ -59,7 +58,19 @@ The interface also includes **light and dark themes**, **customizable keyboard s
 
 ## Quick start
 
-Requires Node.js **22.12 or newer**. Run from this repository root:
+Requires Node.js **22.12 or newer** for npm and source runs.
+
+**Published package (no checkout):**
+
+```sh
+npx atlas-docs@latest
+```
+
+Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Default library: `./atlas-docs-data`. See [npm guide](guides/npm.md).
+
+**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; data and upgrade backups use named volumes. See [operations](guides/operations.md#docker-hub-image-end-users).
+
+**From this repository:**
 
 ```powershell
 npm run setup
@@ -69,13 +80,13 @@ npm run dev
 
 Open http://127.0.0.1:3000. Bootstrap creates an empty library without replacing existing data and runs automatically before dev/start. For production, use `npm run build`, then `npm start`.
 
-Or run with Docker:
+Or build from source with Docker:
 
 ```powershell
 docker compose up -d --build
 ```
 
-Docker stores data in `./data` and exposes http://127.0.0.1:3000.
+Source Compose stores data in `./data`, upgrade backups in `./.atlas-docs-upgrade-backups`, and exposes http://127.0.0.1:3000.
 
 **Run locally:** there is no login on the write API; keep the application local.
 

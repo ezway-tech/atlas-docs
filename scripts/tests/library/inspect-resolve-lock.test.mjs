@@ -111,6 +111,18 @@ test('cross-process lock rejects second holder; stale dead pid can be replaced',
     assert.equal(isLockStale(JSON.parse(await readFile(lockFile, 'utf8'))), true);
     const second = await acquireLibraryLock(lib, 'migrate');
     await second.release();
+
+    await writeFile(lockFile, JSON.stringify({
+      pid: process.pid,
+      nonce: 'other-host',
+      purpose: 'server',
+      hostname: 'not-this-host',
+      acquiredAt: new Date().toISOString(),
+      heartbeatAt: new Date().toISOString(),
+    }));
+    assert.equal(isLockStale(JSON.parse(await readFile(lockFile, 'utf8'))), true);
+    const third = await acquireLibraryLock(lib, 'server');
+    await third.release();
   } finally {
     await rm(root, {recursive: true, force: true});
   }

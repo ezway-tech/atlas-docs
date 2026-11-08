@@ -8,6 +8,8 @@ services:
     environment:
       DATA_DIR: /data
       NODE_ENV: production
+      ATLAS_DOCS_UPGRADE_BACKUP_DIR: /upgrade-backups
     volumes:
       - ./data:/data
+      - ./.atlas-docs-upgrade-backups:/upgrade-backups
     restart: unless-stopped

@@ -30,6 +30,9 @@ const root = process.env.DATA_DIR
   : core.resolveAppDataRoot(process.env, process.cwd());
 
 const migrateYes = process.env.ATLAS_DOCS_MIGRATE_YES === '1' || process.env.ATLAS_DOCS_MIGRATE_YES === 'true';
+const backupParentDir = process.env.ATLAS_DOCS_UPGRADE_BACKUP_DIR
+  ? core.canonicalize(path.resolve(process.env.ATLAS_DOCS_UPGRADE_BACKUP_DIR))
+  : undefined;
 
 // Bootstrap is a short-lived process: prepare then release the lock so the server can acquire it.
 await core.prepareLibrary({
@@ -38,6 +41,7 @@ await core.prepareLibrary({
   allowInit: true,
   allowMigrate: true,
   autoConfirmMigrate: migrateYes,
+  backupParentDir,
   holdLock: false,
   log: console.log,
 });

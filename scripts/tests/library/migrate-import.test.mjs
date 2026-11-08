@@ -1,14 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, writeFile, readFile, rm, rename} from 'node:fs/promises';
+import {mkdtemp, mkdir, writeFile, readFile, rm, rename, readdir} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {emptyDatabase} from '../../../app/src/library/schema.mjs';
 import {prepareImportStage} from '../../../app/src/library/import-schema.mjs';
 import {migrateLibrary, recoverInterruptedMigration} from '../../../app/src/library/migrate/run.mjs';
 import {MIGRATE_JOURNAL} from '../../../app/src/library/paths.mjs';
 import {initEmptyLibrary} from '../../../app/src/library/init.mjs';
 import {inspectLibrary} from '../../../app/src/library/inspect.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 async function temp() {
   return mkdtemp(path.join(tmpdir(), 'atlas-migrate-'));
@@ -75,6 +79,46 @@ test('interrupted migration journal recovers full tree from upgrade backup', asy
     assert.equal(await readFile(path.join(lib, 'docs', 'note.md'), 'utf8'), 'doc-body\n');
     assert.equal(await readFile(path.join(lib, 'AGENTS.md'), 'utf8'), 'personal-agents\n');
     assert.equal((await inspectLibrary(lib)).state !== 'interrupted', true);
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('bootstrap respects ATLAS_DOCS_UPGRADE_BACKUP_DIR for legacy migrate', async () => {
+  const root = await temp();
+  try {
+    const lib = path.join(root, 'lib');
+    const backups = path.join(root, 'upgrade-backups');
+    await mkdir(path.join(lib, 'docs'), {recursive: true});
+    await mkdir(path.join(lib, 'uploads'), {recursive: true});
+    await mkdir(path.join(lib, 'history'), {recursive: true});
+    const legacy = emptyDatabase();
+    delete legacy.schemaVersion;
+    await writeFile(path.join(lib, 'db.json'), JSON.stringify(legacy, null, 2));
+    await writeFile(path.join(lib, 'docs', 'note.md'), 'keep-note\n');
+
+    const boot = spawnSync(
+      process.execPath,
+      [path.join(repoRoot, 'scripts/setup/bootstrap.mjs')],
+      {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          DATA_DIR: lib,
+          ATLAS_DOCS_MIGRATE_YES: '1',
+          ATLAS_DOCS_UPGRADE_BACKUP_DIR: backups,
+        },
+        encoding: 'utf8',
+        windowsHide: true,
+      },
+    );
+    assert.equal(boot.status, 0, boot.stderr || boot.stdout);
+
+    const db = JSON.parse(await readFile(path.join(lib, 'db.json'), 'utf8'));
+    assert.equal(db.schemaVersion, 1);
+    const entries = await readdir(backups);
+    assert.ok(entries.some((name) => name.startsWith('atlas-upgrade-backup-')), entries.join(','));
+    assert.equal(await readFile(path.join(lib, 'docs', 'note.md'), 'utf8'), 'keep-note\n');
   } finally {
     await rm(root, {recursive: true, force: true});
   }

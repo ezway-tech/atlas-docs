@@ -1,0 +1,26 @@
+# End-user Compose: pull from Docker Hub (no source checkout or build).
+# Usage:
+#   set ATLAS_DOCS_VERSION=5.2.1   # optional; defaults below
+#   docker compose -f docker-compose.hub.yml up -d
+#
+# Data persists in named volumes. Do not use `docker compose down -v` when updating.
+# Bind-mount alternative: replace the named volumes with host paths. On Linux, if
+# the app cannot write, chown the host directories to UID 1000 (the image `node` user).
+
+services:
+  atlas-docs:
+    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-5.2.1}
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DATA_DIR: /data
+      NODE_ENV: production
+      ATLAS_DOCS_UPGRADE_BACKUP_DIR: /upgrade-backups
+    volumes:
+      - atlas-docs-data:/data
+      - atlas-docs-upgrade-backups:/upgrade-backups
+    restart: unless-stopped
+
+volumes:
+  atlas-docs-data:
+  atlas-docs-upgrade-backups:

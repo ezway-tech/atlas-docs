@@ -53,13 +53,48 @@ Demo updates do not migrate an already seeded library. To see the latest sample,
 
 ## Docker
 
+There is no login on the write API; keep the application local (do not expose it as a shared multi-user service).
+
+### Docker Hub image (end users)
+
+No source checkout is required. Copy `docker-compose.hub.yml` from the Atlas Docs repository root (or recreate it), then:
+
+```powershell
+docker compose -f docker-compose.hub.yml up -d
+```
+
+Default image: `ezwaytechvn/atlas-docs:5.2.1` (override with env `ATLAS_DOCS_VERSION`). The Compose file binds `127.0.0.1:3000:3000`, uses named volumes for `/data` (library) and `/upgrade-backups` (schema-upgrade backups), and sets `restart: unless-stopped`.
+
+Schema upgrades write a full filesystem backup under `ATLAS_DOCS_UPGRADE_BACKUP_DIR` (default `/upgrade-backups` in the image). That path is outside the library and must stay on a persistent volume. Replacing the container while keeping both volumes preserves documents, attachments, and upgrade backups.
+
+**Update (keep data):**
+
+1. Stop is optional; back up volumes or export a ZIP first.
+2. If you pin a version, set `ATLAS_DOCS_VERSION` to the new tag.
+3. Pull and recreate:
+
+```powershell
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+```
+
+Do **not** run `docker compose down -v` during an update; `-v` deletes volumes.
+
+**Roll back an image** only when the older image still supports the library `schemaVersion`. If a newer image already migrated the schema, restore the upgrade backup volume (or a ZIP taken before migration). Updating the image is separate from schema migration; migration runs when the library is opened (`ATLAS_DOCS_MIGRATE_YES=1` is set in the image).
+
+**Bind mounts:** if you replace named volumes with host directories on Linux and the app cannot write, `chown` those directories to UID **1000** (the image `node` user).
+
+Readiness: the image HEALTHCHECK calls `GET /api/health`.
+
+### Source checkout Compose (developers)
+
 From the repository root:
 
 ```powershell
 docker compose up -d --build
 ```
 
-The container starts with an empty library, mounts `./data` at `/data`, and listens on http://127.0.0.1:3000. To load the optional demo into that empty volume:
+The container starts with an empty library, mounts `./data` at `/data` and `./.atlas-docs-upgrade-backups` at `/upgrade-backups`, and listens on http://127.0.0.1:3000. To load the optional demo into that empty volume:
 
 ```powershell
 docker compose stop atlas-docs
@@ -71,26 +106,24 @@ For a separate demo volume without touching existing `./data`:
 
 ```powershell
 docker compose build
-docker compose run --rm --no-deps -v atlas-cafe-demo:/data atlas-docs node scripts/seed-demo.mjs
-docker compose run --rm --no-deps -v atlas-cafe-demo:/data -p 127.0.0.1:3001:3000 atlas-docs
+docker compose run --rm --no-deps -v atlas-cafe-demo:/data -v atlas-cafe-demo-backups:/upgrade-backups atlas-docs node scripts/seed-demo.mjs
+docker compose run --rm --no-deps -v atlas-cafe-demo:/data -v atlas-cafe-demo-backups:/upgrade-backups -p 127.0.0.1:3001:3000 atlas-docs
 ```
 
-Open http://127.0.0.1:3001 for that demo. There is no login on the write API; keep the application local.
+Open http://127.0.0.1:3001 for that demo.
 
 ### Publish to Docker Hub locally
 
-From the repository root, use PowerShell and replace `your-dockerhub-user` with
-your Docker Hub namespace. Run each step only after the previous step succeeds:
+From the repository root, use PowerShell. Run each step only after the previous step succeeds:
 
 ```powershell
 $releaseVersion = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
-$imageName = 'your-dockerhub-user/atlas-docs'
+$imageName = 'ezwaytechvn/atlas-docs'
 docker build -f app/Dockerfile -t "${imageName}:${releaseVersion}" .
-docker run --rm -p 127.0.0.1:3001:3000 "${imageName}:${releaseVersion}"
+docker run --rm -p 127.0.0.1:3001:3000 -v ${env:TEMP}/atlas-docs-smoke-data:/data -v ${env:TEMP}/atlas-docs-smoke-backups:/upgrade-backups "${imageName}:${releaseVersion}"
 ```
 
 Open http://127.0.0.1:3001 and check the app, then stop the container with Ctrl+C.
-No working library is mounted; the test container's data is discarded when it exits.
 Publish the checked image:
 
 ```powershell
@@ -100,7 +133,7 @@ docker tag "${imageName}:${releaseVersion}" "${imageName}:latest"
 docker push "${imageName}:latest"
 ```
 
-This builds for the local Docker engine's platform. There is no CI workflow.
+Prefer `docker buildx` with `linux/amd64,linux/arm64` when you can test both. Only document architectures you actually verified. There is no CI workflow.
 npm publishing has a separate [local release checklist](npm.md#build-and-release-maintainers).
 
 ## Where data lives
@@ -186,7 +219,8 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | `npm --prefix app run test:i18n` | Check locale detection, catalog key parity, and translation fallback |
 | `npm --prefix app run test:resources` / `npm --prefix app run test:demo` | Integration checks; run build first |
 | `npm --prefix app run test:ui` / `npm --prefix app run test:headings` / `npm --prefix app run test:responsive` | UI, heading, and mobile shell tests; require Microsoft Edge |
-| `docker compose up -d --build` | Build and start Docker in the background |
+| `docker compose up -d --build` | Build and start the **source** Compose file in the background |
+| `docker compose -f docker-compose.hub.yml up -d` | Start from the Docker Hub image (no build) |
 | `docker compose stop` | Stop Docker without deleting data |
 | `docker compose logs -f` / `docker compose ps` | Follow container logs / show status |
 
@@ -194,11 +228,15 @@ Extra arguments are forwarded, for example `npm run dev -- --port 3001`. `DATA_D
 
 ## Update an installation
 
+**Source checkout**
+
 1. Stop the app and back up the complete active data directory, or export a ZIP before stopping.
 2. Review changes and preserve local source edits before updating the checkout. Older checkouts may have tracked data files; see the warning above.
 3. Run `npm run setup`, then `npm run build`.
-4. Start with the same absolute `DATA_DIR` using `npm start`. For Docker, keep the same volume and rebuild with `docker compose up -d --build`.
+4. Start with the same absolute `DATA_DIR` using `npm start`. For source Docker, keep the same volumes and rebuild with `docker compose up -d --build`.
 5. Open a known document and attachment. Keep the backup until the updated installation is verified.
+
+**npm package:** see [npm updates](npm.md#updates). **Docker Hub image:** see [Docker Hub image](#docker-hub-image-end-users). App updates do not replace library data; schema migration (if needed) runs when the library is opened and creates a full backup under the upgrade-backup directory.
 
 ## Troubleshooting
 

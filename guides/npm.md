@@ -52,7 +52,7 @@ The server listens only on `127.0.0.1`; default port 3000.
 ## Schema and locking
 
 Libraries store an integer `schemaVersion` in `db.json` (currently **1**).
-Older libraries without that field are legacy and migrate after confirmation, with a full backup outside the library tree. If a migration is interrupted, the next confirmed start recovers by restoring that full backup tree, then continues. The env var `ATLAS_TEST_MIGRATE_ABORT` exists only for automated crash tests and must not be set in normal use.
+Older libraries without that field are legacy and migrate after confirmation, with a full backup outside the library tree. Override the backup parent with `ATLAS_DOCS_UPGRADE_BACKUP_DIR` when needed (must stay outside the library). If a migration is interrupted, the next confirmed start recovers by restoring that full backup tree, then continues. The env var `ATLAS_TEST_MIGRATE_ABORT` exists only for automated crash tests and must not be set in normal use.
 A library with a newer schema than the app is refused; files are not changed.
 Only one Atlas Docs process may hold a library lock at a time. External editors are not blocked by that lock.
 
@@ -80,10 +80,40 @@ Direct document edits do not create app revision history.
 
 ## Updates
 
-`atlas-docs update --check` reports the running version, latest stable (when reachable), detected install method, and how to update.
-`atlas-docs update` applies an automatic update only when the install method is known and safe (for example npm global with the same prefix). Otherwise it prints the exact command and stops.
-Package updates do not migrate every library on the machine; migration happens when that library is opened.
-Stop the running app before replacing the installed package. Library data is not modified by a failed package update.
+Updating the **package** is separate from **schema migration**. Opening a library after an app update may still ask to migrate data; keep the upgrade backup until you have checked documents and attachments.
+
+### npx
+
+1. Stop the running app (Ctrl+C).
+2. Back up the library directory (or export a ZIP).
+3. Run the same library path with the latest package:
+
+```sh
+npx atlas-docs@latest --data-dir "/absolute/path/to/library"
+```
+
+Pin a version when you need to stay on a known release:
+
+```sh
+npx atlas-docs@5.2.1 --data-dir "/absolute/path/to/library"
+```
+
+### Global install
+
+1. Stop the running app.
+2. Back up the library.
+3. Check and update:
+
+```sh
+atlas-docs update --check
+atlas-docs update
+```
+
+`atlas-docs update` applies an automatic update only when the install method is known and safe (for example npm global with the same prefix). Otherwise it prints the exact command and stops. Then start again with the same library path. Package updates do not migrate every library on the machine; migration happens when that library is opened. Library data is not modified by a failed package update.
+
+### Roll back a package
+
+Installing an older package is safe only when that older app still understands the library `schemaVersion`. If a newer app already migrated the schema, restore the pre-upgrade filesystem backup (or a ZIP taken before migration) instead of only downgrading the package. Atlas Docs does not auto-upgrade MAJOR releases or run risky migrations without confirmation (`--yes` or an interactive prompt).
 
 Background update notices use a local cache (at most once per 24 hours). Disable with `ATLAS_DOCS_NO_UPDATE_CHECK=1`. They are off in CI. Notices never upload library paths or document contents.
 
@@ -120,5 +150,8 @@ After the checks pass, publish the tarball (replace `<version>` with the version
 
 ```sh
 npm login
+npm view atlas-docs version
 npm publish ./dist/atlas-docs-<version>.tgz --access public
 ```
+
+Then install from the registry into a temporary directory and open a temporary library before tagging the release as done. Docker Hub publishing is separate; see [operations](operations.md#docker-hub-image-end-users).

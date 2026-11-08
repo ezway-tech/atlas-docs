@@ -1,6 +1,6 @@
 {
   "name": "atlas-docs",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "private": true,
   "scripts": {
     "predev": "node ../scripts/build/prepare-help.mjs && node ../scripts/setup/bootstrap.mjs",

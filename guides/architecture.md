@@ -32,7 +32,7 @@ Paths in this table are relative to the repository root. The root package forwar
 
 All development tools live under `scripts/`. Node tools outside the app resolve dependencies through `scripts/dependencies.mjs`; no root dependency installation is needed. Tests are grouped into `app`, `library`, `cli`, and `package`, with shared helpers. New test builds, bundles, reports, and Help captures go under `app/test-results/`. Older ignored build caches may remain locally; they are not source folders.
 
-The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source and Docker keep their existing data defaults (`../data` and `/data`); the npm CLI defaults to `./atlas-docs-data` unless `--data-dir`, `DATA_DIR`, or `atlas-docs.config.json` selects another path. See [npm usage](npm.md).
+The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source and Docker keep their existing data defaults (`../data` and `/data`); the npm CLI defaults to `./atlas-docs-data` unless `--data-dir`, `DATA_DIR`, or `atlas-docs.config.json` selects another path. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
 
 ## Versions
 

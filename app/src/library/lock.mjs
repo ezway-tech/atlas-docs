@@ -1,5 +1,6 @@
 import {open, readFile, writeFile, unlink, mkdir, rename} from 'node:fs/promises';
 import {unlinkSync, readFileSync, existsSync} from 'node:fs';
+import {hostname as osHostname} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {AtlasError} from './errors.mjs';
 import {canonicalize, lockPath} from './paths.mjs';
@@ -16,6 +17,27 @@ function pidAlive(pid) {
   } catch (error) {
     return error.code === 'EPERM';
   }
+}
+
+/** Linux starttime from /proc/<pid>/stat (field 22). Null when unavailable (e.g. Windows). */
+function pidStartTime(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    if (close < 0) return null;
+    const rest = stat.slice(close + 2).split(' ');
+    return rest[19] || null;
+  } catch {
+    return null;
+  }
+}
+
+function currentProcessIdentity() {
+  return {
+    hostname: osHostname(),
+    startTime: pidStartTime(process.pid),
+  };
 }
 
 async function readLock(file) {
@@ -39,6 +61,14 @@ function readLockSync(file) {
 
 function isStale(record, now = Date.now()) {
   if (!record || record.corrupt) return true;
+  const identity = currentProcessIdentity();
+  // Different host/container: PIDs are not comparable across namespaces.
+  if (record.hostname && record.hostname !== identity.hostname) return true;
+  // Same pid number can be a new process (common for Docker PID 1 after recreate).
+  if (record.startTime && identity.startTime && pidAlive(record.pid)) {
+    const liveStart = pidStartTime(record.pid);
+    if (liveStart && liveStart !== record.startTime) return true;
+  }
   const heartbeat = Date.parse(record.heartbeatAt || record.acquiredAt || 0);
   if (!Number.isFinite(heartbeat)) return true;
   const age = now - heartbeat;
@@ -57,10 +87,13 @@ export async function acquireLibraryLock(libraryRoot, purpose = 'server') {
   await mkdir(root, {recursive: true});
   const file = lockPath(root);
   const nonce = randomUUID();
+  const identity = currentProcessIdentity();
   const record = {
     pid: process.pid,
     nonce,
     purpose,
+    hostname: identity.hostname,
+    startTime: identity.startTime,
     acquiredAt: new Date().toISOString(),
     heartbeatAt: new Date().toISOString(),
   };

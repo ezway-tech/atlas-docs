@@ -19,7 +19,7 @@ export function ensureLibraryPrepared(): Promise<PrepareResult> {
         const core = await loadCore();
         // Opaque keys — Next must not inline these as undefined in the server bundle.
         const keys = JSON.parse(
-          '["DATA_DIR","ATLAS_APP_VERSION","ATLAS_DOCS_MIGRATE_YES","ATLAS_AGENT_KIT"]',
+          '["DATA_DIR","ATLAS_APP_VERSION","ATLAS_DOCS_MIGRATE_YES","ATLAS_AGENT_KIT","ATLAS_DOCS_UPGRADE_BACKUP_DIR"]',
         ) as string[];
         const dataDir = process.env[keys[0]];
         const root = dataDir
@@ -29,6 +29,8 @@ export function ensureLibraryPrepared(): Promise<PrepareResult> {
         const appVersion = process.env[keys[1]] || '';
         const migrateYes = process.env[keys[2]] === '1' || process.env[keys[2]] === 'true';
         const agentKitPath = process.env[keys[3]] || null;
+        const backupDir = process.env[keys[4]];
+        const backupParentDir = backupDir ? core.canonicalize(path.resolve(backupDir)) : undefined;
 
         const result = await core.prepareLibrary({
           libraryRoot: root,
@@ -37,6 +39,7 @@ export function ensureLibraryPrepared(): Promise<PrepareResult> {
           allowMigrate: true,
           autoConfirmMigrate: migrateYes,
           agentKitPath,
+          backupParentDir,
           holdLock: true,
           log: console.log,
         });

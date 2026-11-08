@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.2.1
+
+### Fixes
+
+- Library lock treats a lock from another host/container as stale, and on Linux compares `/proc/<pid>/starttime` so Docker recreate (often PID 1 reuse) does not block reopening the same volume after a hard stop.
+
 ## 5.2.0
 
 ### Compatibility
@@ -34,3 +40,5 @@ Version 5.1.0 cannot enforce schema checks or cross-process locks. Protection st
 ### Packaging
 
 - Release tarball includes `bin/`, `core/`, `runtime/`, `agent-kit/`, and a `.sha256` checksum file beside the `.tgz`.
+- Docker image defaults `ATLAS_DOCS_UPGRADE_BACKUP_DIR=/upgrade-backups` so schema-upgrade backups stay outside `/data` and can use a persistent volume. End-user Compose file: `docker-compose.hub.yml` (`ezwaytechvn/atlas-docs`).
+- Set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` for npm CLI, source bootstrap, and the server when you need a custom upgrade-backup parent directory.

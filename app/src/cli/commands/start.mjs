@@ -47,6 +47,9 @@ export async function runStart(packageRoot, options, manifest) {
   await assertPortAvailable(options.port);
   console.log(`[Atlas Docs] Library: ${dataDir} (${resolved.source})`);
 
+  const backupEnv = (options.env || process.env).ATLAS_DOCS_UPGRADE_BACKUP_DIR;
+  const backupParentDir = backupEnv ? path.resolve(String(backupEnv)) : undefined;
+
   // Prepare before spawn so the server only has to acquire the lock and re-check.
   // The short-lived CLI prepare releases the lock; the server process owns it while running.
   await prepareLibrary({
@@ -56,6 +59,7 @@ export async function runStart(packageRoot, options, manifest) {
     allowMigrate: true,
     autoConfirmMigrate: migrateYes,
     agentKitPath: agentKit,
+    backupParentDir,
     holdLock: false,
     log: console.log,
   });
@@ -69,6 +73,7 @@ export async function runStart(packageRoot, options, manifest) {
       ATLAS_APP_VERSION: manifest.version,
       ATLAS_CORE_PATH: path.join(packageRoot, 'core', 'index.mjs'),
       ATLAS_PACKAGE_ROOT: packageRoot,
+      ...(backupEnv ? {ATLAS_DOCS_UPGRADE_BACKUP_DIR: String(backupEnv)} : {}),
     },
   });
 }
