@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.3.0
+
+### Features
+
+- npm CLI default listen port is **17430**. When `--port` is omitted and that port is busy, the CLI tries **17431–17439**, then exits if none are free.
+- With `--port`, a busy port is an error (no auto-fallback). The Ready line prints the URL in use; the browser opens after the server is ready.
+- Docker Hub Compose maps `127.0.0.1:17430:3000` by default. Override the host port with `ATLAS_DOCS_PORT`. Container listen port stays **3000**.
+
+### Compatibility
+
+- Source checkout (`npm run dev`) and source Compose still default to http://127.0.0.1:3000.
+- Existing bookmarks to the previous npm/Docker Hub default URL on port **3000** need the new port, `--port 3000`, or `ATLAS_DOCS_PORT=3000`.
+
 ## 5.2.1
 
 ### Fixes

@@ -1,6 +1,7 @@
 # End-user Compose: pull from Docker Hub (no source checkout or build).
 # Usage:
-#   set ATLAS_DOCS_VERSION=5.2.1   # optional; defaults below
+#   set ATLAS_DOCS_VERSION=5.3.0   # optional; defaults below
+#   set ATLAS_DOCS_PORT=17430      # optional host port; defaults below
 #   docker compose -f docker-compose.hub.yml up -d
 #
 # Data persists in named volumes. Do not use `docker compose down -v` when updating.
@@ -9,9 +10,9 @@
 
 services:
   atlas-docs:
-    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-5.2.1}
+    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-5.3.0}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${ATLAS_DOCS_PORT:-17430}:3000"
     environment:
       DATA_DIR: /data
       NODE_ENV: production

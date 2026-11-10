@@ -4,17 +4,59 @@ import {mkdtemp, mkdir, readFile, writeFile, readdir, rm, symlink} from 'node:fs
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
-import {parseOptions} from '../../../app/src/cli/options.mjs';
+import net from 'node:net';
+import {AUTO_PORT_LAST, DEFAULT_PORT, parseOptions} from '../../../app/src/cli/options.mjs';
+import {resolveListenPort} from '../../../app/src/cli/start.mjs';
 import {installAgentKit} from '../../../app/src/library/agent-kit.mjs';
+
+function holdPort(port) {
+  const server = net.createServer();
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => resolve(server));
+  });
+}
 
 test('options resolve caller paths, precedence, and invalid input', () => {
   const cwd = path.resolve('some project');
-  assert.equal(parseOptions([], {}, cwd).dataDir, path.join(cwd, 'atlas-docs-data'));
+  const defaults = parseOptions([], {}, cwd);
+  assert.equal(defaults.dataDir, path.join(cwd, 'atlas-docs-data'));
+  assert.equal(defaults.port, DEFAULT_PORT);
+  assert.equal(defaults.portExplicit, false);
   assert.equal(parseOptions([], {DATA_DIR: 'env'}, cwd).dataDir, path.join(cwd, 'env'));
   const chosen = parseOptions(['--data-dir', 'tài liệu', '--port', '3200', '--no-open'], {DATA_DIR: 'env'}, cwd);
   assert.equal(chosen.dataDir, path.join(cwd, 'tài liệu'));
-  assert.equal(chosen.port, 3200); assert.equal(chosen.open, false);
+  assert.equal(chosen.port, 3200);
+  assert.equal(chosen.portExplicit, true);
+  assert.equal(chosen.open, false);
+  const sameDefault = parseOptions(['--port', String(DEFAULT_PORT)], {}, cwd);
+  assert.equal(sameDefault.port, DEFAULT_PORT);
+  assert.equal(sameDefault.portExplicit, true);
   for (const args of [['--port', '0'], ['--port', '65536'], ['--port', '1.2'], ['--port'], ['--data-dir'], ['--bad']]) assert.throws(() => parseOptions(args));
+});
+
+test('resolveListenPort auto-falls back and respects explicit --port', async () => {
+  const held = [];
+  const logs = [];
+  try {
+    held.push(await holdPort(DEFAULT_PORT));
+    const next = await resolveListenPort({port: DEFAULT_PORT, portExplicit: false}, message => logs.push(message));
+    assert.equal(next, DEFAULT_PORT + 1);
+    assert.match(logs.join('\n'), new RegExp(`Port ${DEFAULT_PORT} busy; using ${DEFAULT_PORT + 1}`));
+
+    await assert.rejects(
+      () => resolveListenPort({port: DEFAULT_PORT, portExplicit: true}),
+      /Choose another --port/,
+    );
+
+    for (let port = DEFAULT_PORT + 1; port <= AUTO_PORT_LAST; port++) held.push(await holdPort(port));
+    await assert.rejects(
+      () => resolveListenPort({port: DEFAULT_PORT, portExplicit: false}),
+      new RegExp(`Cannot listen on 127\\.0\\.0\\.1:${DEFAULT_PORT}-${AUTO_PORT_LAST}`),
+    );
+  } finally {
+    await Promise.all(held.map(server => new Promise(resolve => server.close(resolve))));
+  }
 });
 
 test('guide upgrades preserve personal rules, edited guides and unknown files', async () => {

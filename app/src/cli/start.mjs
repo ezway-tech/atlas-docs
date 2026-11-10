@@ -2,6 +2,7 @@ import {spawn} from 'node:child_process';
 import net from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import path from 'node:path';
+import {AUTO_PORT_LAST, DEFAULT_PORT} from './options.mjs';
 
 export async function assertPortAvailable(port) {
   const server = net.createServer();
@@ -10,6 +11,29 @@ export async function assertPortAvailable(port) {
     server.listen(port, '127.0.0.1', resolve);
   });
   await new Promise(resolve => server.close(resolve));
+}
+
+/**
+ * Pick a listen port. Explicit `--port` never falls back.
+ * Without `--port`, try DEFAULT_PORT through AUTO_PORT_LAST.
+ */
+export async function resolveListenPort({port, portExplicit}, log = console.log) {
+  if (portExplicit) {
+    await assertPortAvailable(port);
+    return port;
+  }
+  const first = DEFAULT_PORT;
+  const last = AUTO_PORT_LAST;
+  for (let candidate = first; candidate <= last; candidate++) {
+    try {
+      await assertPortAvailable(candidate);
+      if (candidate !== first) log(`[Atlas Docs] Port ${first} busy; using ${candidate}`);
+      return candidate;
+    } catch {
+      // try next in range
+    }
+  }
+  throw Error(`Cannot listen on 127.0.0.1:${first}-${last}. Choose another --port.`);
 }
 
 export function openBrowser(url) {

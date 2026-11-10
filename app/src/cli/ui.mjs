@@ -25,14 +25,15 @@ Usage:
 
 Options:
   --data-dir <path>  Library root for this run (does not rewrite project config)
-  --port <number>    Local port, default 3000
+  --port <number>    Local port (default 17430; if omitted and busy, try 17431-17439)
   --no-open          Do not open a browser
   --yes              Confirm schema migration without a prompt
 
 Library selection order: --data-dir, DATA_DIR, nearest atlas-docs.config.json, ./atlas-docs-data.
 Relative --data-dir and DATA_DIR paths resolve from the calling directory.
 Config dataDir paths resolve from the config file location.
-The server listens only on 127.0.0.1. Press Ctrl+C to stop.`);
+The server listens only on 127.0.0.1. With --port, a busy port is an error (no auto-fallback).
+Press Ctrl+C to stop.`);
 }
 
 export async function confirm(question) {

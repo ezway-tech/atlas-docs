@@ -5,7 +5,7 @@ import {
   prepareLibrary,
   CURRENT_SCHEMA_VERSION,
 } from '../../library/index.mjs';
-import {assertPortAvailable, startServer} from '../start.mjs';
+import {resolveListenPort, startServer} from '../start.mjs';
 import {confirmMigrate} from '../ui.mjs';
 
 export async function runStart(packageRoot, options, manifest) {
@@ -44,7 +44,8 @@ export async function runStart(packageRoot, options, manifest) {
     migrateYes = true;
   }
 
-  await assertPortAvailable(options.port);
+  const port = await resolveListenPort(options);
+  options = {...options, port};
   console.log(`[Atlas Docs] Library: ${dataDir} (${resolved.source})`);
 
   const backupEnv = (options.env || process.env).ATLAS_DOCS_UPGRADE_BACKUP_DIR;

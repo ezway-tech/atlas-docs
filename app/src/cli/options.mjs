@@ -2,6 +2,11 @@ import path from 'node:path';
 
 const COMMANDS = new Set(['start', 'update', 'doctor', 'library']);
 
+/** Default listen port for the npm CLI when `--port` is omitted. */
+export const DEFAULT_PORT = 17430;
+/** Last port tried when auto-selecting after DEFAULT_PORT is busy. */
+export const AUTO_PORT_LAST = 17439;
+
 /**
  * Parse CLI argv into command + options.
  * Bare flags without a command imply `start`.
@@ -9,7 +14,8 @@ const COMMANDS = new Set(['start', 'update', 'doctor', 'library']);
 export function parseOptions(args, env = process.env, cwd = process.cwd()) {
   const result = {
     command: 'start',
-    port: 3000,
+    port: DEFAULT_PORT,
+    portExplicit: false,
     open: true,
     yes: false,
     updateCheck: false,
@@ -42,6 +48,7 @@ export function parseOptions(args, env = process.env, cwd = process.cwd()) {
           throw Error('Port must be an integer from 1 to 65535');
         }
         result.port = Number(value);
+        result.portExplicit = true;
       } else {
         result.dataDirFlag = value;
       }

@@ -63,7 +63,7 @@ No source checkout is required. Copy `docker-compose.hub.yml` from the Atlas Doc
 docker compose -f docker-compose.hub.yml up -d
 ```
 
-Default image: `ezwaytechvn/atlas-docs:5.2.1` (override with env `ATLAS_DOCS_VERSION`). The Compose file binds `127.0.0.1:3000:3000`, uses named volumes for `/data` (library) and `/upgrade-backups` (schema-upgrade backups), and sets `restart: unless-stopped`.
+Default image: `ezwaytechvn/atlas-docs:5.3.0` (override with env `ATLAS_DOCS_VERSION`). The Compose file binds `127.0.0.1:17430:3000` by default (override the host port with env `ATLAS_DOCS_PORT`), uses named volumes for `/data` (library) and `/upgrade-backups` (schema-upgrade backups), and sets `restart: unless-stopped`. Open http://127.0.0.1:17430 unless you changed `ATLAS_DOCS_PORT`.
 
 Schema upgrades write a full filesystem backup under `ATLAS_DOCS_UPGRADE_BACKUP_DIR` (default `/upgrade-backups` in the image). That path is outside the library and must stay on a persistent volume. Replacing the container while keeping both volumes preserves documents, attachments, and upgrade backups.
 

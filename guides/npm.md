@@ -41,13 +41,13 @@ Passing `--data-dir` for one run does not rewrite project config.
 ```sh
 atlas-docs library use ./project-docs
 atlas-docs library info
-atlas-docs --data-dir ./project-docs --port 3001 --no-open
+atlas-docs --data-dir ./project-docs --port 17431 --no-open
 atlas-docs start --yes
 ```
 
 `--yes` confirms schema migration without a prompt (required in non-interactive environments).
 `--help` and `--version` do not initialize a library.
-The server listens only on `127.0.0.1`; default port 3000.
+The server listens only on `127.0.0.1`. Default port is **17430**. If that port is busy and you did not pass `--port`, the CLI tries **17431–17439**, then exits with an error if none are free. With `--port`, a busy port is an error (no auto-fallback). The Ready line prints the URL that is actually listening; the browser opens after the server is ready.
 
 ## Schema and locking
 
@@ -95,7 +95,7 @@ npx atlas-docs@latest --data-dir "/absolute/path/to/library"
 Pin a version when you need to stay on a known release:
 
 ```sh
-npx atlas-docs@5.2.1 --data-dir "/absolute/path/to/library"
+npx atlas-docs@5.3.0 --data-dir "/absolute/path/to/library"
 ```
 
 ### Global install

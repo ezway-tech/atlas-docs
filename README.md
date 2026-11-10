@@ -66,9 +66,9 @@ Requires Node.js **22.12 or newer** for npm and source runs.
 npx atlas-docs@latest
 ```
 
-Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Default library: `./atlas-docs-data`. See [npm guide](guides/npm.md).
+Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Default library: `./atlas-docs-data`. Default URL http://127.0.0.1:17430 (see [npm guide](guides/npm.md)).
 
-**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; data and upgrade backups use named volumes. See [operations](guides/operations.md#docker-hub-image-end-users).
+**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; default URL http://127.0.0.1:17430 (override host port with `ATLAS_DOCS_PORT`); data and upgrade backups use named volumes. See [operations](guides/operations.md#docker-hub-image-end-users).
 
 **From this repository:**
 
