@@ -1,3 +1,4 @@
+import {browserOptions} from '../helpers/browser.mjs';
 import '../helpers/environment.mjs';
 import {appRequire} from '../../dependencies.mjs';
 import assert from 'node:assert/strict';
@@ -30,7 +31,7 @@ try{
  const historyOnly=await upload('trong-lich-su.txt');
  await mkdir(path.join(root,'history','tai-lieu'),{recursive:true});
  await writeFile(path.join(root,'history','tai-lieu','2026-11-06T120000_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.md'),`xem /api/media/${historyOnly.id}\n`);
- browser=await chromium.launch({channel:'msedge',headless:true});
+ browser=await chromium.launch({...browserOptions});
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  await page.context().addCookies([{name:'atlas-locale',value:'vi',url:origin}]);
  await mkdir('test-results',{recursive:true});

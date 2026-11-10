@@ -1,3 +1,4 @@
+import './browser.mjs'; // Validate browser selection before building.
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';

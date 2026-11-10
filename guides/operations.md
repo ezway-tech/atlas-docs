@@ -188,7 +188,32 @@ npm --prefix app run test:history-policy
 
 `npm --prefix app run test:backup-load` is separate. It builds large temporary libraries and is not part of the normal check.
 
-Tests use temporary libraries. The demo integration test requires a production build and Microsoft Edge for browser checks. Docker is not required for local use.
+Tests use temporary libraries. The demo integration test requires a production build and Playwright Chromium for browser checks. Docker is not required for local use.
+
+### Browser test setup
+
+From the repository root, install the matching Playwright Chromium build once:
+
+```powershell
+npm --prefix app exec -- playwright install chromium
+```
+
+Browser tests use Chromium by default. Set `ATLAS_TEST_BROWSER` to `msedge` or
+`chrome` to use an installed Microsoft Edge or Google Chrome. Only `chromium`,
+`msedge`, and `chrome` are accepted; an invalid value fails before a test starts.
+No automatic browser fallback is used.
+
+```powershell
+$env:ATLAS_TEST_BROWSER = 'msedge'
+npm --prefix app run test:ui
+Remove-Item Env:ATLAS_TEST_BROWSER
+```
+
+On macOS/Linux, use `ATLAS_TEST_BROWSER=chrome npm --prefix app run test:ui`.
+For Linux browser dependencies, run `npm --prefix app exec -- playwright install --with-deps chromium`.
+Demo, library UI, and Help checks need a production build; set `ATLAS_DIST_DIR`
+to that build directory for both build and test. Use a temporary `DATA_DIR`
+when building for tests. Test scripts create separate temporary libraries.
 
 ## Command reference
 
@@ -198,6 +223,7 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | --- | --- |
 | `npm run setup` | Install or update app dependencies according to its manifest and lockfile |
 | `npm run package:release` | Build in an isolated output directory and create the npm tarball plus `.sha256`; never publishes |
+| `npm run test:tooling` | Check browser selection and package path privacy |
 | `npm run test:core` | Shared library checks (inspect, lock, migrate, import schema) using temporary directories |
 | `npm run test:cli` | Check CLI options and agent-guide preservation using temporary directories |
 | `npm run test:package` | Install and exercise the actual tarball outside the checkout |
@@ -218,7 +244,7 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | `npm --prefix app run test:library-ui` | Check the utilities menu, backup screen, and cleanup flow in a temporary library |
 | `npm --prefix app run test:i18n` | Check locale detection, catalog key parity, and translation fallback |
 | `npm --prefix app run test:resources` / `npm --prefix app run test:demo` | Integration checks; run build first |
-| `npm --prefix app run test:ui` / `npm --prefix app run test:headings` / `npm --prefix app run test:responsive` | UI, heading, and mobile shell tests; require Microsoft Edge |
+| `npm --prefix app run test:ui` / `npm --prefix app run test:headings` / `npm --prefix app run test:responsive` | UI, heading, and mobile shell tests; require Playwright Chromium |
 | `docker compose up -d --build` | Build and start the **source** Compose file in the background |
 | `docker compose -f docker-compose.hub.yml up -d` | Start from the Docker Hub image (no build) |
 | `docker compose stop` | Stop Docker without deleting data |
@@ -287,6 +313,6 @@ have been removed; the checked-in TypeScript catalogs are the source of truth.
 
 Help is generated automatically by `npm run dev` and `npm run build`. From the repository root, run `node scripts/build/prepare-help.mjs` to refresh the generated bundle manually. A fresh checkout also prepares it before type checking. The generated JSON and public image copies are ignored by Git; their sources in `guides/` are tracked.
 
-After a production build, run `npm --prefix app run test:help`. It starts a separate server on port 3239, seeds a temporary Little Café library, uses headless Microsoft Edge in English/light mode, and checks Help while capturing walkthrough screenshots. The test never uses the working library. Set `ATLAS_DIST_DIR` to the same value used for an isolated build if applicable. Set `HELP_DEV=1` to test an isolated development server instead. Screenshots are written to `app/test-results/help-assets/`, with unannotated images in its `originals/` directory. To deliberately refresh guide images, set `HELP_SCREENSHOT_DIR` to the absolute `guides/assets/` path, review the results, then rebuild. Normal tests do not change guide images.
+After a production build, run `npm --prefix app run test:help`. It starts a separate server on port 3239, seeds a temporary Little Café library, uses the selected headless browser (Chromium by default) in English/light mode, and checks Help while capturing walkthrough screenshots. The test never uses the working library. Set `ATLAS_DIST_DIR` to the same value used for an isolated build if applicable. Set `HELP_DEV=1` to test an isolated development server instead. Screenshots are written to `app/test-results/help-assets/`, with unannotated images in its `originals/` directory. To deliberately refresh guide images, set `HELP_SCREENSHOT_DIR` to the absolute `guides/assets/` path, review the results, then rebuild. Normal tests do not change guide images.
 
 Review the screenshots visually before committing: the red numbered outlines identify actual controls, and nearby guide text explains the numbers. Keep browser dimensions and the demo consistent when refreshing images.

@@ -1,3 +1,4 @@
+import {assertPrivatePathFreeTarball} from '../../build/artifact-privacy.mjs';
 /**
  * Real cross-artifact upgrade: atlas-docs 5.1.0 → current release tarball.
  * Missing old/new artifact or checksum mismatch fails the run (no SKIP success).
@@ -66,6 +67,7 @@ try {
 
 const oldDigest = await assertTarballChecksum(older, olderChecksum);
 console.log(`Old artifact OK (sha256 ${oldDigest.slice(0, 12)}…)`);
+await assertPrivatePathFreeTarball(newer);
 console.log(`New artifact: ${newer}`);
 
 const temp = await mkdtemp(path.join(tmpdir(), 'atlas-upgrade-'));

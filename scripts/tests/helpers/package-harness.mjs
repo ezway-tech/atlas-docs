@@ -1,3 +1,4 @@
+import {assertPrivatePathFreeTarball} from '../../build/artifact-privacy.mjs';
 import assert from 'node:assert/strict';
 import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -34,6 +35,7 @@ export async function assertTarballChecksum(tarball, checksumFile) {
   const expectedLine = (await readFile(checksumFile, 'utf8')).trim().split(/\s+/)[0].toLowerCase();
   const actual = await sha256File(tarball);
   assert.equal(actual, expectedLine, `Checksum mismatch for ${tarball}`);
+  await assertPrivatePathFreeTarball(tarball);
   return actual;
 }
 

@@ -142,7 +142,9 @@ npm run test:upgrade-artifacts
 Packaging builds one `dist/atlas-docs-<version>.tgz` and `dist/atlas-docs-<version>.tgz.sha256`.
 Build, test, and publish from your local machine; this repository has no CI workflow.
 The package tests use temporary libraries. The upgrade test also uses the pinned
-5.1.0 package in `scripts/fixtures/`; keep that directory as a test fixture.
+sanitized 5.1.0 package in `scripts/fixtures/`; keep that directory as a test fixture.
+Its checksum differs from the original because build-machine paths were removed.
+Packaging and package tests reject artifacts containing personal home paths.
 Local tests verify only the operating system on which you run them.
 
 After the checks pass, publish the tarball (replace `<version>` with the version in

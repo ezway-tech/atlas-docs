@@ -1,3 +1,4 @@
+import {neutralizeBuildRoot, assertPrivatePathFreeTarball} from './artifact-privacy.mjs';
 import {cp, mkdir, readFile, writeFile, readdir, rm, chmod, mkdtemp, access} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
@@ -141,8 +142,11 @@ ${server}`,
     JSON.stringify({format: 'atlas-agent-kit', version: manifest.version, files}, null, 2) + '\n',
   );
 
+  await neutralizeBuildRoot(path.join(output, 'runtime'), root);
+
   await run(npmArgs(['pack', '--silent', '--pack-destination', path.join(root, 'dist')]), {cwd: output});
   const tarball = path.join(root, 'dist', `atlas-docs-${manifest.version}.tgz`);
+  await assertPrivatePathFreeTarball(tarball);
   const hash = createHash('sha256');
   await new Promise((resolve, reject) => {
     createReadStream(tarball)

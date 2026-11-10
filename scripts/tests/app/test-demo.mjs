@@ -1,3 +1,4 @@
+import {browserOptions} from '../helpers/browser.mjs';
 import '../helpers/environment.mjs';
 import {appRequire} from '../../dependencies.mjs';
 import assert from 'node:assert/strict';
@@ -26,7 +27,7 @@ try{
  const links=await json('/api/links?id=menu/latte');assert.ok(links.incoming.length);assert.ok(links.outgoing.length);
  assert.equal((await json('/api/history?id=menu/latte')).versions.length,2);
  assert.equal((await json('/api/comments?docId=menu/latte')).length,1);
- browser=await chromium.launch({channel:'msedge',headless:true});
+ browser=await chromium.launch({...browserOptions});
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.context().addCookies([{name:'atlas-locale',value:'vi',url:origin}]);
  await page.route('https://cdn.jsdelivr.net/npm/monaco-editor*/**',async route=>{

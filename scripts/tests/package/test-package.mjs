@@ -1,3 +1,4 @@
+import {assertPrivatePathFreeTarball} from '../../build/artifact-privacy.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp, mkdir, readFile, writeFile, readdir, rm, access} from 'node:fs/promises';
 import {spawn, spawnSync} from 'node:child_process';
@@ -12,6 +13,7 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const version = JSON.parse(await readFile(path.join(repo, 'app/package.json'), 'utf8')).version;
 const tarball = path.resolve(process.env.ATLAS_TEST_TARBALL || path.join(repo, `dist/atlas-docs-${version}.tgz`));
 await access(tarball);
+await assertPrivatePathFreeTarball(tarball);
 const temp = await mkdtemp(path.join(tmpdir(), 'atlas-package-'));
 const children = new Set();
 const env = {...process.env}; delete env.DATA_DIR;
