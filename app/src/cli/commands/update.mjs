@@ -1,28 +1,5 @@
-import {spawn} from 'node:child_process';
+import {runNpm, npmOutput, nodeSatisfies} from '../../library/update/npm.mjs';
 import {checkForUpdate, updateAdvice, isNewerVersion} from '../../library/update/check.mjs';
-import {detectInstallMethod} from '../../library/update/detect.mjs';
-import {readFile} from 'node:fs/promises';
-import path from 'node:path';
-
-function runNpm(args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('npm', args, {stdio: 'inherit', shell: process.platform === 'win32', windowsHide: true});
-    child.once('error', reject);
-    child.once('exit', code => (code === 0 ? resolve() : reject(Error(`npm exited with code ${code}`))));
-  });
-}
-
-function nodeSatisfies(requirement, current = process.versions.node) {
-  if (!requirement) return true;
-  // Only handle forms like ">=22.12.0"
-  const m = String(requirement).match(/>=\s*(\d+)\.(\d+)(?:\.(\d+))?/);
-  if (!m) return true;
-  const [maj, min, pat] = current.split('.').map(Number);
-  const need = [Number(m[1]), Number(m[2]), Number(m[3] || 0)];
-  if (maj !== need[0]) return maj > need[0];
-  if (min !== need[1]) return min > need[1];
-  return (pat || 0) >= need[2];
-}
 
 export async function runUpdate(packageRoot, options, manifest) {
   const result = await checkForUpdate(packageRoot, manifest.version, {force: true});
@@ -61,11 +38,10 @@ export async function runUpdate(packageRoot, options, manifest) {
     console.log('[Atlas Docs] Stop any running Atlas Docs server before continuing.');
     // Install exact version; do not invent a different npm binary.
     const name = result.install.packageName || 'atlas-docs';
-    await runNpm(['install', '-g', `${name}@${result.latestVersion}`]);
+    await runNpm(['install', '-g', '--prefix', result.install.globalPrefix, `${name}@${result.latestVersion}`]);
     // Verify by reading global package if possible
     try {
-      const {execFileSync} = await import('node:child_process');
-      const listed = execFileSync('npm', ['list', '-g', name, '--depth', '0', '--json'], {encoding: 'utf8'});
+      const listed = npmOutput(['list', '-g', '--prefix', result.install.globalPrefix, name, '--depth', '0', '--json']);
       const json = JSON.parse(listed);
       const ver = json?.dependencies?.[name]?.version;
       if (ver !== result.latestVersion) {

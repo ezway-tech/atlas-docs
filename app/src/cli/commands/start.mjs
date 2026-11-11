@@ -7,6 +7,7 @@ import {
 } from '../../library/index.mjs';
 import {resolveListenPort, startServer} from '../start.mjs';
 import {confirmMigrate} from '../ui.mjs';
+import {createUpdateState,installManagedUpdate,restartManagedApp} from '../managed-update.mjs';
 
 export async function runStart(packageRoot, options, manifest) {
   const [major, minor] = process.versions.node.split('.').map(Number);
@@ -65,16 +66,32 @@ export async function runStart(packageRoot, options, manifest) {
     log: console.log,
   });
 
-  await startServer(packageRoot, {
+  const updateStateFile = process.env.ATLAS_UPDATE_STATE || await createUpdateState();
+  const result = await startServer(packageRoot, {
     ...options,
     dataDir,
+    appVersion:manifest.version,
+    updateStateFile,
     envExtra: {
       ATLAS_DOCS_MIGRATE_YES: '1',
       ATLAS_AGENT_KIT: agentKit,
       ATLAS_APP_VERSION: manifest.version,
       ATLAS_CORE_PATH: path.join(packageRoot, 'core', 'index.mjs'),
       ATLAS_PACKAGE_ROOT: packageRoot,
+      ATLAS_CLI_MANAGED: '1',
+      ATLAS_UPDATE_STATE: updateStateFile,
       ...(backupEnv ? {ATLAS_DOCS_UPGRADE_BACKUP_DIR: String(backupEnv)} : {}),
     },
   });
+  if(result?.update){
+    let stopRequested=false;
+    const stop=()=>{stopRequested=true;};
+    const message=value=>{if(value==='atlas:stop')stop();};
+    process.on('SIGINT',stop);process.on('SIGTERM',stop);process.on('message',message);
+    try{
+      const installed = await installManagedUpdate(packageRoot,result.update,updateStateFile);
+      if(!installed) throw Error('Update failed; see the recovery command above. Library data was not changed by the installer.');
+      if(!stopRequested)await restartManagedApp(packageRoot,{...options,dataDir},updateStateFile);
+    }finally{process.off('SIGINT',stop);process.off('SIGTERM',stop);process.off('message',message);}
+  }
 }

@@ -1,7 +1,7 @@
 import {access, readFile} from 'node:fs/promises';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {createRequire} from 'node:module';
+import {npmOutput} from './npm.mjs';
+import {canonicalize} from '../paths.mjs';
 
 async function exists(p) {
   try {
@@ -15,9 +15,8 @@ async function exists(p) {
 /**
  * Best-effort install method detection. Returns null fields when uncertain — callers must not guess.
  */
-export async function detectInstallMethod(packageRoot) {
+export async function detectInstallMethod(packageRoot, env = process.env) {
   const root = path.resolve(packageRoot);
-  const require = createRequire(path.join(root, 'package.json'));
   let pkg;
   try {
     pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
@@ -27,11 +26,11 @@ export async function detectInstallMethod(packageRoot) {
 
   const name = pkg.name || 'atlas-docs';
 
-  // Source checkout: private root or presence of app/ next to cli without runtime/
-  if (pkg.private && (await exists(path.join(root, 'app')))) {
-    return {method: 'source', packageRoot: root, packageName: name};
+  // Both repository root and the app/ working directory identify a checkout.
+  if (pkg.private && (await exists(path.join(root, 'src/library/index.mjs')) || await exists(path.join(root, 'app/src/library/index.mjs')))) {
+    return {method: 'source', packageRoot: root, packageName: 'atlas-docs'};
   }
-  if (process.env.ATLAS_DOCS_INSTALL === 'docker' || process.env.DATA_DIR === '/data' && await exists('/.dockerenv')) {
+  if (env.ATLAS_DOCS_INSTALL === 'docker' || env.DATA_DIR === '/data' && await exists('/.dockerenv')) {
     return {method: 'docker', packageRoot: root, packageName: name};
   }
 
@@ -45,9 +44,10 @@ export async function detectInstallMethod(packageRoot) {
     }
     // Project dependency: local node_modules not in global prefix
     try {
-      const globalRoot = require('child_process').execFileSync('npm', ['root', '-g'], {encoding: 'utf8'}).trim();
-      if (globalRoot && root.startsWith(path.resolve(globalRoot))) {
-        return {method: 'npm-global', packageRoot: root, packageName: name, globalRoot};
+      const globalRoot = npmOutput(['root', '-g'], {env});
+      if (globalRoot && canonicalize(root) === canonicalize(path.join(globalRoot, name))) {
+        const globalPrefix = npmOutput(['prefix', '-g'], {env});
+        return {method: 'npm-global', packageRoot: root, packageName: name, globalRoot, globalPrefix};
       }
     } catch {
       // leave unknown-ish

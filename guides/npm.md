@@ -1,5 +1,7 @@
 # Atlas Docs with npm
 
+[Website](https://atlasdocs.ezway.tech/) · [Donate](https://atlasdocs.ezway.tech/donate/)
+
 Requires Node.js 22.12 or newer. Once the package is published:
 
 ```sh
@@ -80,6 +82,12 @@ Direct document edits do not create app revision history.
 
 ## Updates
 
+In the app, open **Help → Version & updates**. A verified npm global installation managed by the CLI offers **Update and restart**. Save drafts in all windows and confirm. The CLI stops the server, installs the exact new stable version into the same npm prefix, and restarts with the same absolute library path and port. The browser reconnects and reloads after the running version is verified. Restart also permits the normal schema migration with its full backup; the confirmation explains this.
+
+If installation fails, the CLI tries reopening the previous version only when that version is still present. The restarted server must pass its health check. A partly replaced package may need manual recovery: read the error and recovery command in the terminal. If the page has not reconnected after five minutes, it stops waiting and asks you to check the terminal. The updater never edits library files to simulate an update.
+
+The button is unavailable for npx, project dependencies, source checkouts, Docker, an unknown install method, or a server without its CLI supervisor. Use the instructions below for those installations. Version checks also remain usable offline: an unexpired local result can be displayed, while a failed fresh check is reported as unavailable.
+
 Updating the **package** is separate from **schema migration**. Opening a library after an app update may still ask to migrate data; keep the upgrade backup until you have checked documents and attachments.
 
 ### npx
@@ -113,9 +121,9 @@ atlas-docs update
 
 ### Roll back a package
 
-Installing an older package is safe only when that older app still understands the library `schemaVersion`. If a newer app already migrated the schema, restore the pre-upgrade filesystem backup (or a ZIP taken before migration) instead of only downgrading the package. Atlas Docs does not auto-upgrade MAJOR releases or run risky migrations without confirmation (`--yes` or an interactive prompt).
+Installing an older package is safe only when that older app still understands the library `schemaVersion`. If a newer app already migrated the schema, restore the pre-upgrade filesystem backup (or a ZIP taken before migration) instead of only downgrading the package. Updates require an explicit action. In-app restart confirmation permits the normal schema migration with a full backup; CLI migration uses `--yes` or an interactive prompt.
 
-Background update notices use a local cache (at most once per 24 hours). Disable with `ATLAS_DOCS_NO_UPDATE_CHECK=1`. They are off in CI. Notices never upload library paths or document contents.
+Background update checks use a local cache (at most once per 24 hours); **Check again** bypasses the cache. Disable all registry checks with `ATLAS_DOCS_NO_UPDATE_CHECK=1`. They are off in CI and in development mode. App notifications stay inside Help; there is no banner above the workspace. Checks never upload library paths or document contents.
 
 ## Backup boundaries
 

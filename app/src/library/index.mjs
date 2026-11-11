@@ -28,4 +28,5 @@ export {
 export {prepareImportStage, ensureDbSchemaVersionFile} from './import-schema.mjs';
 export {checkForUpdate, updateCheckDisabled, updateAdvice, isNewerVersion, fetchLatestVersion} from './update/check.mjs';
 export {detectInstallMethod} from './update/detect.mjs';
+export {stableVersion, nodeSatisfies} from './update/npm.mjs';
 export {LOCK_FILE, MIGRATE_JOURNAL, IMPORT_JOURNAL, PROJECT_CONFIG, canonicalize} from './paths.mjs';

@@ -7,11 +7,13 @@ COPY app/src/library /core
 COPY scripts /scripts
 COPY guides /guides
 COPY README.md AGENTS.md /
+COPY CHANGELOG.md /
 ENV ATLAS_CORE_PATH=/core/index.mjs ATLAS_DOCS_MIGRATE_YES=1
 RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production \
+    ATLAS_DOCS_INSTALL=docker \
     DATA_DIR=/data \
     HOSTNAME=0.0.0.0 \
     PORT=3000 \

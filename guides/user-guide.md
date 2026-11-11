@@ -34,6 +34,14 @@ Use **Pin** for frequent destinations and **Hide from sidebar** to reduce clutte
 
 ## Read and navigate
 
+Open **Help** in the top bar for **Guides**, **Release notes**, **Version & updates**, and **Support the project**. Guides, release notes, and support open a new tab, so your current draft stays open. Support is no longer in the library sidebar.
+
+The Atlas Docs logo opens the [project website](https://atlasdocs.ezway.tech/). To support development, open **Help → Support the project** or visit the [donation page](https://atlasdocs.ezway.tech/donate/).
+
+Updates appear inside Help, with a dot when a newer stable version is available. **Version & updates** shows your running version and lets you check again. Development mode shows **Development** and does not check for updates. A failed check is shown as unavailable, not as up to date.
+
+A verified global npm installation started by the Atlas Docs CLI can use **Update and restart**. Save or discard drafts first, confirm the restart, and wait for the page to reconnect. Other installation methods show a command or the relevant [update instructions](operations.md#update-an-installation).
+
 Open a document from the library tree. Use **Contents** to jump to headings. **Contents settings** controls the **From level** and **To level** range. The default is H1–H3; select H6 as the upper level to include deeply nested sections. Saved preferences may change the range.
 
 Follow document links and inspect incoming links to related articles. Open images or diagrams to inspect them at a larger size. Markdown can include tables and Mermaid diagrams; OpenAPI files have an endpoint viewer, SQL files have a schema viewer, and YAML/JSON can be read as source. A displayed API definition does not mean a live API service is supplied.

@@ -254,6 +254,8 @@ Extra arguments are forwarded, for example `npm run dev -- --port 3001`. `DATA_D
 
 ## Update an installation
 
+Open **Help → Version & updates** to see the running version and installation-specific instructions. Source development shows **Development** without registry checks. For verified global npm installations started by the CLI, **Update and restart** runs the update and restarts the same library and port after confirmation. Source and Docker updates remain manual. See [npm updates](npm.md#updates) for progress and recovery details.
+
 **Source checkout**
 
 1. Stop the app and back up the complete active data directory, or export a ZIP before stopping.

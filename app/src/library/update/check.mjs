@@ -2,11 +2,12 @@ import {readFile, writeFile, mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {detectInstallMethod} from './detect.mjs';
+import {stableVersion} from './npm.mjs';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function cacheFile() {
-  return path.join(os.homedir(), '.cache', 'atlas-docs', 'update-check.json');
+  return process.env.ATLAS_DOCS_UPDATE_CACHE || path.join(os.homedir(), '.cache', 'atlas-docs', 'update-check.json');
 }
 
 export function updateCheckDisabled(env = process.env) {
@@ -15,16 +16,15 @@ export function updateCheckDisabled(env = process.env) {
   return false;
 }
 
-async function readCache() {
+async function readCache(file = cacheFile()) {
   try {
-    return JSON.parse(await readFile(cacheFile(), 'utf8'));
+    return JSON.parse(await readFile(file, 'utf8'));
   } catch {
     return null;
   }
 }
 
-async function writeCache(data) {
-  const file = cacheFile();
+async function writeCache(data, file = cacheFile()) {
   await mkdir(path.dirname(file), {recursive: true});
   await writeFile(file, `${JSON.stringify(data, null, 2)}\n`);
 }
@@ -37,6 +37,7 @@ export async function fetchLatestVersion(packageName = 'atlas-docs', {timeoutMs 
   const response = await fetch(url, {signal: AbortSignal.timeout(timeoutMs), headers: {accept: 'application/json'}});
   if (!response.ok) throw new Error(`Registry HTTP ${response.status}`);
   const body = await response.json();
+  if (!stableVersion(body.version)) throw Error('Registry returned an invalid stable version');
   return {
     version: body.version,
     node: body.engines?.node || null,
@@ -54,17 +55,18 @@ export function isNewerVersion(latest, current) {
   return false;
 }
 
-export async function checkForUpdate(packageRoot, currentVersion, {force = false, env = process.env} = {}) {
-  const install = await detectInstallMethod(packageRoot);
+export async function checkForUpdate(packageRoot, currentVersion, {force = false, env = process.env, cachePath = cacheFile()} = {}) {
+  const install = await detectInstallMethod(packageRoot, env);
   const packageName = install.packageName || 'atlas-docs';
 
-  if (!force && updateCheckDisabled(env)) {
+  if (!stableVersion(currentVersion)) return {skipped: true, reason: 'version', currentVersion, install};
+  if (updateCheckDisabled(env)) {
     return {skipped: true, reason: 'disabled', currentVersion, install};
   }
 
   if (!force) {
-    const cached = await readCache();
-    if (cached && cached.packageName === packageName && Date.now() - cached.checkedAt < CACHE_TTL_MS) {
+    const cached = await readCache(cachePath);
+    if (cached && cached.packageName === packageName && stableVersion(cached.latestVersion) && Date.now() - cached.checkedAt < CACHE_TTL_MS) {
       return {
         skipped: false,
         cached: true,
@@ -84,7 +86,7 @@ export async function checkForUpdate(packageRoot, currentVersion, {force = false
       latestVersion: latest.version,
       nodeRequirement: latest.node,
       checkedAt: Date.now(),
-    });
+    }, cachePath);
     return {
       skipped: false,
       cached: false,

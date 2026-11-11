@@ -91,6 +91,10 @@ Use `npm run check` for type checking and storage tests, `npm run test:core` for
 
 ## Bundled Help
 
+The workspace Help dropdown links to guides, bundled release notes from `CHANGELOG.md`, version/update controls, and project support. The running version is bundled from `app/package.json`, with the npm CLI supplying its installed package version at runtime. Development does not query the registry. Production checks share the 24-hour core cache; a manual refresh bypasses that cache but respects disabled checks.
+
+`GET /api/update-status` reports the version, development flag, install method, check status, update capability, instructions, and any update operation. `POST /api/update` accepts only a same-origin request with `X-Atlas-Update: 1`; no package name, version, path, or command is accepted from the browser. A private IPC request asks the CLI parent to revalidate the latest stable version, npm global prefix, and Node requirement. Duplicate jobs are refused. The CLI stops the runtime before invoking npm, verifies the installed version, and launches a fresh CLI with the same library and port. Progress is stored in a private temporary directory outside the library and passed to the new process. The next runtime marks success only after readiness and version verification.
+
 `/help` and `/help/[slug]` use a separate read-only layout. The client shell does not mount the library workspace for these routes. A fixed allowlist in `scripts/build/prepare-help.mjs` converts repository Markdown into a generated JSON bundle before dev/build/typecheck. Article text and its search index stay local; unknown slugs return 404. Relative guide links are mapped to Help routes and image paths to `/help-assets/`.
 
 The prepare step also copies `guides/assets/` into generated public assets. Docker copies the Markdown sources before building; the existing public/static copy steps carry the images into the runtime image. Do not edit the generated JSON or public copies. Edit the Markdown or original assets, then rerun the prepare step/build.

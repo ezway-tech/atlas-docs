@@ -6,6 +6,7 @@ process.chdir(appRoot);
 const entries=[['user-guide','User guide','guides/user-guide.md'],['agent-guide','Agent guide','guides/agent-guide.md'],['architecture','Architecture','guides/architecture.md'],['operations','Operations','guides/operations.md'],['readme','Documentation home','README.md'],['agents','Agent instructions','AGENTS.md'],['demo-image-prompts','Demo image credits','guides/demo-image-prompts.md']];
 const docs=await Promise.all(entries.map(async([slug,title,file])=>({slug,title,file,body:await readFile(path.join(root,file),'utf8')})));
 docs.push({slug:'npm',title:'npm installation',file:'guides/npm.md',body:await readFile(path.join(root,'guides/npm.md'),'utf8')});
+docs.push({slug:'changelog',title:'Release notes',file:'CHANGELOG.md',body:await readFile(path.join(root,'CHANGELOG.md'),'utf8')});
 await mkdir('src/generated',{recursive:true});
 await writeFile('src/generated/help.json',JSON.stringify(docs));
 await mkdir('public/help-assets',{recursive:true});

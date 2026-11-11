@@ -15,8 +15,10 @@ import {applyCleanup,mediaUsage,referencedMedia,scanCleanup} from '@/lib/asset-r
 import {sanitizeKeymap} from '@/lib/keymap';
 import {AppError,err} from '@/lib/http';
 import {localeFromRequest} from '@/lib/i18n/request-locale';
+import {updateStatus,requestManagedUpdate} from '@/lib/update-status';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 type Params={params:Promise<{action:string[]}>};
+let updatePending=false;
 const json=(x:unknown)=>Response.json(x,{headers:{'Cache-Control':'no-store'}});
 const parts=async(c:Params)=>(await c.params).action;
 async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=seg[0],method=req.method,query=req.nextUrl.searchParams,body=()=>req.json();
@@ -26,23 +28,20 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
   return json({ok:true});
  }
  if(name==='update-status'&&method==='GET'){
-  // Reads update cache / optional registry check only. Never runs a package manager.
-  const {loadCore}=await import('@/lib/load-core');
-  const core=await loadCore();
-  const envKeys=JSON.parse('["ATLAS_APP_VERSION","ATLAS_PACKAGE_ROOT"]') as string[];
-  const version=process.env[envKeys[0]]||'';
-  const packageRoot=process.env[envKeys[1]]||process.cwd();
-  const result=await core.checkForUpdate(packageRoot,version||'0.0.0',{force:false});
-  if(result.skipped&&!result.updateAvailable)return json({updateAvailable:false,skipped:true,reason:result.reason||null});
-  const advice=core.updateAdvice(result.install,result.latestVersion,result.install?.packageName||'atlas-docs');
-  return json({
-   updateAvailable:!!result.updateAvailable,
-   currentVersion:result.currentVersion||version,
-   latestVersion:result.latestVersion||null,
-   command:advice.command,
-   note:advice.note,
-   method:result.install?.method||'unknown',
-  });
+  return json(await updateStatus(query.get('refresh')==='1'));
+ }
+ if(name==='update'&&method==='POST'){
+  const origin=req.headers.get('origin');
+  const host=req.headers.get('host');
+  const localHost=host&&/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host);
+  if(!localHost || origin!==`${req.nextUrl.protocol}//${host}` || req.headers.get('x-atlas-update')!=='1' || req.headers.get('sec-fetch-site')==='cross-site') return Response.json({error:'Update requests must come from this app'},{status:403});
+  if(updatePending)return Response.json({error:'An update is already in progress'},{status:409});
+  updatePending=true;
+  try{
+   const status=await updateStatus();
+   if(!status.canAutoUpdate || !status.updateAvailable){updatePending=false;return Response.json({error:'Automatic update is unavailable'},{status:409});}
+   return Response.json(await requestManagedUpdate(),{status:202,headers:{'Cache-Control':'no-store'}});
+  }catch(error){updatePending=false;throw error;}
  }
  if(name==='docs'){
    if(method==='GET'&&seg.length===1)return json(await listDocs(localeFromRequest(req)));

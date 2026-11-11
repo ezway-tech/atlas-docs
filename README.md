@@ -4,7 +4,7 @@
 
 Atlas Docs turns local Markdown, API definitions, and structured files into a browsable project library. Read, edit, search, and connect your documents in one workspace, with images, comments, and revision history alongside the content.
 
-[Features](#features) · [Quick start](#quick-start) · [Documentation](#documentation)
+[Website](https://atlasdocs.ezway.tech/) · [Features](#features) · [Quick start](#quick-start) · [Documentation](#documentation) · [Donate](https://atlasdocs.ezway.tech/donate/)
 
 ![Atlas Docs with a folder tree, document reader, and table of contents](guides/assets/originals/overview.png)
 
@@ -123,7 +123,7 @@ The default library is `data/` beside `app/`: documents in `docs/`, attachments 
 - [Architecture](guides/architecture.md) — Source layout, storage, and rendering.
 - [Agent entry point](AGENTS.md) — Rules for agents working in this repository.
 
-**Help is also built in.** Choose **Help** in the sidebar or Utilities menu to open the English guide in a new tab without closing your draft. It includes local search, a table of contents, and light/dark themes, without relying on an external documentation service.
+**Help is also built in.** Open **Help → Guides** in the top bar to read the English guide in a new tab without closing your draft. It includes local search, a table of contents, and light/dark themes, without relying on an external documentation service. The Help menu also includes release notes, version and update details, and **Support the project**, which opens the [donation page](https://atlasdocs.ezway.tech/donate/).
 
 ## Source layout
 

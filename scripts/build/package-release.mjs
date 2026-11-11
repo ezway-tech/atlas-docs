@@ -95,6 +95,8 @@ ${server}`,
       {
         name: 'atlas-docs',
         version: manifest.version,
+        homepage: manifest.homepage,
+        funding: manifest.funding,
         description: 'Local project documentation workspace with Markdown, OpenAPI and SQL viewers',
         license: 'MIT',
         engines: manifest.engines,

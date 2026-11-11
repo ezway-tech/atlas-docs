@@ -1,0 +1,50 @@
+import '../helpers/environment.mjs';
+import {browserOptions} from '../helpers/browser.mjs';
+import {appRequire} from '../../dependencies.mjs';
+import {mkdtemp,mkdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import {spawn} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
+import assert from 'node:assert/strict';
+import {seedDemo} from '../../setup/seed-demo.mjs';
+const {chromium,expect}=appRequire('@playwright/test');
+const root=await mkdtemp(path.join(tmpdir(),'atlas-help-menu-'));await seedDemo(root);
+const listener=net.createServer();await new Promise(resolve=>listener.listen(0,'127.0.0.1',resolve));const port=listener.address().port;await new Promise(resolve=>listener.close(resolve));
+const origin=`http://127.0.0.1:${port}`;
+const development=process.env.HELP_DEV==='1';
+const server=spawn(process.execPath,['node_modules/next/dist/bin/next',development?'dev':'start','--hostname','127.0.0.1','--port',String(port)],{env:{...process.env,DATA_DIR:root,ATLAS_DOCS_NO_UPDATE_CHECK:'1',...(development?{ATLAS_DIST_DIR:'test-results/builds/help-check'}:{})},windowsHide:true,stdio:'pipe'});
+let logs='',browser;server.stdout.on('data',b=>logs+=b);server.stderr.on('data',b=>logs+=b);
+try{
+ for(let i=0;i<180;i++){if(server.exitCode!==null)throw Error(logs);try{if((await fetch(origin+'/api/health')).ok)break;}catch{}await delay(300);}
+ const actual=await (await fetch(origin+'/api/update-status')).json();
+ assert.equal(actual.currentVersion,'5.3.0');assert.equal(actual.canAutoUpdate,false);assert.equal(actual.updateAvailable,false);assert.equal(actual.status,development?'development':'disabled');
+ assert.equal((await fetch(origin+'/api/update',{method:'POST',headers:{Origin:'https://other.example','X-Atlas-Update':'1'}})).status,403);
+ assert.equal((await fetch(origin+'/api/update',{method:'POST',headers:{Origin:origin,'X-Atlas-Update':'1'}})).status,409);
+ browser=await chromium.launch(browserOptions);const context=await browser.newContext({viewport:{width:1440,height:1000},locale:'en-US'});await context.addCookies([{name:'atlas-locale',value:'en',url:origin}]);const page=await context.newPage();page.setDefaultTimeout(20000);page.setDefaultNavigationTimeout(180000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(origin);await page.getByRole('button',{name:'Help',exact:true}).click();
+ for(const name of ['Guides','Release notes','Support the project'])await expect(page.getByRole('menuitem',{name,exact:true})).toBeVisible();
+ assert.equal(await page.locator('.sidebar a[href*="donate"]').count(),0);
+ assert.equal(await page.getByRole('menuitem',{name:'Guides',exact:true}).getAttribute('target'),'_blank');
+ assert.equal(await page.getByRole('menuitem',{name:'Support the project',exact:true}).getAttribute('href'),'https://atlasdocs.ezway.tech/donate/');
+ await page.getByRole('menuitem',{name:/Version & updates/}).click();await expect(page.getByText('v5.3.0',{exact:true})).toBeVisible();
+ if(development){await expect(page.getByText('Development',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Check again'})).toHaveCount(0);}
+ await page.keyboard.press('Escape');
+ let mock={currentVersion:'5.3.0',development:false,latestVersion:'5.3.1',updateAvailable:true,canAutoUpdate:true,status:'available',method:'npm-global'};
+ await page.route('**/api/update-status*',route=>route.fulfill({json:mock}));
+ let requests=0,outcome='error';await page.route('**/api/update',async route=>{requests++;await route.fulfill({status:202,json:{id:'browser-test'}});mock=outcome==='error'?{...mock,operation:{id:'browser-test',phase:'error',error:'Simulated permission failure',recoveryCommand:'npm install -g atlas-docs@5.3.0'}}:{...mock,currentVersion:'5.3.1',updateAvailable:false,status:'current',operation:{id:'browser-test',phase:'succeeded'}};});
+ await page.goto(origin+'/docs/menu/latte');await page.getByRole('button',{name:'Edit',exact:true}).click();await page.locator('.tiptap').fill('Keep this draft');
+ await page.getByRole('button',{name:'Help',exact:true}).click();await expect(page.locator('.help-update-dot')).toBeVisible();await page.getByRole('menuitem',{name:/Version & updates/}).click();await page.getByRole('button',{name:'Update and restart',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Save or discard');assert.equal(requests,0);
+ await page.keyboard.press('Escape');await expect(page.locator('.tiptap')).toContainText('Keep this draft');
+ await page.getByRole('button',{name:'Help',exact:true}).click();const [popup]=await Promise.all([context.waitForEvent('page'),page.getByRole('menuitem',{name:'Guides',exact:true}).click()]);await popup.waitForLoadState();await expect(page.locator('.tiptap')).toContainText('Keep this draft');await popup.close();
+ await page.goto(origin);await page.getByRole('button',{name:'Help',exact:true}).click();await page.getByRole('menuitem',{name:/Version & updates/}).click();await page.getByRole('button',{name:'Update and restart',exact:true}).click();await page.getByRole('dialog').last().getByRole('button',{name:'Update and restart',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Simulated permission failure');assert.equal(requests,1);
+ await page.keyboard.press('Escape');
+ outcome='succeeded';mock={...mock,operation:null};await page.reload();await page.getByRole('button',{name:'Help',exact:true}).click();await page.getByRole('menuitem',{name:/Version & updates/}).click();await page.getByRole('button',{name:'Update and restart',exact:true}).click();await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('dialog').last().getByRole('button',{name:'Update and restart',exact:true}).click()]);await expect(page.getByRole('dialog')).toHaveCount(0);assert.equal(requests,2);
+ mock={...mock,updateAvailable:false,canAutoUpdate:false,status:'unavailable',operation:null};await page.reload();await page.getByRole('button',{name:'Help',exact:true}).click();await page.getByRole('menuitem',{name:/Version & updates/}).click();await expect(page.getByRole('status')).toHaveText('Could not check for updates.');await page.keyboard.press('Escape');
+ mock={...mock,currentVersion:'5.3.0',updateAvailable:true,latestVersion:'5.3.1',status:'available',command:'npx atlas-docs@5.3.1',guide:'/help/npm#updates'};await page.reload();await page.getByRole('button',{name:'Help',exact:true}).click();await page.getByRole('menuitem',{name:/Version & updates/}).click();await expect(page.getByText('npx atlas-docs@5.3.1',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Update and restart'})).toHaveCount(0);await page.keyboard.press('Escape');
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Help',exact:true}).click();await expect(page.getByRole('menuitem',{name:'Guides',exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ const screenshots=path.resolve('test-results/help-menu');await mkdir(screenshots,{recursive:true});await page.screenshot({path:path.join(screenshots,'mobile.png')});await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Help',exact:true}).click();await page.screenshot({path:path.join(screenshots,'desktop.png')});
+ assert.deepEqual(errors,[]);console.log('PASS Help menu, drafts, update status, confirmation, failure, API guards and mobile checks');
+}catch(e){console.error(logs);throw e;}finally{await browser?.close();server.kill();}

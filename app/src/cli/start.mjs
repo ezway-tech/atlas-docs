@@ -3,6 +3,7 @@ import net from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import path from 'node:path';
 import {AUTO_PORT_LAST, DEFAULT_PORT} from './options.mjs';
+import {prepareManagedUpdate,markUpdateReady} from './managed-update.mjs';
 
 export async function assertPortAvailable(port) {
   const server = net.createServer();
@@ -63,6 +64,7 @@ export async function startServer(packageRoot, options) {
   // A private IPC message allows shutdown tests on Windows, where kill(SIGINT)
   // terminates a process instead of delivering a console Ctrl+C event.
   let stopping = false;
+  let updatePending = false, updateJob = null;
   const stop = () => {
     stopping = true;
     if (child.exitCode !== null) return;
@@ -80,6 +82,20 @@ export async function startServer(packageRoot, options) {
   process.on('SIGTERM', stop);
   process.on('message', message);
   const ended = new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', code => resolve(code)); });
+  const updateMessage = async message => {
+    if (message?.type !== 'atlas:update') return;
+    const reply = value => {if(child.connected)child.send({type:'atlas:update-ack',requestId:message.requestId,...value});};
+    if (updatePending || stopping) {reply({error:'An update or shutdown is already in progress.'});return;}
+    updatePending = true;
+    try {
+      updateJob = await prepareManagedUpdate(packageRoot,options.appVersion,options.updateStateFile);
+      if(stopping){updateJob=null;reply({error:'Shutdown is already in progress.'});return;}
+      reply({id:updateJob.id});
+      // Let the accepted HTTP response reach the browser before stopping the runtime.
+      setTimeout(stop,500);
+    } catch(error) {updatePending=false;reply({error:error.message});}
+  };
+  child.on('message',updateMessage);
   // Attach immediately, including while waiting for readiness.
   let exited = false, failure;
   ended.then(() => { exited = true; }, error => { exited = true; failure = error; });
@@ -92,17 +108,20 @@ export async function startServer(packageRoot, options) {
       } catch {}
       await delay(200);
     }
-    if (stopping) { await ended; return; }
+    if (stopping) { await ended; return updateJob ? {update:updateJob} : null; }
     if (!ready) { stop(); await ended; throw failure || Error('Server did not become ready. See the error above.'); }
     // Write+flush so piped CI capture on Windows sees readiness promptly.
     process.stdout.write(`[Atlas Docs] Ready: ${url}\n`);
+    await markUpdateReady(options.updateStateFile,options.appVersion);
     if (options.open) openBrowser(url).catch(error => console.warn(`[Atlas Docs] Could not open browser (${error.message}). Open ${url} manually.`));
     const code = await ended;
+    if (updateJob) return {update:updateJob};
     if (!stopping && code !== 0) throw Error(`Server exited with code ${code}`);
   } finally {
     stop();
     process.off('SIGINT', stop);
     process.off('SIGTERM', stop);
     process.off('message', message);
+    child.off('message',updateMessage);
   }
 }
