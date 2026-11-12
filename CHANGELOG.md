@@ -11,8 +11,9 @@
 - Opening Libraries prompts when the workspace has unsaved drafts; child shutdown drains in-flight library writes before exit.
 - Supervisor prints Ready and updates recent only after `GET /api/libraries/ready` confirms the library lock (or manager mode).
 - Use for this project writes config only under `ATLAS_LAUNCH_CWD` (browser cannot supply another cwd).
-- Media bytes (`GET /api/media/{id}`) accept the HttpOnly `atlas_rt` session cookie set by `/api/libraries/session`, so `<img>`/`<video>` work in managed multi-library mode without dropping session checks.
-- Shutdown blocks new library writes but finishes admitted ops; drain timeout/`atlas:shutdown-ack` failure cancels the library switch instead of cutting mid-write.
+- Media bytes (`GET /api/media/{id}`) require matching `rt`/`lib` query (or session headers); the UI stamps those onto each media URL so tabs/ports do not share a hostname cookie.
+- Visual Editor stamps `rt`/`lib` on image `src` when TipTap renders the DOM; Markdown on disk stays bare so session ids are not persisted across runs.
+- Library switch drains admitted writes first with a real timeout; if drain fails the switch is cancelled and the current runtime stays up (`cancelShutdown`).
 - After a library switch, the UI waits for a new `runtimeId`, exact `libraryId`, and `/api/libraries/ready` (no case-folding or path `endsWith` guesses).
 
 ### Features
