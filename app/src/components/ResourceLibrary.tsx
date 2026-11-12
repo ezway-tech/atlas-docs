@@ -14,10 +14,11 @@ import ImageEditor,{type ImageEditorHandle} from './ImageEditor';
 import {useKeymap} from './KeymapProvider';
 import {CommandKeys,CommandTip} from './Keys';
 import {useApiError,useLocale} from './LocaleProvider';
+import {atlasJson} from '@/lib/atlas-client';
 
 type Usage={folders:{title:string}[];docs:{title:string}[];comments:{id:string}[];history?:{docId:string}[];uncertain?:boolean};
 type Props={purpose?:'cover'|'insert';onPick?:(asset:Asset)=>void;onClose?:()=>void;onChanged?:()=>void};
-async function request<T>(url:string,init?:RequestInit):Promise<T>{const r=await fetch(url,{cache:'no-store',...init});const data=await r.json();if(!r.ok)throw Error(data.error||'errors.request.failed');return data;}
+async function request<T>(url:string,init?:RequestInit):Promise<T>{return atlasJson<T>(url,init);}
 function sourceOf(asset:Asset){return asset.source==='paste'||asset.source==='edit'?asset.source:'upload';}
 const icons={image:ImageIcon,document:FileText,video:Film,audio:Music,archive:Archive};
 const url=(a:Asset)=>'/api/media/'+a.id;

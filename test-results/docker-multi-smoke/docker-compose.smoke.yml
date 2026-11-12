@@ -1,0 +1,19 @@
+services:
+  atlas-docs:
+    build:
+      context: /mnt/c/Users/ADMIN/Desktop/workspace/projects/atlas-docs
+      dockerfile: app/Dockerfile
+    ports:
+      - 127.0.0.1:17440:3000
+    environment:
+      ATLAS_LIBRARY_MODE: manager
+      ATLAS_LIBRARIES_ROOT: /libraries
+      ATLAS_DOCS_LIBRARIES_DIR: /libraries
+      ATLAS_DOCS_REGISTRY_DIR: /atlas-registry
+      ATLAS_DOCS_ALLOWED_ROOTS: /libraries
+      ATLAS_DOCS_UPGRADE_BACKUP_DIR: /upgrade-backups
+      NODE_ENV: production
+    volumes:
+      - /mnt/c/Users/ADMIN/Desktop/workspace/projects/atlas-docs/test-results/docker-multi-smoke/libraries:/libraries
+      - /mnt/c/Users/ADMIN/Desktop/workspace/projects/atlas-docs/test-results/docker-multi-smoke/atlas-registry:/atlas-registry
+      - /mnt/c/Users/ADMIN/Desktop/workspace/projects/atlas-docs/test-results/docker-multi-smoke/upgrade-backups:/upgrade-backups

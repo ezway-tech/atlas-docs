@@ -5,7 +5,7 @@ export function printError(error) {
   const message = error?.message || String(error);
   console.error(`[Atlas Docs] ${message}`);
   if (isAtlasError(error) && error.code) {
-    if (error.code.startsWith('library.') || error.code.startsWith('migrate.') || error.code.startsWith('config.')) {
+    if (error.code.startsWith('library.') || error.code.startsWith('migrate.') || error.code.startsWith('config.') || error.code.startsWith('registry.') || error.code.startsWith('fs.')) {
       console.error('[Atlas Docs] Data was not modified unless a message above says otherwise.');
     }
   }
@@ -29,9 +29,27 @@ Options:
   --no-open          Do not open a browser
   --yes              Confirm schema migration without a prompt
 
-Library selection order: --data-dir, DATA_DIR, nearest atlas-docs.config.json, ./atlas-docs-data.
+Library selection order:
+  1. --data-dir
+  2. DATA_DIR
+  3. nearest atlas-docs.config.json
+  4. valid recent library from this machine’s registry
+  5. existing ./atlas-docs-data in the current directory (compatibility)
+  6. library manager welcome screen (nothing is created automatically)
+
 Relative --data-dir and DATA_DIR paths resolve from the calling directory.
 Config dataDir paths resolve from the config file location.
+Recent libraries are stored outside the library (Windows: LOCALAPPDATA/atlas-docs;
+Linux: $XDG_CONFIG_HOME/atlas-docs or ~/.config/atlas-docs). Override with
+ATLAS_DOCS_REGISTRY_DIR.
+
+Automation tip: pass --data-dir or DATA_DIR when you need a library path without
+the welcome screen. Explicit paths that are missing or invalid fail loudly.
+
+Run two projects at once with different libraries and ports, for example:
+  atlas-docs --data-dir ./docs-a --port 17430
+  atlas-docs --data-dir ./docs-b --port 17431
+
 The server listens only on 127.0.0.1. With --port, a busy port is an error (no auto-fallback).
 Press Ctrl+C to stop.`);
 }

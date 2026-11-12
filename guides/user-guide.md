@@ -19,7 +19,15 @@ Atlas Docs organizes a local document library. The interface supports Vietnamese
 4. Open the document and choose **Edit**. Write a short introduction in Visual or Source, then **Save**.
 5. Return to reading and confirm your text appears. Search for its title to find it again.
 
-A library begins empty. To explore prepared content instead, load the optional [Little Café demo](operations.md#optional-little-café-demo) into an empty, separate library. Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. The demo is not required for normal use.
+A library begins empty. To explore prepared content instead, use **Try demo** in the library manager (or load the optional [Little Café demo](operations.md#optional-little-café-demo) into an empty, separate library). Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. The demo is not required for normal use.
+
+## Libraries
+
+Atlas Docs keeps the app separate from your data. Each library is a folder you choose. One running app serves one library and holds its lock. Use the library button near the library name to open recent libraries, open an existing folder, create a new library, rename a display name, or remove an entry from recent (files on disk are not deleted).
+
+Opening a library from the UI does not rewrite `atlas-docs.config.json`. Project-aware CLI users still bind a project with `atlas-docs library use`. Folder browsing in the UI lists directories on the machine that runs the server.
+
+For two projects at once, start two CLI processes with different `--data-dir` and `--port` values. See [npm usage](npm.md#library-location).
 
 ## Organize your library
 

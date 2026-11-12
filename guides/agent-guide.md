@@ -99,7 +99,7 @@ Replace placeholders with verified instructions before delivery. Only link to fi
 
 When using the npm package, available commands include `atlas-docs` / `atlas-docs start`, `atlas-docs library use|info`, `atlas-docs doctor`, and `atlas-docs update [--check]`. Confirm which commands exist in the installed version before documenting them as required steps.
 
-Before bulk disk edits, confirm the library path and schema compatibility (`atlas-docs library info`, `atlas-docs doctor`, or by opening the library once). Do not create a second library because a configured path is broken. Do not treat `.atlas/` guide manifests as the data schema. Schema compatibility comes from `db.json` `schemaVersion`.
+Before bulk disk edits, confirm the library path and schema compatibility (`atlas-docs library info`, `atlas-docs doctor`, or by opening the library once). Do not create a second library because a configured path is broken. Do not treat `.atlas/` guide manifests as the data schema. Schema compatibility comes from `db.json` `schemaVersion`. Opening or switching libraries in the UI does not rewrite `atlas-docs.config.json`; use `atlas-docs library use` when a project should pin a path. Recent libraries are machine-local and separate from project config.
 
 ## History and backups
 

@@ -42,10 +42,13 @@ async function start(cli, args = [], extraEnv = {}, viaNpx = false) {
   for (let i = 0; i < 450; i++) {
     if (child.exitCode !== null) throw Error(logs);
     if (logs.includes('[Atlas Docs] Ready:')) return {child, url: `http://127.0.0.1:${p}`, p, viaNpx};
-    // Windows CI may buffer CLI stdout; health proves the server is usable.
+    // Prefer ready (lock held) over bare health when stdout is buffered.
     try {
-      const response = await fetch(`http://127.0.0.1:${p}/api/health`, {signal: AbortSignal.timeout(2000)});
-      if (response.ok) return {child, url: `http://127.0.0.1:${p}`, p, viaNpx};
+      const ready = await fetch(`http://127.0.0.1:${p}/api/libraries/ready`, {signal: AbortSignal.timeout(2000)});
+      if (ready.ok) {
+        const body = await ready.json();
+        if (body.ok) return {child, url: `http://127.0.0.1:${p}`, p, viaNpx};
+      }
     } catch {}
     await delay(200);
   }
@@ -105,9 +108,86 @@ try {
       await access(resolved);
     }
   }
-  const server = await start(cli);
+  const server = await start(cli, ['--data-dir', 'atlas-docs-data']);
   const library = path.join(cwd, 'atlas-docs-data');
-  assert.equal((await json(server.url + '/api/docs')).length, 0);
+  const sessionResp = await fetch(server.url + '/api/libraries/session');
+  assert.equal(sessionResp.status, 200);
+  const sessionCookie = (sessionResp.headers.getSetCookie?.() || [])
+    .concat(sessionResp.headers.get('set-cookie') ? [sessionResp.headers.get('set-cookie')] : [])
+    .filter(Boolean)
+    .find(v => String(v).startsWith('atlas_rt='));
+  assert.ok(sessionCookie, 'session sets atlas_rt cookie for media subresources');
+  const session = await sessionResp.json();
+  const ready = await json(server.url + '/api/libraries/ready');
+  assert.equal(ready.ok, true);
+  assert.equal(ready.libraryId, session.libraryId);
+  async function jsonAuth(url, method = 'GET', body, extraHeaders = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Atlas-Runtime': session.runtimeId,
+      'X-Atlas-Library': session.libraryId,
+      ...extraHeaders,
+    };
+    const response = await fetch(url, {method, headers, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
+    assert.equal(response.status, 200, await response.clone().text());
+    return response.json();
+  }
+  // Origin-less same-origin GET recent (Chromium style) with session + manage headers.
+  {
+    const recent = await fetch(server.url + '/api/libraries/recent', {
+      headers: {
+        Host: new URL(server.url).host,
+        'X-Atlas-Library-Api': '1',
+        'X-Atlas-Runtime': session.runtimeId,
+        'X-Atlas-Library': session.libraryId,
+        'Sec-Fetch-Site': 'same-origin',
+      },
+    });
+    assert.equal(recent.status, 200, await recent.clone().text());
+  }
+  // Stale runtime headers on rename → 409.
+  {
+    const stale = await fetch(server.url + '/api/libraries/rename', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Host: new URL(server.url).host,
+        'X-Atlas-Library-Api': '1',
+        'X-Atlas-Runtime': 'stale-runtime',
+        'X-Atlas-Library': session.libraryId,
+        'Sec-Fetch-Site': 'same-origin',
+        Origin: server.url,
+      },
+      body: JSON.stringify({id: 'nope', displayName: 'Nope'}),
+    });
+    assert.equal(stale.status, 409);
+    const body = await stale.json();
+    assert.equal(body.errorKey, 'errors.library.staleRuntime');
+  }
+  // use-for-project rejects browser-supplied cwd; needs ATLAS_LAUNCH_CWD from supervisor.
+  {
+    const bad = await fetch(server.url + '/api/libraries/use-for-project', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Host: new URL(server.url).host,
+        'X-Atlas-Library-Api': '1',
+        'X-Atlas-Runtime': session.runtimeId,
+        'X-Atlas-Library': session.libraryId,
+        'Sec-Fetch-Site': 'same-origin',
+        Origin: server.url,
+      },
+      body: JSON.stringify({path: library, cwd: path.join(cwd, 'evil-cwd')}),
+    });
+    // Launch cwd is set by CLI supervisor — request may succeed writing launch cwd, never evil-cwd.
+    if (bad.status === 200) {
+      const written = await bad.json();
+      assert.ok(!String(written.configPath || '').includes('evil-cwd'));
+    } else {
+      assert.equal(bad.status, 409);
+    }
+  }
+  assert.equal((await jsonAuth(server.url + '/api/docs')).length, 0);
   for (const route of ['/', '/help', '/help/agent-guide', '/help/npm']) {
     const response = await fetch(server.url + route); assert.equal(response.status, 200);
     assert.match(await response.text(), /Atlas|guide/i);
@@ -116,25 +196,51 @@ try {
   const asset = html.match(/(?:src|href)="([^" ]*\/_next\/static\/[^" ]+)"/);
   assert.ok(asset, 'Rendered page references static assets');
   assert.equal((await fetch(server.url + asset[1])).status, 200);
-  const folder = await json(server.url + '/api/folders', 'POST', {title: 'Package test'});
-  const doc = await json(server.url + '/api/docs', 'POST', {folder: folder.path, title: 'Hello', kind: 'md'});
+  const folder = await jsonAuth(server.url + '/api/folders', 'POST', {title: 'Package test'});
+  const doc = await jsonAuth(server.url + '/api/docs', 'POST', {folder: folder.path, title: 'Hello', kind: 'md'});
   const upload = new FormData(); upload.set('file', new File(['attachment content'], 'tài liệu.txt', {type: 'text/plain'}));
-  const uploaded = await fetch(server.url + '/api/media', {method: 'POST', body: upload}); assert.equal(uploaded.status, 200);
+  const uploaded = await fetch(server.url + '/api/media', {method: 'POST', headers: {'X-Atlas-Runtime': session.runtimeId, 'X-Atlas-Library': session.libraryId}, body: upload}); assert.equal(uploaded.status, 200);
   const media = await uploaded.json();
+  // Browser-like media GET: cookie only, no session headers.
+  {
+    const cookieOnly = await fetch(server.url + '/api/media/' + media.id, {
+      headers: {Cookie: String(sessionCookie).split(';')[0]},
+    });
+    assert.equal(cookieOnly.status, 200, await cookieOnly.clone().text());
+    assert.equal(await cookieOnly.text(), 'attachment content');
+    const bare = await fetch(server.url + '/api/media/' + media.id);
+    assert.equal(bare.status, 409);
+    const listBare = await fetch(server.url + '/api/media');
+    assert.equal(listBare.status, 409, 'media list still requires headers');
+  }
   const raw = `# Packaged app\n\n[Attachment](/api/media/${media.id})\n`;
-  await json(server.url + '/api/docs/' + doc.id, 'PUT', {raw});
-  assert.equal((await json(server.url + '/api/docs/' + doc.id)).raw, raw);
-  assert.ok((await json(server.url + '/api/history?id=' + encodeURIComponent(doc.id))).versions.length > 0);
+  await jsonAuth(server.url + '/api/docs/' + doc.id, 'PUT', {raw});
+  assert.equal((await jsonAuth(server.url + '/api/docs/' + doc.id)).raw, raw);
+  assert.ok((await jsonAuth(server.url + '/api/history?id=' + encodeURIComponent(doc.id))).versions.length > 0);
   const busy = spawnSync(process.execPath, [cli, '--port', String(server.p), '--no-open', '--data-dir', 'must-not-exist'], {cwd, env, encoding: 'utf8', windowsHide: true});
   assert.equal(busy.status, 1); assert.match(busy.stderr, /another --port/);
   await assert.rejects(() => access(path.join(cwd, 'must-not-exist')));
-  const zipResponse = await fetch(server.url + '/api/backup'); assert.equal(zipResponse.status, 200);
+  const zipResponse = await fetch(server.url + '/api/backup', {
+    headers: {'X-Atlas-Runtime': session.runtimeId, 'X-Atlas-Library': session.libraryId},
+  });
+  assert.equal(zipResponse.status, 200);
   const zip = Buffer.from(await zipResponse.arrayBuffer());
   await writeFile(path.join(library, 'AGENTS.md'), 'Keep my rules');
   await writeFile(path.join(library, '.atlas/guides/agent-guide.md'), 'Keep my guide edits');
   await stop(server);
-  const restarted = await start(cli);
-  assert.equal((await json(restarted.url + '/api/docs/' + doc.id)).raw, raw);
+  const restarted = await start(cli, ['--data-dir', 'atlas-docs-data']);
+  const restartedSession = await json(restarted.url + '/api/libraries/session');
+  async function jsonAuthRestarted(url, method = 'GET', body) {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Atlas-Runtime': restartedSession.runtimeId,
+      'X-Atlas-Library': restartedSession.libraryId,
+    };
+    const response = await fetch(url, {method, headers, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
+    assert.equal(response.status, 200, await response.clone().text());
+    return response.json();
+  }
+  assert.equal((await jsonAuthRestarted(restarted.url + '/api/docs/' + doc.id)).raw, raw);
   assert.equal(await readFile(path.join(library, 'AGENTS.md'), 'utf8'), 'Keep my rules');
   const backups = await readdir(path.join(library, '.atlas/backups'));
   assert.equal(await readFile(path.join(library, '.atlas/backups', backups[0], 'guides/agent-guide.md'), 'utf8'), 'Keep my guide edits');
@@ -149,18 +255,34 @@ try {
     : spawnSync(shim, ['--version'], {cwd, env, encoding: 'utf8'});
   assert.equal(shimResult.status, 0, shimResult.stderr); assert.equal(shimResult.stdout.trim(), version);
   const restored = await start(path.join(globalPackage, 'bin/atlas-docs.mjs'), ['--data-dir', 'restored library'], {DATA_DIR: 'wrong library'});
-  assert.equal((await json(restored.url + '/api/docs')).length, 0);
-  const imported = await fetch(restored.url + '/api/backup', {method: 'POST', headers: {'Content-Type': 'application/zip'}, body: zip});
+  const restoredSession = await json(restored.url + '/api/libraries/session');
+  async function authRestored(url, method = 'GET', body, headersExtra = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Atlas-Runtime': restoredSession.runtimeId,
+      'X-Atlas-Library': restoredSession.libraryId,
+      ...headersExtra,
+    };
+    const response = await fetch(url, {method, headers, ...(body === undefined ? {} : {body})});
+    return response;
+  }
+  assert.equal((await (await authRestored(restored.url + '/api/docs')).json()).length, 0);
+  const imported = await authRestored(restored.url + '/api/backup', 'POST', zip, {'Content-Type': 'application/zip'});
   assert.equal(imported.status, 200, await imported.clone().text());
-  assert.equal((await json(restored.url + '/api/docs/' + doc.id)).raw, raw);
-  assert.equal(await (await fetch(restored.url + '/api/media/' + media.id)).text(), 'attachment content');
+  assert.equal((await (await authRestored(restored.url + '/api/docs/' + doc.id)).json()).raw, raw);
+  assert.equal(await (await authRestored(restored.url + '/api/media/' + media.id)).text(), 'attachment content');
   assert.notEqual(await readFile(path.join(cwd, 'restored library/AGENTS.md'), 'utf8'), 'Keep my rules');
   await assert.rejects(() => access(path.join(cwd, 'wrong library')));
   await stop(restored);
   const envServer = await start(cli, [], {DATA_DIR: 'from environment'});
   await access(path.join(cwd, 'from environment/db.json')); await stop(envServer);
   const npxServer = await start(cli, ['--data-dir', 'npx library'], {}, true);
-  assert.equal((await json(npxServer.url + '/api/docs')).length, 0);
+  const npxSession = await json(npxServer.url + '/api/libraries/session');
+  const npxDocs = await fetch(npxServer.url + '/api/docs', {
+    headers: {'X-Atlas-Runtime': npxSession.runtimeId, 'X-Atlas-Library': npxSession.libraryId},
+  });
+  assert.equal(npxDocs.status, 200);
+  assert.equal((await npxDocs.json()).length, 0);
   await stop(npxServer);
   console.log('PASS: actual tarball local/npx/global install, guides and links, Help/static assets, document save, upload, backup/import, data precedence, restart preservation, busy port and shutdown');
 } finally {

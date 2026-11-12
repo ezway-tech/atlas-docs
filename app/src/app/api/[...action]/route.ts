@@ -16,25 +16,34 @@ import {sanitizeKeymap} from '@/lib/keymap';
 import {AppError,err} from '@/lib/http';
 import {localeFromRequest} from '@/lib/i18n/request-locale';
 import {updateStatus,requestManagedUpdate} from '@/lib/update-status';
+import {handleLibraryApi} from '@/lib/library-api';
+import {assertLocalAppRequest,runtimeHeaderMismatch,runtimeSessionMismatch} from '@/lib/local-request';
+import {isManagerMode} from '@/lib/library-capabilities';
+import '@/lib/shutdown-hook';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 type Params={params:Promise<{action:string[]}>};
 let updatePending=false;
 const json=(x:unknown)=>Response.json(x,{headers:{'Cache-Control':'no-store'}});
 const parts=async(c:Params)=>(await c.params).action;
+const DATA_ACTIONS=new Set(['docs','folders','settings','order','comments','history','links','dashboard','media','storage','backup']);
+/** GET /api/media/{uuid} bytes — browser img/video cannot send custom headers; cookie is allowed. */
+function isMediaBytesGet(name:string,method:string,seg:string[]){
+  return name==='media'&&method==='GET'&&seg.length===2&&seg[1]!=='referenced';
+}
 async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=seg[0],method=req.method,query=req.nextUrl.searchParams,body=()=>req.json();
  if(name==='health'&&method==='GET'){
   // Liveness only. Library prepare runs on first data API via store/db().
   // Awaiting prepare here blocked Windows CI when the first compile+lock race hung.
   return json({ok:true});
  }
+ if(name==='libraries'){
+  return handleLibraryApi(req,seg,method);
+ }
  if(name==='update-status'&&method==='GET'){
   return json(await updateStatus(query.get('refresh')==='1'));
  }
  if(name==='update'&&method==='POST'){
-  const origin=req.headers.get('origin');
-  const host=req.headers.get('host');
-  const localHost=host&&/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host);
-  if(!localHost || origin!==`${req.nextUrl.protocol}//${host}` || req.headers.get('x-atlas-update')!=='1' || req.headers.get('sec-fetch-site')==='cross-site') return Response.json({error:'Update requests must come from this app'},{status:403});
+  if(!assertLocalAppRequest(req,'x-atlas-update','1')) return Response.json({error:'Update requests must come from this app'},{status:403});
   if(updatePending)return Response.json({error:'An update is already in progress'},{status:409});
   updatePending=true;
   try{
@@ -42,6 +51,19 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
    if(!status.canAutoUpdate || !status.updateAvailable){updatePending=false;return Response.json({error:'Automatic update is unavailable'},{status:409});}
    return Response.json(await requestManagedUpdate(),{status:202,headers:{'Cache-Control':'no-store'}});
   }catch(error){updatePending=false;throw error;}
+ }
+ if(DATA_ACTIONS.has(name)){
+  if(isManagerMode()) return Response.json({error:'Open a library before using the workspace.',errorKey:'errors.library.required'},{status:409});
+  const mediaBytes=isMediaBytesGet(name,method,seg);
+  const stale=mediaBytes?runtimeSessionMismatch(req):runtimeHeaderMismatch(req);
+  if(stale && stale!=='missing'){
+   return Response.json({error:stale.message,errorKey:'errors.library.staleRuntime',expected:stale.expected,received:stale.received},{status:409});
+  }
+  // Managed runtimes require session proof on reads and writes so stale tabs cannot observe a new library.
+  // Media bytes may prove via atlas_rt cookie; all other data routes require headers.
+  if(stale==='missing' && process.env.ATLAS_RUNTIME_ID && process.env.ATLAS_LIBRARY_MANAGER==='1'){
+   return Response.json({error:'Missing runtime session headers. Reload the page.',errorKey:'errors.library.staleRuntime'},{status:409});
+  }
  }
  if(name==='docs'){
    if(method==='GET'&&seg.length===1)return json(await listDocs(localeFromRequest(req)));
@@ -93,7 +115,7 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
      }
      return new Response(new Uint8Array(await readFile(filename)),{headers:{...headers,'Content-Length':String(size)}});
    }
-   if(method==='POST'&&seg.length===1)return withLibraryLock(async()=>{const form=await req.formData(),file=await assetFile(form.get('file'));const alt=form.has('alt')?String(form.get('alt')):file.name;if(alt.length>300)throw new AppError('errors.asset.descriptionTooLong');const asked=String(form.get('source')||''),source:AssetSource=asked==='paste'?'paste':asked==='edit'?'edit':'upload';const id=crypto.randomUUID(),storedName=id+file.ext;await mkdir(uploadsRoot,{recursive:true});await writeFile(path.join(uploadsRoot,storedName),file.bytes);return json(await writeDB(d=>{const a={id,filename:file.name,storedName,mimeType:file.type,size:file.size,alt,source,createdAt:new Date().toISOString()};d.assets.push(a);return a;}));});
+   if(method==='POST'&&seg.length===1)return withLibraryLock(async()=>{const form=await req.formData(),file=await assetFile(form.get('file'));const alt=form.has('alt')?String(form.get('alt')):file.name;if(alt.length>300)throw new AppError('errors.asset.descriptionTooLong');const asked=String(form.get('source')||''),source:AssetSource=asked==='paste'?'paste':asked==='edit'?'edit':'upload';const id=crypto.randomUUID(),storedName=id+file.ext;const storedPath=path.join(uploadsRoot,storedName);await mkdir(uploadsRoot,{recursive:true});await writeFile(storedPath,file.bytes);try{return json(await writeDB(d=>{const a={id,filename:file.name,storedName,mimeType:file.type,size:file.size,alt,source,createdAt:new Date().toISOString()};d.assets.push(a);return a;}));}catch(e){await rm(storedPath,{force:true}).catch(()=>{});throw e;}});
    if(method==='PATCH'&&seg.length===2)return withLibraryLock(async()=>{const id=mediaId(seg[1]),o=await body(),filename=String(o.filename??'').trim(),alt=String(o.alt??'').trim();if(!filename||filename.length>180)throw new AppError('errors.asset.invalidName');if(alt.length>300)throw new AppError('errors.asset.descriptionTooLong');return json(await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw new AppError('errors.asset.notFound');if(/[\x00-\x1f/\\]/.test(filename)||assetExtension(filename)!==assetExtension(a.filename))throw new AppError('errors.asset.keepExtension');a.filename=filename;a.alt=alt;return a;}));});
    if(method==='PUT'&&seg.length===2)return withLibraryLock(async()=>{const id=mediaId(seg[1]),file=await assetFile((await req.formData()).get('file'),true),storedName=id+file.ext;const current=await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw new AppError('errors.asset.notFound');if(assetKind(a.mimeType)!=='image')throw new AppError('errors.asset.imagesOnlyEdit');return a.storedName;});await mkdir(uploadsRoot,{recursive:true});await writeFile(path.join(uploadsRoot,storedName),file.bytes);const saved=await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw new AppError('errors.asset.notFound');a.filename=a.filename.replace(/\.[^.]+$/,'')+file.ext;a.storedName=storedName;a.mimeType=file.type;a.size=file.size;a.source='edit';return a;});if(current!==storedName)await rm(path.join(uploadsRoot,current),{force:true});return json(saved);});
    if(method==='DELETE'&&seg.length===2)return withLibraryLock(async()=>{const id=mediaId(seg[1]);const removed=await writeDB(d=>{const a=d.assets.find(x=>x.id===id);if(!a)throw new AppError('errors.asset.notFound');d.assets=d.assets.filter(x=>x.id!==id);let cover=false;for(const f of d.folders)if(f.imageId===id){f.imageId=null;cover=true;}return {storedName:a.storedName,cover};});if(removed.cover)invalidateLibrary();await rm(path.join(uploadsRoot,removed.storedName),{force:true});return json({ok:true});});

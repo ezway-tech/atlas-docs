@@ -49,6 +49,9 @@ try {
     filter: src => !src.includes(`${path.sep}test${path.sep}`) && !src.endsWith(`${path.sep}test`),
   });
   await cp(path.join(root, 'scripts/setup/bootstrap.mjs'), path.join(output, 'bin/bootstrap.mjs'));
+  await mkdir(path.join(output, 'demo'), {recursive: true});
+  await cp(path.join(root, 'scripts/setup/seed-demo.mjs'), path.join(output, 'demo/seed-demo.mjs'));
+  await cp(path.join(root, 'examples/little-cafe'), path.join(output, 'demo/little-cafe'), {recursive: true});
   await chmod(path.join(output, 'bin/atlas-docs.mjs'), 0o755);
   const standalone = path.join(app, buildDirectory, 'standalone');
   await mkdir(path.join(output, 'runtime'), {recursive: true});
@@ -56,9 +59,13 @@ try {
   await writeFile(
     path.join(output, 'runtime/server.js'),
     `// Graceful stop from the CLI parent so library locks are released on Windows.
+// Preferred path: Next app shutdown-hook drains writes then exits.
+// Fallback exit covers the rare case the app hook never loaded (above drain budget).
 if (process.send) {
   process.on('disconnect', () => process.exit(0));
-  process.on('message', message => { if (message === 'atlas:shutdown') process.exit(0); });
+  process.on('message', message => {
+    if (message === 'atlas:shutdown') setTimeout(() => process.exit(1), 10000).unref?.();
+  });
 }
 ${server}`,
   );
@@ -101,7 +108,7 @@ ${server}`,
         license: 'MIT',
         engines: manifest.engines,
         bin: {'atlas-docs': 'bin/atlas-docs.mjs'},
-        files: ['bin/', 'core/', 'runtime/', 'agent-kit/', 'README.md', 'LICENSE', 'CHANGELOG.md'],
+        files: ['bin/', 'core/', 'runtime/', 'agent-kit/', 'demo/', 'README.md', 'LICENSE', 'CHANGELOG.md'],
         dependencies,
         publishConfig: {access: 'public'},
       },

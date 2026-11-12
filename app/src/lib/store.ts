@@ -15,6 +15,7 @@ import {recoverInterruptedImport} from './import-journal';
 import {effectiveBackupLimits} from './backup-policy';
 import {effectiveHistoryLimits,selectHistoryPrune,HISTORY_DEFAULTS} from './history-policy';
 import {ensureLibraryPrepared} from './runtime-prepare';
+import {isManagerMode} from './library-capabilities';
 export const ROOT=DATA_ROOT;
 export const docsRoot=path.join(ROOT,'docs');
 export const uploadsRoot=path.join(ROOT,'uploads');
@@ -28,14 +29,45 @@ let singleton:ReturnType<typeof JSONFilePreset<DB>>|undefined;let serial:Promise
 let libraryTail:Promise<unknown>=Promise.resolve();
 const docLocks=new Map<string,Promise<unknown>>();
 const activeTemps=new Set<string>();
-export function withLibraryLock<T>(fn:()=>Promise<T>):Promise<T>{const run=libraryTail.then(fn,fn);libraryTail=run.then(()=>undefined,()=>undefined);return run;}
+let shuttingDown=false;
+let inflightLibraryOps=0;
+export function beginShutdown(){shuttingDown=true;}
+export function isShuttingDown(){return shuttingDown;}
+export function inflightLibraryOpCount(){return inflightLibraryOps;}
+/** Wait for admitted library writes to finish. Returns ok:false if still busy after timeout. */
+export async function drainLibraryWrites({timeoutMs=8000}={}):Promise<{ok:boolean}>{
+  const deadline=Date.now()+timeoutMs;
+  while(Date.now()<=deadline){
+    await Promise.all([
+      serial.catch(()=>{}),
+      libraryTail.catch(()=>{}),
+      ...[...docLocks.values()].map(p=>p.catch(()=>{})),
+    ]);
+    if(inflightLibraryOps===0&&activeTemps.size===0){
+      await Promise.resolve();
+      if(inflightLibraryOps===0&&activeTemps.size===0)return {ok:true};
+    }
+    await new Promise(r=>setTimeout(r,25));
+  }
+  return {ok:inflightLibraryOps===0&&activeTemps.size===0};
+}
+export function withLibraryLock<T>(fn:()=>Promise<T>):Promise<T>{
+  if(shuttingDown)return Promise.reject(new AppError('errors.library.staleRuntime',409));
+  inflightLibraryOps++;
+  const run=libraryTail.then(fn,fn).finally(()=>{inflightLibraryOps=Math.max(0,inflightLibraryOps-1);});
+  libraryTail=run.then(()=>undefined,()=>undefined);
+  return run;
+}
 export function listActiveTemps(){return [...activeTemps];}
 function withDocLock<T>(id:string,fn:()=>Promise<T>):Promise<T>{const prev=docLocks.get(id)||Promise.resolve();const next=prev.catch(()=>{}).then(fn);docLocks.set(id,next);return next;}
-async function db(){if(!singleton)singleton=(async()=>{await ensureLibraryPrepared();await mkdir(ROOT,{recursive:true});await recoverInterruptedImport();return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
+async function db(){if(isManagerMode())throw new AppError('errors.library.required',409);if(!singleton)singleton=(async()=>{await ensureLibraryPrepared();await mkdir(ROOT,{recursive:true});await recoverInterruptedImport();return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
 function assetSource(value:unknown):AssetSource{return value==='paste'||value==='edit'?value:'upload';}
 function fill(d:DB){d.assets||=[];for(const asset of d.assets)asset.source=assetSource(asset.source);d.comments||=[];d.folders||=[];d.navigationOrder||={};d.settings={...defaults,...d.settings,keymap:cleanKeymap(d.settings?.keymap)};d.settings.history=effectiveHistoryLimits(d.settings);d.settings.backup=effectiveBackupLimits(d.settings);return d;}
 export async function readDB(){await serial.catch(()=>{});const x=await db();await x.read();return structuredClone(fill(x.data));}
-export function writeDB<T>(fn:(d:DB)=>T|Promise<T>):Promise<T>{const task=serial.catch(()=>{}).then(async()=>{const x=await db();await x.read();x.data=fill(x.data);const ret=await fn(x.data);await x.write();return ret;});serial=task;return task;}
+/** writeDB stays available for ops already admitted via withLibraryLock during shutdown drain. */
+export function writeDB<T>(fn:(d:DB)=>T|Promise<T>):Promise<T>{
+  const task=serial.catch(()=>{}).then(async()=>{const x=await db();await x.read();x.data=fill(x.data);const ret=await fn(x.data);await x.write();return ret;});serial=task;return task;
+}
 export function safeFolder(id:string){if(!/^[a-z0-9][a-z0-9_ /-]*$/.test(id)||id.split('/').length>3||id.split('/').some(x=>!x||x==='..'))throw new AppError('errors.folder.pathInvalid');return id;}
 export function safeDoc(id:string){if(!/^[a-z0-9][a-z0-9_ /-]*(\.(yml|yaml|sql|json))?$/.test(id)||id.split('/').length<2||id.split('/').length>4||id.split('/').some(x=>!x||x==='..'))throw new AppError('errors.doc.pathInvalid');return id;}
 export function docKind(id:string):DocKind{if(/\.ya?ml$/i.test(id))return 'yaml';if(/\.sql$/i.test(id))return 'sql';if(/\.json$/i.test(id))return 'json';return 'md';}
@@ -80,7 +112,7 @@ export async function saveDoc(id:string,raw:string,reason:HistoryReason='edit',b
 export async function deleteDoc(id:string){return withLibraryLock(async()=>{safeDoc(id);const file=docFile(id);try{await stat(file);}catch{throw new AppError('errors.doc.notFound');}await rm(file,{force:true});await rm(path.join(historyRoot,...id.split('/')),{recursive:true,force:true});await rm(mirror(id),{force:true});await writeDB(d=>{d.comments=d.comments.filter(x=>x.docId!==id);for(const key of Object.keys(d.navigationOrder))d.navigationOrder[key]=d.navigationOrder[key].filter(x=>x!==id);return {ok:true};});expireDoc(id);return {ok:true};});}
 export async function listFolders(locale?:Locale){const folders=await loadFolders();if(!locale)return folders;const orders=(await readDB()).navigationOrder;return sortCatalog(folders,'folders',orders,locale);}
 function cleanIcon(icon:unknown){if(icon==null||icon==='')return null;const id=folderIconId(icon);if(!id)throw new AppError('errors.icon.invalid');return id;}
-export async function createFolder(parent:string,title:string,imageId:string|null,icon:unknown=null){return withLibraryLock(async()=>{if(parent)safeFolder(parent);const id=(parent?parent+'/':'')+slug(title);safeFolder(id);const all=await listFolders();if(all.some(f=>f.path===id))throw new AppError('errors.folder.exists');const mark=cleanIcon(icon);await mkdir(folderFile(id));await writeDB(x=>{x.folders.push({path:id,title,imageId,icon:mark});});expireFolders();return id;});}
+export async function createFolder(parent:string,title:string,imageId:string|null,icon:unknown=null){return withLibraryLock(async()=>{if(parent)safeFolder(parent);const id=(parent?parent+'/':'')+slug(title);safeFolder(id);const all=await listFolders();if(all.some(f=>f.path===id))throw new AppError('errors.folder.exists');const mark=cleanIcon(icon);const dir=folderFile(id);await mkdir(dir);try{await writeDB(x=>{x.folders.push({path:id,title,imageId,icon:mark});});}catch(e){await rm(dir,{recursive:true,force:true}).catch(()=>{});throw e;}expireFolders();return id;});}
 export async function updateFolder(id:string,title:string,imageId:string|null,icon:unknown=null){return withLibraryLock(async()=>{safeFolder(id);await stat(folderFile(id));const mark=cleanIcon(icon);const saved=await writeDB(db=>{let f=db.folders.find(x=>x.path===id);if(!f){f={path:id,title,imageId,icon:mark};db.folders.push(f);}else{f.title=title;f.imageId=imageId;f.icon=mark;}return f;});expireFolders();return saved;});}
 export async function deleteFolder(id:string){return withLibraryLock(async()=>{safeFolder(id);const dir=folderFile(id);let names:string[];try{names=await readdir(dir);}catch{throw new AppError('errors.folder.notFound');}if(names.length)throw new AppError('errors.folder.notEmpty');await rm(dir,{recursive:true,force:true});await writeDB(d=>{d.folders=d.folders.filter(f=>f.path!==id&&!f.path.startsWith(id+'/'));d.settings.pinnedFolders=d.settings.pinnedFolders.filter(x=>x!==id&&!x.startsWith(id+'/'));d.settings.hiddenFolders=d.settings.hiddenFolders.filter(x=>x!==id&&!x.startsWith(id+'/'));for(const key of Object.keys(d.navigationOrder)){if(key===`docs:${id}`||key===`folders:${id}`||key.startsWith(`docs:${id}/`)||key.startsWith(`folders:${id}/`))delete d.navigationOrder[key];else d.navigationOrder[key]=d.navigationOrder[key].filter(x=>x!==id&&!x.startsWith(id+'/'));}return {ok:true};});expireFolders();return {ok:true};});}
 export function sorted<T extends {id?:string;path?:string;title:string;order?:number}>(items:T[],prefs:string[]=[],locale:Locale=DEFAULT_LOCALE){const priority=new Map(prefs.map((v,i)=>[v,i]));return [...items].sort((a,b)=>(priority.get(a.path||a.id||'')??1e9)-(priority.get(b.path||b.id||'')??1e9)||(a.order??999)-(b.order??999)||compareText(locale,a.title,b.title));}

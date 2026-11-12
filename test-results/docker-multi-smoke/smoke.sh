@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+REPO=/mnt/c/Users/ADMIN/Desktop/workspace/projects/atlas-docs
+SMOKE=$REPO/test-results/docker-multi-smoke
+cd "$SMOKE"
+
+docker compose -f docker-compose.smoke.yml down >/dev/null 2>&1 || true
+docker compose -f docker-compose.smoke.yml up -d
+
+wait_ready() {
+  local want="${1:-}"
+  for _ in $(seq 1 60); do
+    if curl -sf http://127.0.0.1:17440/api/libraries/ready > /tmp/atlas-ready.json; then
+      cat /tmp/atlas-ready.json
+      echo
+      if [[ -z "$want" ]] || grep -q "$want" /tmp/atlas-ready.json; then
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+  echo "ready timeout want=$want" >&2
+  return 1
+}
+
+echo "=== wait manager ==="
+wait_ready '"mode":"manager"'
+
+echo "=== /data before create ==="
+docker compose -f docker-compose.smoke.yml exec -T atlas-docs sh -c 'ls -la /data; test ! -f /data/db.json && echo NO_DATA_DB'
+
+SESSION=$(curl -sf http://127.0.0.1:17440/api/libraries/session)
+echo "SESSION=$SESSION"
+RID=$(printf '%s' "$SESSION" | sed -n 's/.*"runtimeId":"\([^"]*\)".*/\1/p')
+LID=$(printf '%s' "$SESSION" | sed -n 's/.*"libraryId":"\([^"]*\)".*/\1/p')
+
+echo "=== create library ==="
+CREATE_CODE=$(curl -s -o /tmp/atlas-create.json -w '%{http_code}' -X POST http://127.0.0.1:17440/api/libraries/create \
+  -H 'Content-Type: application/json' \
+  -H 'X-Atlas-Library-Api: 1' \
+  -H "X-Atlas-Runtime: $RID" \
+  -H "X-Atlas-Library: $LID" \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'Origin: http://127.0.0.1:17440' \
+  -H 'Host: 127.0.0.1:17440' \
+  -d '{"name":"Smoke Lib","parentDir":"/libraries"}')
+echo "CREATE_CODE=$CREATE_CODE"
+cat /tmp/atlas-create.json
+echo
+
+echo "=== wait library mode ==="
+wait_ready '"mode":"library"'
+
+echo "=== host libraries ==="
+ls -la "$SMOKE/libraries"
+
+echo "=== /data after create ==="
+docker compose -f docker-compose.smoke.yml exec -T atlas-docs sh -c 'ls -la /data; test ! -f /data/db.json && echo NO_DATA_DB'
+
+echo "=== recreate ==="
+docker compose -f docker-compose.smoke.yml up -d --force-recreate
+wait_ready '"ok":true'
+
+echo "=== after recreate ==="
+ls -la "$SMOKE/libraries"
+ls -la "$SMOKE/atlas-registry" || true
+READY=$(cat /tmp/atlas-ready.json)
+echo "READY=$READY"
+
+docker compose -f docker-compose.smoke.yml down
+echo SMOKE_OK

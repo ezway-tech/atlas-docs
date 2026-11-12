@@ -29,4 +29,43 @@ export {prepareImportStage, ensureDbSchemaVersionFile} from './import-schema.mjs
 export {checkForUpdate, updateCheckDisabled, updateAdvice, isNewerVersion, fetchLatestVersion} from './update/check.mjs';
 export {detectInstallMethod} from './update/detect.mjs';
 export {stableVersion, nodeSatisfies} from './update/npm.mjs';
-export {LOCK_FILE, MIGRATE_JOURNAL, IMPORT_JOURNAL, PROJECT_CONFIG, canonicalize} from './paths.mjs';
+export {
+  LOCK_FILE,
+  MIGRATE_JOURNAL,
+  IMPORT_JOURNAL,
+  PROJECT_CONFIG,
+  canonicalize,
+  normalizePathForCompare,
+  pathIsWithinRoot,
+} from './paths.mjs';
+export {
+  REGISTRY_FILE,
+  REGISTRY_VERSION,
+  resolveRegistryDir,
+  registryPath,
+  libraryIdentityKey,
+  loadUserRegistry,
+  loadUserRegistrySafe,
+  updateUserRegistry,
+  rememberSuccessfulOpen,
+  renameLibraryEntry,
+  removeLibraryEntry,
+  getRecentLibrary,
+  defaultLibraryParentDir,
+  pathExists,
+} from './user-registry.mjs';
+export {
+  resolveAllowedRoots,
+  assertWithinAllowedRoots,
+  listBrowsableDir,
+  listAllowedRootInfos,
+} from './fs-policy.mjs';
+export {
+  slugifyLibraryName,
+  validateDisplayName,
+  previewCreateLibrary,
+  createLibrary,
+  inspectOpenTarget,
+  uniqueDemoPath,
+} from './library-ops.mjs';
+export {resolveManagerInitialLibrary, applyLibraryDataDir} from './manager-env.mjs';

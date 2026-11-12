@@ -1,5 +1,36 @@
 # Changelog
 
+## 5.4.0
+
+### Fixes
+
+- Local library APIs accept same-origin Chromium GETs without `Origin` (still require local Host, reject cross-site, and require app headers).
+- Path containment and library identity compare case-insensitively only on Windows; Linux keeps case.
+- Docker multi-library manager ignores the image default `DATA_DIR=/data` when that path is not the selected library.
+- Managed runtimes require matching session headers on library manage routes and on data GETs; stale tabs stay disconnected.
+- Opening Libraries prompts when the workspace has unsaved drafts; child shutdown drains in-flight library writes before exit.
+- Supervisor prints Ready and updates recent only after `GET /api/libraries/ready` confirms the library lock (or manager mode).
+- Use for this project writes config only under `ATLAS_LAUNCH_CWD` (browser cannot supply another cwd).
+- Media bytes (`GET /api/media/{id}`) accept the HttpOnly `atlas_rt` session cookie set by `/api/libraries/session`, so `<img>`/`<video>` work in managed multi-library mode without dropping session checks.
+- Shutdown blocks new library writes but finishes admitted ops; drain timeout/`atlas:shutdown-ack` failure cancels the library switch instead of cutting mid-write.
+- After a library switch, the UI waits for a new `runtimeId`, exact `libraryId`, and `/api/libraries/ready` (no case-folding or path `endsWith` guesses).
+
+### Features
+
+- Multi-library management for the npm CLI: open, create, rename display names, remove from recent, and try the Little Café demo from the UI without rewriting project config.
+- Machine-local recent library registry (Windows `LOCALAPPDATA/atlas-docs`, Linux XDG config; override with `ATLAS_DOCS_REGISTRY_DIR`). Recent entries are outside library folders and never delete library data.
+- Library selection order: `--data-dir` → `DATA_DIR` → `atlas-docs.config.json` → valid recent → existing `./atlas-docs-data` compatibility → welcome screen (no automatic empty library).
+- Managed runtime supervisor switches libraries by starting a new child with a fixed `DATA_DIR` (same pattern as Update and restart). Stale tabs are rejected with runtime/library session headers.
+- Docker: keep single-library `/data` Compose; add opt-in multi-library Compose examples with `/libraries` + `/atlas-registry` and in-container switch without restarting the container.
+- Folder browser APIs stay local-only with origin/host checks and server-side allowed roots (canonical containment).
+
+### Compatibility
+
+- Running `atlas-docs` with no library target no longer auto-creates `./atlas-docs-data`. Pass `--data-dir` / `DATA_DIR` for automation, or use the welcome UI. An existing openable `./atlas-docs-data` is still opened for upgrade compatibility.
+- Project config paths on another Windows drive are stored absolute (never `./D:/...`).
+- Source checkout and fixed Docker `/data` remain single-library (fixed mode) unless multi-library Compose is used.
+- npm package includes `demo/` (seed script + Little Café) for Try demo.
+
 ## 5.3.0
 
 ### Features

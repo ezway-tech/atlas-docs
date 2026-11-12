@@ -1,0 +1,34 @@
+# Opt-in multi-library Compose for Docker Hub images (named volumes).
+# Bind-mount alternative: replace named volumes with host paths. On Linux, if
+# the app cannot write, chown host directories to UID 1000 (image `node` user).
+# Manager mode ignores the image default DATA_DIR=/data (not mounted here).
+# Optional: ATLAS_OPEN_LIBRARY=/libraries/my-lib to open one library at startup.
+#
+#   set ATLAS_DOCS_VERSION=5.4.0
+#   docker compose -f docker-compose.hub.multi.yml up -d
+#
+# Single-library users should keep docker-compose.hub.yml (/data).
+
+services:
+  atlas-docs:
+    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-5.4.0}
+    ports:
+      - "127.0.0.1:${ATLAS_DOCS_PORT:-17430}:3000"
+    environment:
+      ATLAS_LIBRARY_MODE: manager
+      ATLAS_LIBRARIES_ROOT: /libraries
+      ATLAS_DOCS_LIBRARIES_DIR: /libraries
+      ATLAS_DOCS_REGISTRY_DIR: /atlas-registry
+      ATLAS_DOCS_ALLOWED_ROOTS: /libraries
+      ATLAS_DOCS_UPGRADE_BACKUP_DIR: /upgrade-backups
+      NODE_ENV: production
+    volumes:
+      - atlas-docs-libraries:/libraries
+      - atlas-docs-registry:/atlas-registry
+      - atlas-docs-upgrade-backups:/upgrade-backups
+    restart: unless-stopped
+
+volumes:
+  atlas-docs-libraries:
+  atlas-docs-registry:
+  atlas-docs-upgrade-backups:

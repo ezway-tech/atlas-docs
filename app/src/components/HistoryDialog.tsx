@@ -11,6 +11,7 @@ import Markdown from './Markdown';
 import {splitMarkdown} from '@/lib/headings';
 import type {DocInfo} from '@/lib/types';
 import {useApiError,useLocale} from './LocaleProvider';
+import {atlasFetch} from '@/lib/atlas-client';
 
 type HistoryItem={id:string;capturedAt:string;reason:'edit'|'restore'|null;sizeBytes:number};
 type Detail={items:HistoryItem[];totalCount:number;totalBytes:number;limits:{maxCount:number;maxBytes:number};nextCursor:string|null};
@@ -56,7 +57,7 @@ export default function HistoryDialog({doc,dirty,dark,ask,onClose,onRestored,onN
   if(!cursor){setListStatus('loading');setListError('');setStale(false);}
   try{
    const url='/api/history?id='+esc(doc.id)+'&detail=1'+(cursor?'&cursor='+esc(cursor):'');
-   const resp=await fetch(url,{cache:'no-store'});
+   const resp=await atlasFetch(url,{cache:'no-store'});
    const data=await resp.json();
    if(!resp.ok)throw Error(data.error||resp.statusText);
    if(id!==listReq.current||!openRef.current)return;
@@ -83,7 +84,7 @@ export default function HistoryDialog({doc,dirty,dark,ask,onClose,onRestored,onN
   if(!selected||listStatus!=='ready')return;
   const id=++versionReq.current;
   setVersionStatus('loading');setVersionError('');setVersionRaw('');
-  fetch('/api/history?id='+esc(doc.id)+'&revision='+esc(selected),{cache:'no-store'}).then(async resp=>{
+  atlasFetch('/api/history?id='+esc(doc.id)+'&revision='+esc(selected),{cache:'no-store'}).then(async resp=>{
    const data=await resp.json();
    if(id!==versionReq.current||!openRef.current)return;
    if(resp.status===404){setVersionGone(true);setVersionStatus('error');setVersionError(t('history.versionGone'));return;}
@@ -102,7 +103,7 @@ export default function HistoryDialog({doc,dirty,dark,ask,onClose,onRestored,onN
   if(!await ask({title:t('history.restore.confirmTitle'),body:t('history.restore.confirmBody',{when}),ok:t('history.restore')}))return;
   setBusy(true);
   try{
-   const resp=await fetch('/api/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:doc.id,version:selected,baseHash:baseHash.current})});
+   const resp=await atlasFetch('/api/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:doc.id,version:selected,baseHash:baseHash.current})});
    const data=await resp.json();
    if(resp.status===409){setStale(true);onNotify(t('history.conflict409'));return;}
    if(resp.status===404){onNotify(apiError(data,t('history.versionMissing')));void loadList();return;}

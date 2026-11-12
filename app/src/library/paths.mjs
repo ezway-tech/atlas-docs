@@ -16,6 +16,24 @@ export function canonicalize(target) {
   }
 }
 
+/**
+ * Normalize a path for equality / containment compares.
+ * Windows is case-insensitive; Linux and others keep case.
+ */
+export function normalizePathForCompare(target, platform = process.platform) {
+  const normalized = canonicalize(target).replace(/\\/g, '/');
+  return platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+/** True when candidate equals root or is a real descendant (after normalizePathForCompare). */
+export function pathIsWithinRoot(candidate, root, platform = process.platform) {
+  const child = normalizePathForCompare(candidate, platform);
+  const base = normalizePathForCompare(root, platform);
+  if (child === base) return true;
+  const prefix = base.endsWith('/') ? base : `${base}/`;
+  return child.startsWith(prefix);
+}
+
 export function lockPath(libraryRoot) {
   return path.join(canonicalize(libraryRoot), LOCK_FILE);
 }

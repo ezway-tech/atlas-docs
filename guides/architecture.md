@@ -16,6 +16,9 @@ Atlas Docs is a local Next.js application. React components provide the workspac
 | `app/src/lib/store.ts` | Catalog scanning, folder/document operations, metadata access, revisions, and in-process write coordination |
 | `app/src/lib/runtime-prepare.ts` | Loads `core` and runs the shared prepare pipeline when the server starts |
 | `app/src/lib/data-root.ts` | Resolve the active library root for the app process |
+| `app/src/library/user-registry.mjs` | Machine-local recent libraries (outside library folders) |
+| `app/src/library/fs-policy.mjs` | Allowed roots and folder browse containment |
+| `app/src/cli/start.mjs` | Supervises child runtimes; serializes update and library switch |
 | `app/src/lib/backup.ts` | ZIP import/export; import stages go through core schema checks |
 | `app/src/lib/asset-references.ts` | Reference scanning and cleanup eligibility |
 | `app/src/lib/` | Shared types, history/backup policies, asset validation, parsing, and shortcuts |
@@ -32,7 +35,9 @@ Paths in this table are relative to the repository root. The root package forwar
 
 All development tools live under `scripts/`. Node tools outside the app resolve dependencies through `scripts/dependencies.mjs`; no root dependency installation is needed. Tests are grouped into `app`, `library`, `cli`, and `package`, with shared helpers. New test builds, bundles, reports, and Help captures go under `app/test-results/`. Older ignored build caches may remain locally; they are not source folders.
 
-The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source and Docker keep their existing data defaults (`../data` and `/data`); the npm CLI defaults to `./atlas-docs-data` unless `--data-dir`, `DATA_DIR`, or `atlas-docs.config.json` selects another path. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
+The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), `demo/`, and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source and Docker keep their existing data defaults (`../data` and `/data`); the npm CLI resolves a library through flag/env/config/recent/compat, or opens the library manager when none apply. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
+
+Managed CLI and multi-library Docker run a supervisor parent that spawns one child runtime per open library. Switching libraries stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path.
 
 ## Versions
 
@@ -55,7 +60,7 @@ Every entry point (npm CLI server, source bootstrap + runtime, Docker) uses `cor
 6. Sync agent-kit when a kit path is configured.
 7. Start serving; open the browser from the CLI after health checks.
 
-The server process owns the lock for its lifetime. A second Atlas Docs process on the same canonical library path is refused. The lock coordinates Atlas Docs processes only; it does not block external editors.
+The server process owns the lock for its lifetime. A second Atlas Docs process on the same canonical library path is refused. The lock coordinates Atlas Docs processes only; it does not block external editors. Runtime session headers (`X-Atlas-Runtime`, `X-Atlas-Library`) prevent a previous browser tab from reading or writing after a library switch reuses the same listen port.
 
 ## Data model
 

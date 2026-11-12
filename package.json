@@ -17,7 +17,7 @@
     "bootstrap": "npm --prefix app run bootstrap",
     "seed:demo": "npm --prefix app run seed:demo",
     "typecheck": "npm --prefix app run typecheck",
-    "check": "npm run typecheck && npm --prefix app run test:storage"
+    "check": "npm run typecheck && npm --prefix app run test:storage && npm --prefix app run test:local-request && npm --prefix app run test:library-session && npm --prefix app run test:runtime-cookie && npm --prefix app run test:shutdown-drain && npm --prefix app run test:wait-runtime"
   },
   "engines": {
     "node": ">=22.12.0"

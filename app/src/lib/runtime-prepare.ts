@@ -1,8 +1,9 @@
 import path from 'node:path';
 import {loadCore} from './load-core';
+import {isManagerMode} from './library-capabilities';
 
 type PrepareResult = {
-  root: string;
+  root: string | null;
   lock: {release: () => Promise<void>} | null;
 };
 
@@ -16,6 +17,9 @@ export function ensureLibraryPrepared(): Promise<PrepareResult> {
   if (!globalThis.__atlasPrepare) {
     globalThis.__atlasPrepare = (async () => {
       try {
+        if (isManagerMode()) {
+          return {root: null, lock: null};
+        }
         const core = await loadCore();
         // Opaque keys — Next must not inline these as undefined in the server bundle.
         const keys = JSON.parse(

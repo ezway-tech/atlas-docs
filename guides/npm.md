@@ -26,19 +26,23 @@ Offline use works after the package is already installed; update checks never bl
 
 ## Library location
 
-Default library: `atlas-docs-data` in the directory where you run the command.
+Each library is a folder (`db.json`, `docs/`, `uploads/`, `history/`). The app process serves one library at a time and holds that library’s lock. You can run several Atlas Docs processes for different libraries on different ports.
 
 Selection order:
 
 1. `--data-dir`
 2. `DATA_DIR`
 3. Nearest `atlas-docs.config.json` walking up from the current directory
-4. `./atlas-docs-data`
+4. Valid recent library from this machine’s registry
+5. Existing `./atlas-docs-data` in the current directory (compatibility with earlier versions)
+6. Welcome screen — open, create, or try the demo (nothing is created until you confirm)
 
 Relative `--data-dir` and `DATA_DIR` values resolve from the calling directory.
 `dataDir` inside the config file resolves from the config file's directory.
-A broken config or missing saved path is an error; the CLI does not silently create a different default library.
-Passing `--data-dir` for one run does not rewrite project config.
+A broken config or missing/invalid explicit path is an error; the CLI does not fall back to recent or invent another library.
+Passing `--data-dir` for one run does not rewrite project config. Opening a library in the UI also does not rewrite project config unless you use an explicit “use for this project” action.
+
+Recent libraries are stored outside any library folder (Windows: `%LOCALAPPDATA%\atlas-docs`, Linux: `$XDG_CONFIG_HOME/atlas-docs` or `~/.config/atlas-docs`). Override with `ATLAS_DOCS_REGISTRY_DIR` (useful in tests and Docker). Remove from recent deletes the registry entry only.
 
 ```sh
 atlas-docs library use ./project-docs
@@ -47,9 +51,18 @@ atlas-docs --data-dir ./project-docs --port 17431 --no-open
 atlas-docs start --yes
 ```
 
+Automation: always pass `--data-dir` or `DATA_DIR` when scripts expect a library without the welcome UI. Example for two projects at once:
+
+```sh
+atlas-docs --data-dir ./docs-a --port 17430
+atlas-docs --data-dir ./docs-b --port 17431
+```
+
 `--yes` confirms schema migration without a prompt (required in non-interactive environments).
 `--help` and `--version` do not initialize a library.
 The server listens only on `127.0.0.1`. Default port is **17430**. If that port is busy and you did not pass `--port`, the CLI tries **17431–17439**, then exits with an error if none are free. With `--port`, a busy port is an error (no auto-fallback). The Ready line prints the URL that is actually listening; the browser opens after the server is ready.
+
+Folder paths chosen in the browser refer to directories on the machine that runs Atlas Docs (the server), which may differ from the device showing the UI.
 
 ## Schema and locking
 

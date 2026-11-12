@@ -18,7 +18,7 @@ Project knowledge often spreads across setup notes, architecture documents, API 
 
 - **Find the context you need.** Browse by topic, follow related documents, or search across the library.
 - **Make technical docs easier to read.** View diagrams, API endpoints, and SQL schemas alongside your written explanations.
-- **Keep the files on your machine.** Store documents in a local directory and use Atlas Docs alongside your application repository.
+- **Keep the files on your machine.** Store each project in its own library folder and use Atlas Docs alongside your application repository.
 
 ## Features
 
@@ -66,9 +66,9 @@ Requires Node.js **22.12 or newer** for npm and source runs.
 npx atlas-docs@latest
 ```
 
-Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Default library: `./atlas-docs-data`. Default URL http://127.0.0.1:17430 (see [npm guide](guides/npm.md)).
+Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Opens a library you choose (or an existing `./atlas-docs-data` for compatibility). Default URL http://127.0.0.1:17430 (see [npm guide](guides/npm.md)).
 
-**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; default URL http://127.0.0.1:17430 (override host port with `ATLAS_DOCS_PORT`); data and upgrade backups use named volumes. See [operations](guides/operations.md#docker-hub-image-end-users).
+**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; default URL http://127.0.0.1:17430 (override host port with `ATLAS_DOCS_PORT`); data and upgrade backups use named volumes. For multiple libraries in one container, see [`docker-compose.hub.multi.yml`](docker-compose.hub.multi.yml). See [operations](guides/operations.md#docker-hub-image-end-users).
 
 **From this repository:**
 

@@ -5,7 +5,9 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
-export const demoRoot=path.resolve(here,'../../examples/little-cafe');
+export const demoRoot=process.env.ATLAS_DEMO_ROOT
+  ? path.resolve(process.env.ATLAS_DEMO_ROOT)
+  : path.resolve(here,'../../examples/little-cafe');
 
 export async function sampleFiles(root){
   const files=[];

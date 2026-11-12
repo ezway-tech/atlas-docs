@@ -8,13 +8,14 @@ import {ConfirmDialog,Dialog} from './ui/dialog';
 import {Collapsible} from './ui/patterns';
 import {formatLimitFieldError,mibText,parseMib,parsePositiveInt} from './limit-fields';
 import {useApiError,useLocale} from './LocaleProvider';
+import {atlasFetch,atlasJson} from '@/lib/atlas-client';
 
-async function api<T>(url:string,init?:RequestInit):Promise<T>{const resp=await fetch(url,{cache:'no-store',...init});const data=await resp.json();if(!resp.ok)throw Error(data.error||resp.statusText);return data as T;}
+async function api<T>(url:string,init?:RequestInit):Promise<T>{return atlasJson<T>(url,init);}
 
 export async function downloadBackup(){
  const check=await api<{ok:boolean;blockers:string[]}>('/api/backup?check=1');
  if(!check.ok)throw Error(check.blockers.join(' '));
- const resp=await fetch('/api/backup');
+ const resp=await atlasFetch('/api/backup');
  if(!resp.ok)throw Error((await resp.json()).error||resp.statusText);
  const url=URL.createObjectURL(await resp.blob());
  const link=document.createElement('a');link.href=url;link.download='atlas-docs-backup.zip';link.click();

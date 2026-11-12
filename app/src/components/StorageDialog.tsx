@@ -11,6 +11,7 @@ import {Collapsible,Tabs} from './ui/patterns';
 import type {TranslateParams} from '@/lib/i18n/translate';
 import {formatLimitFieldError,mibText,parseMib,parsePositiveInt} from './limit-fields';
 import {useApiError,useLocale} from './LocaleProvider';
+import {atlasJson} from '@/lib/atlas-client';
 
 type Group={bytes:number;files:number};
 type Stats={scannedAt:string;totalBytes:number;totalFiles:number;complete:boolean;documents:Group;history:Group;historyMeta:Group;observed:Group;attachments:Group;database:Group;unusual:{path:string;bytes:number}[];errors:{path:string;message:string}[];warnings:{level:'warn'|'block';key:string;params:Record<string,string|number>}[]};
@@ -23,7 +24,7 @@ type PreviewNote={key:string;main:string;sub?:string;error?:boolean};
 
 const pageSize=20;
 function fileName(item:Candidate){return item.filename||item.id;}
-async function api<T>(url:string,init?:RequestInit):Promise<T>{const resp=await fetch(url,{cache:'no-store',...init});const data=await resp.json();if(!resp.ok)throw Error(data.error||resp.statusText);return data as T;}
+async function api<T>(url:string,init?:RequestInit):Promise<T>{return atlasJson<T>(url,init);}
 function previewHistoryMessage(t:(key:string,params?:TranslateParams)=>string,rows:{docs:HistoryRow[]}){
  const versions=rows.docs.reduce((sum,row)=>sum+row.remove,0);
  const affected=rows.docs.reduce((sum,row)=>sum+row.removeBytes,0);

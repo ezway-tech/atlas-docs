@@ -51,11 +51,28 @@ export async function readProjectConfig(configPath) {
   return {configPath, dataDir: canonicalize(dataDir), raw};
 }
 
+/**
+ * Persist project library path. Same-volume paths are stored relative to the
+ * config file directory. Cross-drive / absolute Windows paths stay absolute —
+ * never prefix a drive path with "./".
+ */
 export async function writeProjectConfig(cwd, dataDir) {
   const configPath = path.join(path.resolve(cwd), PROJECT_CONFIG);
-  const relative = path.relative(path.dirname(configPath), path.resolve(dataDir)) || '.';
-  const normalized = relative.split(path.sep).join('/');
-  const body = `${JSON.stringify({dataDir: normalized.startsWith('.') ? normalized : `./${normalized}`}, null, 2)}\n`;
+  const absolute = path.resolve(dataDir);
+  const configDir = path.dirname(configPath);
+  const relative = path.relative(configDir, absolute);
+  const crossDrive =
+    path.isAbsolute(relative) ||
+    (process.platform === 'win32' &&
+      path.parse(configDir).root.toLowerCase() !== path.parse(absolute).root.toLowerCase());
+  let stored;
+  if (crossDrive || relative === '') {
+    stored = canonicalize(absolute);
+  } else {
+    const normalized = (relative || '.').split(path.sep).join('/');
+    stored = normalized.startsWith('.') ? normalized : `./${normalized}`;
+  }
+  const body = `${JSON.stringify({dataDir: stored}, null, 2)}\n`;
   await writeFile(configPath, body, 'utf8');
-  return {configPath, dataDir: canonicalize(dataDir)};
+  return {configPath, dataDir: canonicalize(absolute)};
 }

@@ -80,12 +80,22 @@ test('resolve prefers flag, env, config, then default; broken config does not fa
     await writeFile(path.join(cwd, 'atlas-docs.config.json'), JSON.stringify({dataDir: './missing-library'}));
     await assert.rejects(() => resolveLibraryPath({cwd}), /does not exist/);
 
-    const def = await resolveLibraryPath({cwd: path.join(root, 'other')});
-    // other does not exist as cwd for default — create it
     await mkdir(path.join(root, 'other'));
-    const def2 = await resolveLibraryPath({cwd: path.join(root, 'other')});
-    assert.equal(def2.source, 'default');
-    assert.ok(def2.root.endsWith('atlas-docs-data'));
+    const welcome = await resolveLibraryPath({
+      cwd: path.join(root, 'other'),
+      env: {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry-empty')},
+    });
+    assert.equal(welcome.source, 'welcome');
+    assert.equal(welcome.root, null);
+
+    const compatDir = path.join(root, 'other', 'atlas-docs-data');
+    await initEmptyLibrary(compatDir);
+    const compat = await resolveLibraryPath({
+      cwd: path.join(root, 'other'),
+      env: {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry-empty')},
+    });
+    assert.equal(compat.source, 'compat');
+    assert.equal(compat.root, path.resolve(compatDir));
   } finally {
     await rm(root, {recursive: true, force: true});
   }
