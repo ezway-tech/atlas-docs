@@ -32,22 +32,29 @@ const activeTemps=new Set<string>();
 let shuttingDown=false;
 let inflightLibraryOps=0;
 export function beginShutdown(){shuttingDown=true;}
+export function cancelShutdown(){shuttingDown=false;}
 export function isShuttingDown(){return shuttingDown;}
 export function inflightLibraryOpCount(){return inflightLibraryOps;}
-/** Wait for admitted library writes to finish. Returns ok:false if still busy after timeout. */
+/** Wait for admitted library writes to finish. Always races against timeoutMs (never hangs on a stuck tail). */
 export async function drainLibraryWrites({timeoutMs=8000}={}):Promise<{ok:boolean}>{
   const deadline=Date.now()+timeoutMs;
+  const settle=()=>Promise.all([
+    serial.catch(()=>{}),
+    libraryTail.catch(()=>{}),
+    ...[...docLocks.values()].map(p=>p.catch(()=>{})),
+  ]);
   while(Date.now()<=deadline){
-    await Promise.all([
-      serial.catch(()=>{}),
-      libraryTail.catch(()=>{}),
-      ...[...docLocks.values()].map(p=>p.catch(()=>{})),
+    const remaining=Math.max(1,deadline-Date.now());
+    const tick=Math.min(50,remaining);
+    await Promise.race([
+      settle().then(()=>'settled' as const),
+      new Promise<'tick'>(resolve=>setTimeout(()=>resolve('tick'),tick)),
     ]);
     if(inflightLibraryOps===0&&activeTemps.size===0){
       await Promise.resolve();
       if(inflightLibraryOps===0&&activeTemps.size===0)return {ok:true};
     }
-    await new Promise(r=>setTimeout(r,25));
+    if(Date.now()>=deadline)break;
   }
   return {ok:inflightLibraryOps===0&&activeTemps.size===0};
 }

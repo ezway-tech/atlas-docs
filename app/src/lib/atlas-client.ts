@@ -23,6 +23,11 @@ export function clearAtlasSession() {
   sessionPromise = null;
 }
 
+/** Last loaded session (may be null before first load). Used to stamp media URLs. */
+export function peekAtlasSession() {
+  return session;
+}
+
 export async function loadAtlasSession(force = false): Promise<AtlasSession> {
   if (!force && session) return session;
   if (!force && sessionPromise) return sessionPromise;

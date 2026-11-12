@@ -26,7 +26,7 @@ let updatePending=false;
 const json=(x:unknown)=>Response.json(x,{headers:{'Cache-Control':'no-store'}});
 const parts=async(c:Params)=>(await c.params).action;
 const DATA_ACTIONS=new Set(['docs','folders','settings','order','comments','history','links','dashboard','media','storage','backup']);
-/** GET /api/media/{uuid} bytes — browser img/video cannot send custom headers; cookie is allowed. */
+/** GET /api/media/{uuid} bytes — browser img/video use rt/lib query instead of custom headers. */
 function isMediaBytesGet(name:string,method:string,seg:string[]){
   return name==='media'&&method==='GET'&&seg.length===2&&seg[1]!=='referenced';
 }
@@ -60,7 +60,7 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
    return Response.json({error:stale.message,errorKey:'errors.library.staleRuntime',expected:stale.expected,received:stale.received},{status:409});
   }
   // Managed runtimes require session proof on reads and writes so stale tabs cannot observe a new library.
-  // Media bytes may prove via atlas_rt cookie; all other data routes require headers.
+  // Media bytes may prove via rt/lib query on the URL; all other data routes require headers.
   if(stale==='missing' && process.env.ATLAS_RUNTIME_ID && process.env.ATLAS_LIBRARY_MANAGER==='1'){
    return Response.json({error:'Missing runtime session headers. Reload the page.',errorKey:'errors.library.staleRuntime'},{status:409});
   }

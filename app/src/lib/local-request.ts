@@ -1,5 +1,4 @@
 import type {NextRequest} from 'next/server';
-import {readRuntimeSessionCookie} from './runtime-session-cookie';
 
 /**
  * Same-origin local browser request guard used by library management and update APIs.
@@ -60,8 +59,8 @@ export function runtimeHeaderMismatch(req: NextRequest) {
 }
 
 /**
- * Session check for browser media bytes: accept matching headers, else matching atlas_rt cookie.
- * Still rejects wrong runtime/library; does not open media without proof of the active session.
+ * Session check for browser media bytes: matching headers, else matching rt/lib query params.
+ * Query ids are per-URL so tabs/ports do not share a hostname-wide cookie.
  */
 export function runtimeSessionMismatch(req: NextRequest) {
   const expectedRuntime = process.env.ATLAS_RUNTIME_ID;
@@ -75,10 +74,11 @@ export function runtimeSessionMismatch(req: NextRequest) {
     }
     return null;
   }
-  const cookie = readRuntimeSessionCookie(req.headers.get('cookie'));
-  if (!cookie) return 'missing' as const;
-  if (cookie.runtimeId !== expectedRuntime || cookie.libraryId !== expectedLibrary) {
-    return staleResult(expectedRuntime, expectedLibrary, cookie.runtimeId, cookie.libraryId);
+  const qRuntime = req.nextUrl.searchParams.get('rt');
+  const qLibrary = req.nextUrl.searchParams.get('lib');
+  if (!qRuntime && !qLibrary) return 'missing' as const;
+  if (qRuntime !== expectedRuntime || qLibrary !== expectedLibrary) {
+    return staleResult(expectedRuntime, expectedLibrary, qRuntime, qLibrary);
   }
   return null;
 }

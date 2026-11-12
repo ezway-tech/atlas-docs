@@ -15,6 +15,9 @@ import {
   assertTarballChecksum,
   createServerTracker,
   json,
+  jsonWithSession,
+  loadRuntimeSession,
+  fetchMediaBytes,
   contentChecksumMap,
   assertChecksumMapsEqual,
 } from '../helpers/package-harness.mjs';
@@ -207,11 +210,15 @@ try {
 
   const dbAfter = await readDb();
   assert.equal(dbAfter.schemaVersion, 1, 'Expected schemaVersion 1 after upgrade');
-  assert.equal((await json(upgraded.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
-  assert.equal(await (await fetch(upgraded.url + '/api/media/' + media.id)).text(), snapshot.mediaBytes);
-  const comments = await json(upgraded.url + '/api/comments?docId=' + encodeURIComponent(doc.id));
+  const upgradedSession = await loadRuntimeSession(upgraded.url);
+  assert.equal((await jsonWithSession(upgraded.url + '/api/docs/' + doc.id, upgradedSession)).raw, snapshot.raw);
+  assert.equal(await fetchMediaBytes(upgraded.url, media.id, upgradedSession), snapshot.mediaBytes);
+  const comments = await jsonWithSession(
+    upgraded.url + '/api/comments?docId=' + encodeURIComponent(doc.id),
+    upgradedSession,
+  );
   assert.ok(comments.some(c => c.id === snapshot.commentId && c.content === snapshot.commentContent));
-  const settingsAfter = await json(upgraded.url + '/api/settings');
+  const settingsAfter = await jsonWithSession(upgraded.url + '/api/settings', upgradedSession);
   assert.equal(settingsAfter.theme, snapshot.theme);
   assert.equal(settingsAfter.leftWidth, snapshot.leftWidth);
   assert.equal(await readFile(path.join(library, 'AGENTS.md'), 'utf8'), snapshot.agents);
@@ -231,7 +238,10 @@ try {
       assert.ok(found, 'Preserved edited agent-guide.md under .atlas/backups');
     }
   }
-  const historyAfter = await json(upgraded.url + '/api/history?id=' + encodeURIComponent(doc.id));
+  const historyAfter = await jsonWithSession(
+    upgraded.url + '/api/history?id=' + encodeURIComponent(doc.id),
+    upgradedSession,
+  );
   assert.ok(historyAfter.versions.length >= snapshot.historyCount);
   assertProtectedPreserved(preChecksums, await contentChecksumMap(library), 'happy-path upgrade');
 
@@ -252,7 +262,8 @@ try {
   });
   assert.doesNotMatch(rerun.logs, /migrate schema|Migration complete/i, rerun.logs);
   assert.equal((await readDb()).schemaVersion, 1);
-  assert.equal((await json(rerun.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
+  const rerunSession = await loadRuntimeSession(rerun.url);
+  assert.equal((await jsonWithSession(rerun.url + '/api/docs/' + doc.id, rerunSession)).raw, snapshot.raw);
   assert.equal(await readFile(path.join(library, 'AGENTS.md'), 'utf8'), snapshot.agents);
   const backupsAfterRerun = await listUpgradeBackups();
   assert.equal(backupsAfterRerun.length, backupsBeforeRerun.length, 'Re-run must not create another upgrade backup');
@@ -295,8 +306,9 @@ try {
     args: ['--data-dir', library, '--yes'],
   });
   assert.equal((await readDb()).schemaVersion, 1);
-  assert.equal((await json(afterRecover.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
-  assert.equal(await (await fetch(afterRecover.url + '/api/media/' + media.id)).text(), snapshot.mediaBytes);
+  const afterRecoverSession = await loadRuntimeSession(afterRecover.url);
+  assert.equal((await jsonWithSession(afterRecover.url + '/api/docs/' + doc.id, afterRecoverSession)).raw, snapshot.raw);
+  assert.equal(await fetchMediaBytes(afterRecover.url, media.id, afterRecoverSession), snapshot.mediaBytes);
   await tracker.stop(afterRecover);
 
   await rm(library, {recursive: true, force: true});
@@ -309,7 +321,8 @@ try {
   });
   assert.match(cliRecover.logs, /Recovering interrupted|Ready/, cliRecover.logs);
   assert.equal((await readDb()).schemaVersion, 1);
-  assert.equal((await json(cliRecover.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
+  const cliRecoverSession = await loadRuntimeSession(cliRecover.url);
+  assert.equal((await jsonWithSession(cliRecover.url + '/api/docs/' + doc.id, cliRecoverSession)).raw, snapshot.raw);
   await tracker.stop(cliRecover);
 
   // --- E: real process kill at each abort point, then normal CLI --yes ---
@@ -352,8 +365,9 @@ try {
       args: ['--data-dir', library, '--yes'],
     });
     assert.equal((await readDb()).schemaVersion, 1, `${abortPoint}: schemaVersion 1 after CLI resume`);
-    assert.equal((await json(resumed.url + '/api/docs/' + doc.id)).raw, snapshot.raw);
-    assert.equal(await (await fetch(resumed.url + '/api/media/' + media.id)).text(), snapshot.mediaBytes);
+    const resumedSession = await loadRuntimeSession(resumed.url);
+    assert.equal((await jsonWithSession(resumed.url + '/api/docs/' + doc.id, resumedSession)).raw, snapshot.raw);
+    assert.equal(await fetchMediaBytes(resumed.url, media.id, resumedSession), snapshot.mediaBytes);
     assert.equal(await readFile(path.join(library, 'AGENTS.md'), 'utf8'), snapshot.agents);
     assertProtectedPreserved(preChecksums, await contentChecksumMap(library), `resume after ${abortPoint}`);
     await tracker.stop(resumed);

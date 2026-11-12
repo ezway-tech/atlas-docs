@@ -135,6 +135,37 @@ export async function json(url, method = 'GET', body) {
   return response.json();
 }
 
+/** Session ids published by a managed 5.4+ runtime (`GET /api/libraries/session`). */
+export async function loadRuntimeSession(baseUrl) {
+  const response = await fetch(`${baseUrl}/api/libraries/session`, {cache: 'no-store'});
+  assert.equal(response.status, 200, await response.clone().text());
+  return response.json();
+}
+
+/** JSON library/data API with matching runtime/library headers. */
+export async function jsonWithSession(url, session, method = 'GET', body) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Atlas-Runtime': session.runtimeId,
+    'X-Atlas-Library': session.libraryId,
+  };
+  const response = await fetch(url, {
+    method,
+    headers,
+    ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+  });
+  assert.equal(response.status, 200, await response.clone().text());
+  return response.json();
+}
+
+/** Browser-like media GET: prove session via rt/lib query (no shared cookie). */
+export async function fetchMediaBytes(baseUrl, mediaId, session) {
+  const q = `rt=${encodeURIComponent(session.runtimeId)}&lib=${encodeURIComponent(session.libraryId)}`;
+  const response = await fetch(`${baseUrl}/api/media/${mediaId}?${q}`);
+  assert.equal(response.status, 200, await response.clone().text());
+  return response.text();
+}
+
 async function walkRelativeFiles(root, relative = '') {
   const dir = path.join(root, relative);
   let entries;

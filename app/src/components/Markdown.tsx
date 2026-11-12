@@ -14,6 +14,8 @@ import SourceEditor,{embedHeight,monacoLanguage,type EditorRef} from './SourceEd
 import OpenApiView from './OpenApiView';
 import SqlView from './SqlView';
 import {useLocale} from './LocaleProvider';
+import {peekAtlasSession} from '@/lib/atlas-client';
+import {withMediaSession} from '@/lib/media-url';
 
 function hash(t:string){let n=2166136261;for(const c of t){n=Math.imul(n^c.charCodeAt(0),16777619);}return (n>>>0).toString(36);}
 export function plain(node:React.ReactNode):string{if(typeof node==='string'||typeof node==='number')return String(node);if(Array.isArray(node))return node.map(plain).join('');if(React.isValidElement<{children?:React.ReactNode}>(node))return plain(node.props.children);return '';}
@@ -155,10 +157,11 @@ export default function Markdown({content,docId,comments=[],activeId,onComment,f
     a:({href,children}:any)=>{
       const docs=resolveDocHref(docId,String(href||''));
       if(docs)return <Link href={docs}>{children}</Link>;
-      const url=String(href||'');
+      const session=peekAtlasSession();
+      const url=withMediaSession(String(href||''),session||{});
       return <a href={url} target={url.startsWith('http')?'_blank':undefined} rel="noreferrer">{children}</a>;
     },
-    img:({src,alt}:any)=>{const altText=String(alt||t('reader.imageAltDefault'));return <span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomImage')} onClick={()=>openZoom({mode:'medium',image:{src:String(src||''),alt:altText}})}><img className="md-image" src={src} alt={altText}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomFullscreen')} onClick={()=>openZoom({mode:'fullscreen',image:{src:String(src||''),alt:altText}})}><Expand size={18}/></UiButton></span>;},
+    img:({src,alt}:any)=>{const session=peekAtlasSession();const mediaSrc=withMediaSession(String(src||''),session||{});const altText=String(alt||t('reader.imageAltDefault'));return <span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomImage')} onClick={()=>openZoom({mode:'medium',image:{src:mediaSrc,alt:altText}})}><img className="md-image" src={mediaSrc} alt={altText}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomFullscreen')} onClick={()=>openZoom({mode:'fullscreen',image:{src:mediaSrc,alt:altText}})}><Expand size={18}/></UiButton></span>;},
     code:({children,className,...rest}:any)=><code className={className} {...rest}>{children}</code>
   };
   const wiki=markdownWiki(content);

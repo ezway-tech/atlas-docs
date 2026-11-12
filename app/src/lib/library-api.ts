@@ -7,15 +7,11 @@ import {appRuntime} from './app-runtime';
 import {libraryCapabilities, libraryMode, runtimeIdentity} from './library-capabilities';
 import {assertLocalAppRequest, runtimeHeaderMismatch} from './local-request';
 import {ensureLibraryPrepared} from './runtime-prepare';
-import {
-  clearRuntimeSessionCookieHeader,
-  runtimeSessionCookieHeader,
-} from './runtime-session-cookie';
 
-function json(x: unknown, status = 200, extraHeaders?: Record<string, string>) {
+function json(x: unknown, status = 200) {
   return Response.json(x, {
     status,
-    headers: {'Cache-Control': 'no-store', ...extraHeaders},
+    headers: {'Cache-Control': 'no-store'},
   });
 }
 
@@ -61,9 +57,18 @@ function requireRuntimeSession(req: NextRequest) {
   throw err;
 }
 
-function requestManagedSwitch(payload: Record<string, unknown>) {
+async function requestManagedSwitch(payload: Record<string, unknown>) {
+  const send = process.send;
+  if (!send || !process.connected) throw Error('CLI supervisor is unavailable');
+  const {beginShutdown, cancelShutdown, drainLibraryWrites} = await import('./store');
+  // Finish admitted writes before asking the parent to stop this runtime.
+  beginShutdown();
+  const drained = await drainLibraryWrites({timeoutMs: 8000});
+  if (!drained.ok) {
+    cancelShutdown();
+    throw Error('Library is still saving. Switch cancelled; keep this tab open and try again.');
+  }
   return new Promise<{id: string}>((resolve, reject) => {
-    if (!process.send || !process.connected) return reject(Error('CLI supervisor is unavailable'));
     const id = crypto.randomUUID();
     const timer = setTimeout(() => {
       cleanup();
@@ -77,13 +82,17 @@ function requestManagedSwitch(payload: Record<string, unknown>) {
       const value = message as {type?: string; requestId?: string; id?: string; error?: string};
       if (value?.type !== 'atlas:library-switch-ack' || value.requestId !== id) return;
       cleanup();
-      if (value.error) reject(Error(value.error));
-      else resolve({id: value.id || id});
+      if (value.error) {
+        // Parent refused; reopen admits so the user can keep working.
+        cancelShutdown();
+        reject(Error(value.error));
+      } else resolve({id: value.id || id});
     };
     process.on('message', receive);
-    process.send({type: 'atlas:library-switch', requestId: id, ...payload}, error => {
+    send.call(process, {type: 'atlas:library-switch', requestId: id, ...payload}, (error: Error | null) => {
       if (error) {
         cleanup();
+        cancelShutdown();
         reject(error);
       }
     });
@@ -130,20 +139,12 @@ export async function handleLibraryApi(req: NextRequest, seg: string[], method: 
       const key = core.libraryIdentityKey(libraryRoot);
       displayName = reg.libraries.find((l: {identityKey: string}) => l.identityKey === key)?.displayName || path.basename(libraryRoot);
     }
-    const cookie =
-      identity.runtimeId && identity.libraryId
-        ? runtimeSessionCookieHeader(identity.runtimeId, identity.libraryId)
-        : clearRuntimeSessionCookieHeader();
-    return json(
-      {
-        ...identity,
-        displayName,
-        appVersion: appRuntime().version,
-        switchError: process.env.ATLAS_LIBRARY_SWITCH_ERROR || null,
-      },
-      200,
-      {'Set-Cookie': cookie},
-    );
+    return json({
+      ...identity,
+      displayName,
+      appVersion: appRuntime().version,
+      switchError: process.env.ATLAS_LIBRARY_SWITCH_ERROR || null,
+    });
   }
 
   if (seg[1] === 'ready' && method === 'GET') {

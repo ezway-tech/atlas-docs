@@ -110,17 +110,11 @@ try {
   }
   const server = await start(cli, ['--data-dir', 'atlas-docs-data']);
   const library = path.join(cwd, 'atlas-docs-data');
-  const sessionResp = await fetch(server.url + '/api/libraries/session');
-  assert.equal(sessionResp.status, 200);
-  const sessionCookie = (sessionResp.headers.getSetCookie?.() || [])
-    .concat(sessionResp.headers.get('set-cookie') ? [sessionResp.headers.get('set-cookie')] : [])
-    .filter(Boolean)
-    .find(v => String(v).startsWith('atlas_rt='));
-  assert.ok(sessionCookie, 'session sets atlas_rt cookie for media subresources');
-  const session = await sessionResp.json();
+  const session = await json(server.url + '/api/libraries/session');
   const ready = await json(server.url + '/api/libraries/ready');
   assert.equal(ready.ok, true);
   assert.equal(ready.libraryId, session.libraryId);
+  const mediaQuery = `rt=${encodeURIComponent(session.runtimeId)}&lib=${encodeURIComponent(session.libraryId)}`;
   async function jsonAuth(url, method = 'GET', body, extraHeaders = {}) {
     const headers = {
       'Content-Type': 'application/json',
@@ -201,13 +195,15 @@ try {
   const upload = new FormData(); upload.set('file', new File(['attachment content'], 'tài liệu.txt', {type: 'text/plain'}));
   const uploaded = await fetch(server.url + '/api/media', {method: 'POST', headers: {'X-Atlas-Runtime': session.runtimeId, 'X-Atlas-Library': session.libraryId}, body: upload}); assert.equal(uploaded.status, 200);
   const media = await uploaded.json();
-  // Browser-like media GET: cookie only, no session headers.
+  // Browser-like media GET: rt/lib query only, no session headers (and no shared cookie).
   {
-    const cookieOnly = await fetch(server.url + '/api/media/' + media.id, {
-      headers: {Cookie: String(sessionCookie).split(';')[0]},
-    });
-    assert.equal(cookieOnly.status, 200, await cookieOnly.clone().text());
-    assert.equal(await cookieOnly.text(), 'attachment content');
+    const withQuery = await fetch(server.url + '/api/media/' + media.id + '?' + mediaQuery);
+    assert.equal(withQuery.status, 200, await withQuery.clone().text());
+    assert.equal(await withQuery.text(), 'attachment content');
+    const wrongLib = await fetch(
+      server.url + '/api/media/' + media.id + `?rt=${encodeURIComponent(session.runtimeId)}&lib=other-library`,
+    );
+    assert.equal(wrongLib.status, 409);
     const bare = await fetch(server.url + '/api/media/' + media.id);
     assert.equal(bare.status, 409);
     const listBare = await fetch(server.url + '/api/media');

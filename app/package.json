@@ -33,7 +33,8 @@
     "test:help-menu": "node ../scripts/tests/app/test-help-menu.mjs",
     "test:local-request": "node ../scripts/tests/app/test-local-request.mjs",
     "test:library-session": "node ../scripts/tests/app/test-library-session-api.mjs",
-    "test:runtime-cookie": "node ../scripts/tests/app/test-runtime-session-cookie.mjs",
+    "test:media-session": "node ../scripts/tests/app/test-media-session-query.mjs",
+    "test:visual-media": "node ../scripts/tests/app/test-visual-media-session.mjs",
     "test:shutdown-drain": "node ../scripts/tests/app/test-shutdown-drain.mjs",
     "test:wait-runtime": "node ../scripts/tests/app/test-wait-library-runtime.mjs"
   },

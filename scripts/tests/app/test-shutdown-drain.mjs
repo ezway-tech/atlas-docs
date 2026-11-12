@@ -61,5 +61,21 @@ assert.ok(db.folders.some(f => f.path === 'drain-test'), 'in-flight writeDB comp
 const drained = await store.drainLibraryWrites({timeoutMs: 2000});
 assert.equal(drained.ok, true);
 
+store.cancelShutdown();
+assert.equal(store.isShuttingDown(), false);
+
+// Hung admit must not block drain past timeoutMs.
+void store.withLibraryLock(async () => {
+  await new Promise(() => {});
+});
+for (let i = 0; i < 40 && store.inflightLibraryOpCount() === 0; i++) {
+  await new Promise(r => setTimeout(r, 25));
+}
+const started = Date.now();
+const timedOut = await store.drainLibraryWrites({timeoutMs: 50});
+const elapsed = Date.now() - started;
+assert.equal(timedOut.ok, false);
+assert.ok(elapsed < 150, `drain must return near timeout (elapsed=${elapsed}ms)`);
+
 await rm(root, {recursive: true, force: true});
-console.log('PASS: shutdown admits in-flight writes; rejects new locks');
+console.log('PASS: shutdown admits in-flight writes; drain races timeout');

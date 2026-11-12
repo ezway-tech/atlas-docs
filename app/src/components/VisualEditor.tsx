@@ -4,10 +4,12 @@ import {Button as UiButton} from './ui/controls';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {EditorContent,useEditor} from '@tiptap/react';
 import {closeHistory} from '@tiptap/pm/history';
-import StarterKit from '@tiptap/starter-kit';import {Markdown} from '@tiptap/markdown';import Image from '@tiptap/extension-image';
+import StarterKit from '@tiptap/starter-kit';import {Markdown} from '@tiptap/markdown';
 import {Bold,Italic,Strikethrough,List,ListOrdered,Quote,Code,Code2,Link2,Minus,Undo2,Redo2,ImagePlus} from 'lucide-react';
 import HeadingSelect from './HeadingSelect';
 import {headingSelector} from '@/lib/headings';
+import {MediaImage} from '@/lib/media-image';
+import {stripMediaSession, stripMediaSessionsInMarkdown} from '@/lib/media-url';
 import {LinkDialog} from './ui/link-dialog';
 import {Tooltip} from './Tooltip';
 import {CommandTip} from './Keys';
@@ -19,8 +21,8 @@ export type VisualEditorRef={jumpToHeading:(index:number)=>void};
 export default function VisualEditor({content,onChange,onImage,onImagePaste,apiRef}:{content:string;onChange:(v:string)=>void;onImage:()=>void;onImagePaste?:ImagePaste;apiRef?:React.MutableRefObject<VisualEditorRef|null>}){
  const {t}=useLocale();
  const pasteRef=useRef(onImagePaste),editorHold=useRef<ReturnType<typeof useEditor>>(null);pasteRef.current=onImagePaste;
- const editor=useEditor({immediatelyRender:false,shouldRerenderOnTransaction:true,extensions:[StarterKit.configure({link:{openOnClick:false}}),Markdown,Image],content,contentType:'markdown',onCreate:({editor:created})=>{editorHold.current=created;},onUpdate:({editor:e})=>onChange((e as typeof e & {getMarkdown:()=>string}).getMarkdown()),editorProps:{attributes:{class:'tiptap-content'},handlePaste(view,event){const file=clipboardImage(event.clipboardData);if(!file||!pasteRef.current)return false;const pos=view.state.selection.from;pasteRef.current(file,markdown=>{const match=markdown.match(/!\[([^\]]*)\]\(([^)]+)\)/),current=editorHold.current;if(!current||!match)return;current.chain().focus().setTextSelection(pos).setImage({alt:match[1],src:match[2]}).run();});return true;}}});
- useEffect(()=>{if(editor&&(editor as typeof editor & {getMarkdown:()=>string}).getMarkdown()!==content)editor.commands.setContent(content,{contentType:'markdown',emitUpdate:false});},[editor,content]);
+ const editor=useEditor({immediatelyRender:false,shouldRerenderOnTransaction:true,extensions:[StarterKit.configure({link:{openOnClick:false}}),Markdown,MediaImage],content,contentType:'markdown',onCreate:({editor:created})=>{editorHold.current=created;},onUpdate:({editor:e})=>onChange(stripMediaSessionsInMarkdown((e as typeof e & {getMarkdown:()=>string}).getMarkdown())),editorProps:{attributes:{class:'tiptap-content'},handlePaste(view,event){const file=clipboardImage(event.clipboardData);if(!file||!pasteRef.current)return false;const pos=view.state.selection.from;pasteRef.current(file,markdown=>{const match=markdown.match(/!\[([^\]]*)\]\(([^)]+)\)/),current=editorHold.current;if(!current||!match)return;current.chain().focus().setTextSelection(pos).setImage({alt:match[1],src:stripMediaSession(match[2])}).run();});return true;}}});
+ useEffect(()=>{if(editor&&stripMediaSessionsInMarkdown((editor as typeof editor & {getMarkdown:()=>string}).getMarkdown())!==content)editor.commands.setContent(content,{contentType:'markdown',emitUpdate:false});},[editor,content]);
  useEffect(()=>{
   if(!apiRef||!editor)return;
   apiRef.current={jumpToHeading:index=>{
