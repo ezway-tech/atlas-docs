@@ -2,7 +2,7 @@ import '../helpers/environment.mjs';
 import assert from 'node:assert/strict';
 import {loadTs} from '../helpers/load-ts.mjs';
 
-const {runtimeMatchesSwitch} = await loadTs('src/lib/atlas-client.ts');
+const {runtimeMatchesSwitch, waitForLibraryRuntime} = await loadTs('src/lib/atlas-client.ts');
 
 const expected = 'abc123libraryidalpha';
 const previous = 'runtime-old';
@@ -63,3 +63,12 @@ assert.equal(
 );
 
 console.log('PASS: waitForLibraryRuntime match rules');
+
+const originalFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async url => Response.json(String(url).endsWith('/session')
+    ? {runtimeId: 'restored', libraryId: 'old-library', mode: 'library', switchError: 'Migration cancelled'}
+    : {ok: true, libraryId: 'old-library'});
+  await assert.rejects(waitForLibraryRuntime('new-library', {previousRuntimeId: 'old', timeoutMs: 1000}), /Migration cancelled/);
+  console.log('PASS: failed switch is reported immediately after restoring the previous source');
+} finally {globalThis.fetch = originalFetch;}

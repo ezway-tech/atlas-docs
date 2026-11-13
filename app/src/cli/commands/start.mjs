@@ -70,6 +70,7 @@ function baseEnvExtra(packageRoot, manifest, agentKit, backupEnv, options) {
     ATLAS_CORE_PATH: path.join(packageRoot, 'core', 'index.mjs'),
     ATLAS_PACKAGE_ROOT: packageRoot,
     ATLAS_CLI_MANAGED: '1',
+    ATLAS_LOCAL_DESKTOP: process.env.ATLAS_LOCAL_DESKTOP || '1',
     ATLAS_LAUNCH_CWD: options.cwd || process.cwd(),
     ATLAS_SEED_DEMO: demoSeed,
     ATLAS_DEMO_ROOT: demoRoot,

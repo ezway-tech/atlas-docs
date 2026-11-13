@@ -35,9 +35,9 @@ Paths in this table are relative to the repository root. The root package forwar
 
 All development tools live under `scripts/`. Node tools outside the app resolve dependencies through `scripts/dependencies.mjs`; no root dependency installation is needed. Tests are grouped into `app`, `library`, `cli`, and `package`, with shared helpers. New test builds, bundles, reports, and Help captures go under `app/test-results/`. Older ignored build caches may remain locally; they are not source folders.
 
-The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), `demo/`, and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source and Docker keep their existing data defaults (`../data` and `/data`); the npm CLI resolves a library through flag/env/config/recent/compat, or opens the library manager when none apply. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
+The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), `demo/`, and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source startup uses a supervisor and keeps an existing `../data` library available; explicit `DATA_DIR` and single-library Docker retain their fixed data paths (`../data` and `/data`); the npm CLI resolves a library through flag/env/config/recent/compat, or opens the library manager when none apply. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
 
-Managed CLI and multi-library Docker run a supervisor parent that spawns one child runtime per open library. Switching libraries stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path.
+Managed source, CLI, and multi-library Docker run a supervisor parent that spawns one child runtime per open library. Switching libraries stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path.
 
 ## Versions
 
@@ -64,7 +64,7 @@ The server process owns the lock for its lifetime. A second Atlas Docs process o
 
 ## Data model
 
-`DATA_DIR`, when set, selects the library root for source/Docker. Otherwise the app resolves to `../data` from the app working directory. Root npm commands run inside `app/`, so the normal source default is the repository's `data/`. Prefer absolute custom paths.
+`DATA_DIR`, when set, selects the library root for source/Docker. The low-level runtime otherwise resolves to `../data` from the app working directory; the source launcher starts in manager mode when there is no existing library. Root npm commands run inside `app/`, so the normal source default is the repository's `data/`. Prefer absolute custom paths.
 
 | Library path | Contents |
 | --- | --- |
@@ -103,3 +103,11 @@ The workspace Help dropdown links to guides, bundled release notes from `CHANGEL
 `/help` and `/help/[slug]` use a separate read-only layout. The client shell does not mount the library workspace for these routes. A fixed allowlist in `scripts/build/prepare-help.mjs` converts repository Markdown into a generated JSON bundle before dev/build/typecheck. Article text and its search index stay local; unknown slugs return 404. Relative guide links are mapped to Help routes and image paths to `/help-assets/`.
 
 The prepare step also copies `guides/assets/` into generated public assets. Docker copies the Markdown sources before building; the existing public/static copy steps carry the images into the runtime image. Do not edit the generated JSON or public copies. Edit the Markdown or original assets, then rerun the prepare step/build.
+
+## Source chooser and folder copies
+
+The source launcher reuses the CLI child supervisor with a source Next entry point. It does not mutate the active data root in a live process. Explicit `DATA_DIR` remains fixed. The browser consumes a one-use session marker after a successful switch, then shows the chooser again on a later reload.
+
+Library APIs include `POST /api/libraries/preview-import`, `POST /api/libraries/import-folder`, and `POST /api/libraries/reveal`. Import requests provide `source`, `name`, and `parentDir`; confirmation also includes the preview fingerprint. The server revalidates contents and allowed paths, reserves a new destination, and writes under a library lock. Reveal accepts no client-selected path and opens only the active library when the launcher advertises local desktop support. Both operations use the existing local-request and runtime-session checks.
+
+The reusable demo pointer lives in the machine registry under `demo-state/source.json`, outside user libraries. Demo creation is serialized with a registry-side lock. A missing demo may be recreated in a new empty location; an invalid existing demo is not overwritten.

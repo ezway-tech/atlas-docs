@@ -38,6 +38,8 @@ try{
  const shots=[];
  async function shot(name){const file='test-results/'+name+'.png';await page.screenshot({path:file});shots.push(file);const box=await page.evaluate(()=>{const dialog=document.querySelector('.storage-modal')||document.querySelector('.library-modal');const footer=document.querySelector('.storage-footer');const usage=document.querySelector('.storage-modal .usage-overview');const panel=document.querySelector('.storage-modal [role=tabpanel]');const footerBox=footer?.getBoundingClientRect();return {wide:document.documentElement.scrollWidth-innerWidth,dialog:dialog?dialog.scrollWidth-dialog.clientWidth:0,modalScroll:dialog?dialog.scrollHeight-dialog.clientHeight:0,panelScroll:panel?panel.scrollHeight-panel.clientHeight:0,display:usage?getComputedStyle(usage).display:'',footerBottom:footerBox?footerBox.bottom:null,footerTop:footerBox?footerBox.top:null,vh:innerHeight};});assert.ok(box.wide<=1,name+' page overflow '+box.wide);assert.ok(box.dialog<=1,name+' dialog overflow '+box.dialog);assert.ok(box.modalScroll<=1,name+' modal scroll '+box.modalScroll);if(box.display)assert.equal(box.display,'flex',name+' usage display '+box.display);if(box.footerBottom!=null){assert.ok(box.footerTop>=0,name+' footer top '+box.footerTop);assert.ok(box.footerBottom<=box.vh+1,name+' footer bottom '+box.footerBottom);}return box;}
  await page.goto(origin+'/');
+ await page.locator('.library-manager-modal').waitFor();
+ await page.keyboard.press('Escape');
  const tools=page.getByRole('button',{name:'Tiện ích',exact:true});
  await tools.focus();
  await page.keyboard.press('Enter');

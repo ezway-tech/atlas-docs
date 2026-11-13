@@ -58,12 +58,12 @@ export async function startServer(packageRoot, options) {
   const runtimeId = options.runtimeId || randomUUID();
   const mode = options.libraryMode || (options.dataDir ? 'library' : 'manager');
   const libraryId = options.dataDir ? libraryIdentityKey(options.dataDir) : 'manager';
-  const child = spawn(process.execPath, [path.join(packageRoot, 'runtime/server.js')], {
-    cwd: path.join(packageRoot, 'runtime'),
+  const child = spawn(process.execPath, [options.runtimeEntry || path.join(packageRoot, 'runtime/server.js')], {
+    cwd: options.runtimeCwd || path.join(packageRoot, 'runtime'),
     env: {
       ...process.env,
       ...(options.envExtra || {}),
-      NODE_ENV: 'production',
+      NODE_ENV: options.development ? 'development' : 'production',
       ...(options.dataDir ? {DATA_DIR: options.dataDir} : {}),
       HOSTNAME: '127.0.0.1',
       PORT: String(options.port),

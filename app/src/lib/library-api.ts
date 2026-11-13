@@ -121,7 +121,25 @@ async function entryStatus(core: Awaited<ReturnType<typeof loadCore>>, libraryRo
   return {inspection, lock: lock && !stale ? {pid: lock.pid, purpose: lock.purpose} : null, status, stale};
 }
 
+let libraryOperationBusy = false;
 export async function handleLibraryApi(req: NextRequest, seg: string[], method: string) {
+  const exclusive = method === 'POST' && ['open', 'create', 'demo', 'import-folder'].includes(seg[1]);
+  if (!exclusive) return handleLibraryRequest(req, seg, method);
+  requireManage(req);
+  requireRuntimeSession(req);
+  const {isShuttingDown} = await import('./store');
+  if (libraryOperationBusy || isShuttingDown()) return json({error: 'A source operation is already in progress.'}, 409);
+  libraryOperationBusy = true;
+  try {return await handleLibraryRequest(req, seg, method);}
+  finally {libraryOperationBusy = false;}
+}
+
+async function prepareSource<T>(run: () => Promise<T>) {
+  const {withLibraryLock} = await import('./store');
+  return withLibraryLock(run);
+}
+
+async function handleLibraryRequest(req: NextRequest, seg: string[], method: string) {
   const core = await loadCore();
   const caps = await libraryCapabilities();
   const identity = runtimeIdentity();
@@ -162,6 +180,35 @@ export async function handleLibraryApi(req: NextRequest, seg: string[], method: 
 
   // Remaining library routes require a matching runtime session when ids are published.
   requireRuntimeSession(req);
+
+  if (seg[1] === 'reveal' && method === 'POST') {
+    requireManage(req);
+    if (!caps.canReveal || !identity.libraryRoot) throw new AppError('errors.library.forbidden', 403);
+    // The client cannot supply a path or command. Only reveal this process's active library.
+    const {spawn} = await import('node:child_process');
+    const root = await core.assertWithinAllowedRoots(identity.libraryRoot, [identity.libraryRoot], {mustExist: true});
+    const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(command, [root], {shell: false, windowsHide: true, stdio: 'ignore'});
+      child.once('error', reject);
+      child.once('spawn', () => {child.unref(); resolve();});
+    });
+    return json({ok: true});
+  }
+
+  if (['preview-import', 'import-folder'].includes(seg[1]) && method === 'POST') {
+    requireManage(req);
+    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    const o = await body();
+    const options = {source: String(o.source || ''), name: String(o.name || ''),
+      parentDir: o.parentDir ? String(o.parentDir) : undefined,
+      allowedRoots: core.resolveAllowedRoots(process.env, process.platform), fingerprint: String(o.fingerprint || '')};
+    if (seg[1] === 'preview-import') return json(await core.previewFolderImport(options));
+    const created: {root: string; displayName: string} = await prepareSource(() => core.importFolderCopy(options));
+    const libraryId = core.libraryIdentityKey(created.root);
+    const result = await requestManagedSwitch({action: 'open', path: created.root, displayName: created.displayName});
+    return json({...created, libraryId, switch: result}, 202);
+  }
 
   if (seg[1] === 'recent' && method === 'GET') {
     requireManage(req);
@@ -226,11 +273,11 @@ export async function handleLibraryApi(req: NextRequest, seg: string[], method: 
     if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
-    const created = await core.createLibrary({
+    const created: {root: string; displayName: string} = await prepareSource(() => core.createLibrary({
       name: String(o.name || ''),
       parentDir: o.parentDir ? String(o.parentDir) : undefined,
       allowedRoots: allowed,
-    });
+    }));
     const libraryId = core.libraryIdentityKey(created.root);
     const result = await requestManagedSwitch({
       action: 'open',
@@ -267,9 +314,8 @@ export async function handleLibraryApi(req: NextRequest, seg: string[], method: 
     requireManage(req);
     if (!caps.canDemo || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
-    const dest = await core.uniqueDemoPath(undefined, allowed);
     const seed = await loadSeedDemo();
-    await seed.seedDemo(dest.path);
+    const dest: {path: string; displayName: string} = await prepareSource(() => core.ensureDemoLibrary({allowedRoots: allowed, seed: seed.seedDemo}));
     const libraryId = core.libraryIdentityKey(dest.path);
     const result = await requestManagedSwitch({
       action: 'open',

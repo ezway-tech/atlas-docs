@@ -132,8 +132,10 @@ export async function waitForLibraryRuntime(
   const started = Date.now();
   clearAtlasSession();
   while (Date.now() - started < timeoutMs) {
+    let switchFailure: string | null = null;
     try {
       const next = await loadAtlasSession(true);
+      if (next.runtimeId !== previousRuntimeId && next.switchError) switchFailure = next.switchError;
       let ready: LibraryReady | null = null;
       try {
         const resp = await fetch('/api/libraries/ready', {cache: 'no-store'});
@@ -145,6 +147,7 @@ export async function waitForLibraryRuntime(
     } catch {
       // runtime restarting
     }
+    if (switchFailure) throw Error(switchFailure);
     await new Promise(r => setTimeout(r, 250));
   }
   throw Error('Timed out waiting for the library runtime');

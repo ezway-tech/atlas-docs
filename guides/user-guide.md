@@ -4,6 +4,18 @@
 
 Atlas Docs organizes a local document library. The interface supports Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Choose a language under **Utilities → Language**; the browser stores that choice in a cookie and does not rewrite library files. This guide uses English feature names. Start with the [installation instructions](operations.md#install-and-run) if the app is not running.
 
+
+## Choose a document source
+
+When you open or reload the workspace, **Choose a document source** appears in the center. Select **Use demo docs** or **My documents**. After a successful switch, the workspace opens directly. Use the source name in the top bar to switch again. Close the chooser or select **Continue reading** to keep the current source.
+
+The demo has its own library. Opening it again keeps your edits. It never replaces your documents. **My documents** opens an existing Atlas library or previews a copy of an ordinary folder. The preview shows the destination, included files, and skipped entries before **Import and open** creates a new library. The original folder stays unchanged.
+
+Folder copies support Markdown, YAML, SQL, and JSON using Atlas file names and folder depth rules. Files at the selected root go into `documents/`; other supported paths are preserved. Unsupported names, deep folders, and symbolic links are listed as skipped. Images and attachments are not copied, so links to those files may not display. The source is checked again before copying; if it changed, generate another preview.
+
+**Open folder** opens the current library in the local file manager for source and desktop CLI launches. **Copy path** is also available. Docker shows paths inside its mounted storage and does not open a host file manager. Fixed installations show only their current source, without unavailable source choices.
+
+
 ## Create your first document
 
 ![New document dialog with title, type, and Save highlighted](assets/create-document.png)

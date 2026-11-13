@@ -16,9 +16,13 @@ npm run bootstrap
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Bootstrap uses the shared `core` prepare path: it creates an **empty** library when missing, and migrates a legacy library only when `ATLAS_DOCS_MIGRATE_YES=1` is set (the npm CLI can prompt or accept `--yes` instead). It also runs automatically before `npm run dev` and `npm start`. Repeating it does not replace existing user documents. For production, run `npm run build`, then `npm start`.
+Open http://127.0.0.1:3000. The source launcher shows a centered source chooser and supports switching libraries without restarting the launcher. An existing repository `data/` library remains available. Without an existing library, no library is created until you choose a source.
 
-Libraries store `schemaVersion` in `db.json` (currently 1). Source and Docker still default to repository `data/` and `/data` respectively — not `atlas-docs-data`.
+Setting `DATA_DIR` explicitly keeps the source launcher in single-library mode. `ATLAS_LIBRARY_MODE=fixed` also preserves the repository data default.
+
+The separate bootstrap command uses the shared `core` prepare path: it creates an **empty** library when missing, and migrates a legacy library only when `ATLAS_DOCS_MIGRATE_YES=1` is set (the npm CLI can prompt or accept `--yes` instead). It is no longer run automatically before the source chooser. An explicitly selected fixed library is prepared when its runtime starts. Repeating it does not replace existing user documents. For production, run `npm run build`, then `npm start`.
+
+Libraries store `schemaVersion` in `db.json` (currently 1). Existing source libraries in repository `data/` are preserved. New libraries and demos use the local application-data library directory, or `ATLAS_DOCS_LIBRARIES_DIR`. Fixed Docker continues to use `/data`.
 
 ## Optional Little Café demo
 
@@ -233,7 +237,7 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | `npm run test:package` | Install and exercise the actual tarball outside the checkout |
 | `npm run test:upgrade-artifacts` | Verify upgrade from the pinned 5.1.0 tarball to the locally built release, using temporary libraries |
 | `npm run check:distribution` | Typecheck, storage tests, core tests, and CLI tests |
-| `npm run dev` | Start the development server; initializes missing data automatically |
+| `npm run dev` | Start the managed development server and source chooser |
 | `npm run build` / `npm start` | Build / start the production app |
 | `npm run bootstrap` | Initialize an empty library without starting the app |
 | `npm run seed:demo` | Load Little Café into an empty library, with the app stopped |
@@ -322,3 +326,9 @@ Help is generated automatically by `npm run dev` and `npm run build`. From the r
 After a production build, run `npm --prefix app run test:help`. It starts a separate server on port 3239, seeds a temporary Little Café library, uses the selected headless browser (Chromium by default) in English/light mode, and checks Help while capturing walkthrough screenshots. The test never uses the working library. Set `ATLAS_DIST_DIR` to the same value used for an isolated build if applicable. Set `HELP_DEV=1` to test an isolated development server instead. Screenshots are written to `app/test-results/help-assets/`, with unannotated images in its `originals/` directory. To deliberately refresh guide images, set `HELP_SCREENSHOT_DIR` to the absolute `guides/assets/` path, review the results, then rebuild. Normal tests do not change guide images.
 
 Review the screenshots visually before committing: the red numbered outlines identify actual controls, and nearby guide text explains the numbers. Keep browser dimensions and the demo consistent when refreshing images.
+
+### Source chooser checks
+
+`npm --prefix app run test:source-picker` exercises demo reuse, ordinary-folder copies, stale tabs, locked and missing sources, unsaved drafts, keyboard controls, desktop/mobile layout, and fixed mode. It uses temporary libraries and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development chooser and one demo switch instead. The reveal check opens only a temporary test library.
+
+Set `ATLAS_LOCAL_DESKTOP=0` for a source or CLI server without a local desktop; its chooser offers path copying instead of opening the machine’s file manager.

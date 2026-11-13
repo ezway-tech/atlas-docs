@@ -5,10 +5,9 @@
   "funding": "https://atlasdocs.ezway.tech/donate/",
   "private": true,
   "scripts": {
-    "predev": "node ../scripts/build/prepare-help.mjs && node ../scripts/setup/bootstrap.mjs",
-    "dev": "next dev --hostname 127.0.0.1",
-    "prestart": "node ../scripts/setup/bootstrap.mjs",
-    "start": "next start --hostname 0.0.0.0",
+    "predev": "node ../scripts/build/prepare-help.mjs",
+    "dev": "node ../scripts/setup/source-start.mjs dev",
+    "start": "node ../scripts/setup/source-start.mjs start",
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "bootstrap": "node ../scripts/setup/bootstrap.mjs",
@@ -36,7 +35,8 @@
     "test:media-session": "node ../scripts/tests/app/test-media-session-query.mjs",
     "test:visual-media": "node ../scripts/tests/app/test-visual-media-session.mjs",
     "test:shutdown-drain": "node ../scripts/tests/app/test-shutdown-drain.mjs",
-    "test:wait-runtime": "node ../scripts/tests/app/test-wait-library-runtime.mjs"
+    "test:wait-runtime": "node ../scripts/tests/app/test-wait-library-runtime.mjs",
+    "test:source-picker": "node ../scripts/tests/app/test-source-picker.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",

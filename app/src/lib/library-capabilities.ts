@@ -49,6 +49,7 @@ export async function libraryCapabilities() {
     mode,
     managed,
     storageLocation: 'server' as const,
+    canReveal: env('ATLAS_LOCAL_DESKTOP') === '1',
     canBrowse: mode !== 'fixed',
     canCreate: mode !== 'fixed',
     canSwitch: switchable,
@@ -59,13 +60,9 @@ export async function libraryCapabilities() {
     canUseForProject: mode !== 'fixed',
     allowedRoots: roots,
     defaultParentDir: defaultParent,
+    defaultBrowseDir: roots.find((root: {available: boolean}) => root.available)?.path || defaultParent,
     registryDir,
     librariesRoot: env('ATLAS_LIBRARIES_ROOT') || null,
-    browseNote: 'Folder paths are on the machine that runs Atlas Docs (the server), not necessarily the browser device.',
-    fixedExplanation:
-      mode === 'fixed'
-        ? 'This runtime uses a fixed library path (DATA_DIR). Start the npm CLI without a fixed path, or use the multi-library Docker Compose example, to manage libraries from the UI.'
-        : null,
   };
 }
 

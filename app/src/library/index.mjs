@@ -69,3 +69,5 @@ export {
   uniqueDemoPath,
 } from './library-ops.mjs';
 export {resolveManagerInitialLibrary, applyLibraryDataDir} from './manager-env.mjs';
+export {previewFolderImport, importFolderCopy} from './folder-import.mjs';
+export {ensureDemoLibrary} from './demo-library.mjs';
