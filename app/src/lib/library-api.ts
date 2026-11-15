@@ -123,12 +123,12 @@ async function entryStatus(core: Awaited<ReturnType<typeof loadCore>>, libraryRo
 
 let libraryOperationBusy = false;
 export async function handleLibraryApi(req: NextRequest, seg: string[], method: string) {
-  const exclusive = method === 'POST' && ['open', 'create', 'demo', 'import-folder'].includes(seg[1]);
+  const exclusive = method === 'POST' && ['open', 'create', 'demo', 'initialize-empty', 'import-folder'].includes(seg[1]);
   if (!exclusive) return handleLibraryRequest(req, seg, method);
   requireManage(req);
   requireRuntimeSession(req);
   const {isShuttingDown} = await import('./store');
-  if (libraryOperationBusy || isShuttingDown()) return json({error: 'A source operation is already in progress.'}, 409);
+  if (libraryOperationBusy || isShuttingDown()) return json({error: 'A project operation is already in progress.'}, 409);
   libraryOperationBusy = true;
   try {return await handleLibraryRequest(req, seg, method);}
   finally {libraryOperationBusy = false;}
@@ -183,10 +183,15 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'reveal' && method === 'POST') {
     requireManage(req);
-    if (!caps.canReveal || !identity.libraryRoot) throw new AppError('errors.library.forbidden', 403);
-    // The client cannot supply a path or command. Only reveal this process's active library.
+    if (!caps.canReveal) throw new AppError('errors.library.forbidden', 403);
+    // Resolve a registered id server-side; never accept an arbitrary path or command.
+    const o = await body().catch(() => ({}));
+    const reg = await core.loadUserRegistrySafe(process.env);
+    const entry = o.id ? reg.libraries.find((item: {id: string}) => item.id === o.id) : null;
+    const target = o.id ? entry?.path : identity.libraryRoot;
+    if (!target || (libraryMode() === 'fixed' && core.libraryIdentityKey(target) !== identity.libraryId)) throw new AppError('errors.library.forbidden', 403);
     const {spawn} = await import('node:child_process');
-    const root = await core.assertWithinAllowedRoots(identity.libraryRoot, [identity.libraryRoot], {mustExist: true});
+    const root = await core.assertWithinAllowedRoots(target, libraryMode() === 'fixed' ? [identity.libraryRoot] : core.resolveAllowedRoots(process.env), {mustExist: true});
     const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command, [root], {shell: false, windowsHide: true, stdio: 'ignore'});
@@ -196,7 +201,29 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     return json({ok: true});
   }
 
+  if (seg[1] === 'pick-folder' && method === 'POST') {
+    requireManage(req);
+    if (!caps.canPickFolder) throw new AppError('errors.library.forbidden', 403);
+    const o = await body().catch(() => ({} as Record<string, unknown>));
+    const title = typeof o.title === 'string' && o.title.trim() ? o.title.trim() : 'Select project folder';
+    const startPath = typeof o.startPath === 'string' && o.startPath.trim() ? o.startPath.trim() : caps.defaultBrowseDir;
+    const picked = await core.pickNativeFolder({title, startPath, env: process.env});
+    if (picked.cancelled) return json({cancelled: true, path: null});
+    const allowed = core.resolveAllowedRoots(process.env, process.platform);
+    try {
+      await core.assertWithinAllowedRoots(picked.path, allowed, {mustExist: false});
+    } catch (error) {
+      return json({
+        cancelled: false,
+        path: picked.path,
+        error: {code: (error as {code?: string}).code || 'fs.outsideRoots', message: (error as Error).message},
+      }, 409);
+    }
+    return json({cancelled: false, path: picked.path});
+  }
+
   if (['preview-import', 'import-folder'].includes(seg[1]) && method === 'POST') {
+    // Kept for compatibility tests; not used by the project manager UI.
     requireManage(req);
     if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
     const o = await body();
@@ -213,24 +240,34 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
   if (seg[1] === 'recent' && method === 'GET') {
     requireManage(req);
     if (!caps.canBrowse && libraryMode() === 'fixed') {
-      return json({libraries: [], capabilities: caps});
+      return json({libraries: [], missing: [], capabilities: caps});
     }
     const reg = await core.loadUserRegistrySafe(process.env);
     const currentKey = identity.libraryRoot ? core.libraryIdentityKey(identity.libraryRoot) : null;
     const libraries = [];
+    const missing = [];
+    const example = await core.readExampleProject({allowedRoots: core.resolveAllowedRoots(process.env)});
+    const exampleKey = example.path ? core.libraryIdentityKey(example.path) : null;
     for (const entry of reg.libraries) {
       const status = await entryStatus(core, entry.path);
-      libraries.push({
+      const item = {
         id: entry.id,
         path: entry.path,
         displayName: entry.displayName,
         lastOpenedAt: entry.lastOpenedAt,
         current: currentKey === entry.identityKey,
+        isExample: entry.identityKey === exampleKey,
         ...status,
-      });
+      };
+      if (item.isExample && example.error) continue;
+      if (status.status === 'missing') missing.push(item);
+      else libraries.push(item);
     }
+    libraries.sort((a, b) => Number(b.isExample) - Number(a.isExample) || (b.lastOpenedAt || '').localeCompare(a.lastOpenedAt || ''));
     return json({
       libraries,
+      missing,
+      exampleError: example.error,
       recentId: reg.recentId,
       registryFile: reg.file,
       recovery: reg.recovery,
@@ -294,12 +331,16 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const inspected = await core.inspectOpenTarget(String(o.path || ''), allowed);
     if (!inspected.openable) {
-      return json({error: inspected.error, inspection: inspected.inspection}, 409);
+      return json({
+        error: inspected.error,
+        inspection: inspected.inspection,
+        canInitialize: !!inspected.canInitialize,
+      }, 409);
     }
     // Re-check lock at switch time in the supervisor; preflight here for clearer errors.
     const status = await entryStatus(core, inspected.root);
     if (status.status === 'in_use' && identity.libraryRoot && core.libraryIdentityKey(identity.libraryRoot) !== core.libraryIdentityKey(inspected.root)) {
-      return json({error: {code: 'library.inUse', message: `Library is already open in another Atlas Docs process: ${inspected.root}`}}, 409);
+      return json({error: {code: 'library.inUse', message: `Project is already open in another Atlas Docs process: ${inspected.root}`}}, 409);
     }
     const libraryId = core.libraryIdentityKey(inspected.root);
     const result = await requestManagedSwitch({
@@ -310,12 +351,34 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     return json({root: inspected.root, libraryId, inspection: inspected.inspection, switch: result}, 202);
   }
 
+  if (seg[1] === 'initialize-empty' && method === 'POST') {
+    requireManage(req);
+    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    const o = await body();
+    if (!o.confirm) {
+      return json({error: {code: 'library.confirmRequired', message: 'Confirm to create a project in this empty folder.'}}, 409);
+    }
+    const allowed = core.resolveAllowedRoots(process.env, process.platform);
+    const created: {root: string; displayName: string} = await prepareSource(() =>
+      core.initializeEmptyProject(String(o.path || ''), allowed),
+    );
+    const libraryId = core.libraryIdentityKey(created.root);
+    const result = await requestManagedSwitch({
+      action: 'open',
+      path: created.root,
+      displayName: created.displayName,
+    });
+    return json({...created, libraryId, switch: result}, 202);
+  }
+
   if (seg[1] === 'demo' && method === 'POST') {
     requireManage(req);
     if (!caps.canDemo || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const seed = await loadSeedDemo();
-    const dest: {path: string; displayName: string} = await prepareSource(() => core.ensureDemoLibrary({allowedRoots: allowed, seed: seed.seedDemo}));
+    const dest: {path: string; displayName: string} = await prepareSource(() =>
+      core.ensureDemoLibrary({allowedRoots: allowed, seed: seed.seedDemo}),
+    );
     const libraryId = core.libraryIdentityKey(dest.path);
     const result = await requestManagedSwitch({
       action: 'open',
@@ -331,6 +394,19 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     const o = await body();
     const reg = await core.renameLibraryEntry(String(o.id || ''), String(o.displayName || ''));
     return json({ok: true, libraries: reg.libraries});
+  }
+
+  if (seg[1] === 'relocate' && method === 'POST') {
+    requireManage(req);
+    if (!caps.canRelocateRecent) throw new AppError('errors.library.fixedMode', 409);
+    const o = await body();
+    const allowed = core.resolveAllowedRoots(process.env, process.platform);
+    const inspected = await core.inspectOpenTarget(String(o.path || ''), allowed);
+    if (!inspected.openable) {
+      return json({error: inspected.error, inspection: inspected.inspection}, 409);
+    }
+    const reg = await core.relocateLibraryEntry(String(o.id || ''), inspected.root);
+    return json({ok: true, root: inspected.root, libraries: reg.libraries});
   }
 
   if (seg[1] === 'remove' && method === 'POST') {

@@ -5,15 +5,17 @@
 Atlas Docs organizes a local document library. The interface supports Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Choose a language under **Utilities → Language**; the browser stores that choice in a cookie and does not rewrite library files. This guide uses English feature names. Start with the [installation instructions](operations.md#install-and-run) if the app is not running.
 
 
-## Choose a document source
+## Manage projects
 
-When you open or reload the workspace, **Choose a document source** appears in the center. Select **Use demo docs** or **My documents**. After a successful switch, the workspace opens directly. Use the source name in the top bar to switch again. Close the chooser or select **Continue reading** to keep the current source.
+Each project is one folder that holds `docs/`, `uploads/`, `history/`, and `db.json`. The first launch prepares the sample **Example** project. Later launches prepare your most recent valid project, but you enter the workspace only after choosing a project. The home page opens the separate Projects screen. Select a project to load the workspace. Reloading a workspace or opening a document link keeps that page.
 
-The demo has its own library. Opening it again keeps your edits. It never replaces your documents. **My documents** opens an existing Atlas library or previews a copy of an ordinary folder. The preview shows the destination, included files, and skipped entries before **Import and open** creates a new library. The original folder stays unchanged.
+Use the project name in the top bar to leave the workspace and open the separate **Projects** page. Unsaved changes must be saved first or discarded through the confirmation dialog. The compact list puts **Example** first, followed by projects in recent-open order. Click a name to open it; click the current project to return to work. **Open project folder** uses the operating-system folder dialog on a personal desktop. In Docker or other environments without a local desktop, browse stays inside the storage mounts the app is allowed to see.
 
-Folder copies support Markdown, YAML, SQL, and JSON using Atlas file names and folder depth rules. Files at the selected root go into `documents/`; other supported paths are preserved. Unsupported names, deep folders, and symbolic links are listed as skipped. Images and attachments are not copied, so links to those files may not display. The source is checked again before copying; if it changed, generate another preview.
+**Open project** opens the chosen folder in place. It does not copy files. An empty folder can become a new project after you confirm. A folder that has other files but is not an Atlas Docs project is explained and left unchanged. **Create project** asks for a name and save location, then creates a new project folder.
 
-**Open folder** opens the current library in the local file manager for source and desktop CLI launches. **Copy path** is also available. Docker shows paths inside its mounted storage and does not open a host file manager. Fixed installations show only their current source, without unavailable source choices.
+**Missing locations (N)** stays as one summary line below the list. Select **Manage** to open a compact, scrollable dialog. Each row has a menu to **Choose location again** or **Remove from list**. **Remove all missing entries** asks for confirmation and only removes missing entries from the list. Removing from the list does not delete files on disk. If Example cannot be prepared, its row shows an unavailable status and error details.
+
+Each project's menu contains **Open folder** and **Copy path**, with rename and remove actions for your registered projects. **Open folder** reveals that project in the local file manager on desktop launches. Fixed installations (including single-library Docker) show only their current project.
 
 
 ## Create your first document
@@ -31,13 +33,13 @@ Folder copies support Markdown, YAML, SQL, and JSON using Atlas file names and f
 4. Open the document and choose **Edit**. Write a short introduction in Visual or Source, then **Save**.
 5. Return to reading and confirm your text appears. Search for its title to find it again.
 
-A library begins empty. To explore prepared content instead, use **Try demo** in the library manager (or load the optional [Little Café demo](operations.md#optional-little-café-demo) into an empty, separate library). Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. The demo is not required for normal use.
+New projects begin empty. The built-in **Example** project already includes the sample Little Café documents. Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. Your own projects and Example do not overwrite each other.
 
-## Libraries
+## Projects
 
-Atlas Docs keeps the app separate from your data. Each library is a folder you choose. One running app serves one library and holds its lock. Use the library button near the library name to open recent libraries, open an existing folder, create a new library, rename a display name, or remove an entry from recent (files on disk are not deleted).
+Atlas Docs keeps the app separate from your data. Each project is a folder you choose. One running app serves one project and holds its lock. Use the project name in the top bar to open the project manager, switch projects, rename a display name, or remove an entry from the list (files on disk are not deleted).
 
-Opening a library from the UI does not rewrite `atlas-docs.config.json`. Project-aware CLI users still bind a project with `atlas-docs library use`. Folder browsing in the UI lists directories on the machine that runs the server.
+Opening a project from the UI does not rewrite `atlas-docs.config.json`. Project-aware CLI users still bind a path with `atlas-docs library use`.
 
 For two projects at once, start two CLI processes with different `--data-dir` and `--port` values. See [npm usage](npm.md#library-location).
 

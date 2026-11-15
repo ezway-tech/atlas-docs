@@ -73,17 +73,18 @@ test('resolve prefers flag, env, config, then default; broken config does not fa
     const lib = path.join(root, 'lib');
     await initEmptyLibrary(lib);
     await writeProjectConfig(cwd, lib);
-    const cfg = await resolveLibraryPath({cwd});
+    const cleanEnv = {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry-empty')};
+    const cfg = await resolveLibraryPath({cwd, env: cleanEnv});
     assert.equal(cfg.root, path.resolve(lib));
     assert.equal(cfg.source, 'config');
 
     await writeFile(path.join(cwd, 'atlas-docs.config.json'), JSON.stringify({dataDir: './missing-library'}));
-    await assert.rejects(() => resolveLibraryPath({cwd}), /does not exist/);
+    await assert.rejects(() => resolveLibraryPath({cwd, env: cleanEnv}), /does not exist/);
 
     await mkdir(path.join(root, 'other'));
     const welcome = await resolveLibraryPath({
       cwd: path.join(root, 'other'),
-      env: {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry-empty')},
+      env: cleanEnv,
     });
     assert.equal(welcome.source, 'welcome');
     assert.equal(welcome.root, null);
@@ -92,7 +93,7 @@ test('resolve prefers flag, env, config, then default; broken config does not fa
     await initEmptyLibrary(compatDir);
     const compat = await resolveLibraryPath({
       cwd: path.join(root, 'other'),
-      env: {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry-empty')},
+      env: cleanEnv,
     });
     assert.equal(compat.source, 'compat');
     assert.equal(compat.root, path.resolve(compatDir));

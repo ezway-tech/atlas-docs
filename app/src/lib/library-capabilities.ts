@@ -45,11 +45,13 @@ export async function libraryCapabilities() {
   const roots = await core.listAllowedRootInfos(allowedRoots);
   const defaultParent = core.defaultLibraryParentDir(process.env, process.platform);
   const registryDir = core.resolveRegistryDir(process.env, process.platform);
+  const desktop = env('ATLAS_LOCAL_DESKTOP') === '1';
   return {
     mode,
     managed,
     storageLocation: 'server' as const,
-    canReveal: env('ATLAS_LOCAL_DESKTOP') === '1',
+    canReveal: desktop,
+    canPickFolder: desktop && mode !== 'fixed',
     canBrowse: mode !== 'fixed',
     canCreate: mode !== 'fixed',
     canSwitch: switchable,
@@ -57,6 +59,7 @@ export async function libraryCapabilities() {
     canDemo: mode !== 'fixed',
     canRenameRecent: mode !== 'fixed',
     canRemoveRecent: mode !== 'fixed',
+    canRelocateRecent: mode !== 'fixed',
     canUseForProject: mode !== 'fixed',
     allowedRoots: roots,
     defaultParentDir: defaultParent,

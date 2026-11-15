@@ -37,7 +37,7 @@ All development tools live under `scripts/`. Node tools outside the app resolve 
 
 The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), `demo/`, and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source startup uses a supervisor and keeps an existing `../data` library available; explicit `DATA_DIR` and single-library Docker retain their fixed data paths (`../data` and `/data`); the npm CLI resolves a library through flag/env/config/recent/compat, or opens the library manager when none apply. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
 
-Managed source, CLI, and multi-library Docker run a supervisor parent that spawns one child runtime per open library. Switching libraries stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path.
+Managed source, CLI, and multi-project Docker run a supervisor parent that spawns one child runtime per open project. Switching projects stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path. A project folder is the parent that contains `docs/`, `uploads/`, `history/`, and `db.json` (do not select `docs/` alone).
 
 ## Versions
 
@@ -104,10 +104,18 @@ The workspace Help dropdown links to guides, bundled release notes from `CHANGEL
 
 The prepare step also copies `guides/assets/` into generated public assets. Docker copies the Markdown sources before building; the existing public/static copy steps carry the images into the runtime image. Do not edit the generated JSON or public copies. Edit the Markdown or original assets, then rerun the prepare step/build.
 
-## Source chooser and folder copies
+## Project manager and folder picking
 
-The source launcher reuses the CLI child supervisor with a source Next entry point. It does not mutate the active data root in a live process. Explicit `DATA_DIR` remains fixed. The browser consumes a one-use session marker after a successful switch, then shows the chooser again on a later reload.
+The source launcher reuses the CLI child supervisor with a source Next entry point. It does not mutate the active data root in a live process. Explicit `DATA_DIR` remains fixed. After a successful project switch, reloading the workspace keeps the open project and does not reopen the project manager.
 
-Library APIs include `POST /api/libraries/preview-import`, `POST /api/libraries/import-folder`, and `POST /api/libraries/reveal`. Import requests provide `source`, `name`, and `parentDir`; confirmation also includes the preview fingerprint. The server revalidates contents and allowed paths, reserves a new destination, and writes under a library lock. Reveal accepts no client-selected path and opens only the active library when the launcher advertises local desktop support. Both operations use the existing local-request and runtime-session checks.
+Managed startup opens the valid recent project when present; otherwise it ensures the durable **Example** project once and opens it. An existing repository `data/` library is registered in the project list and is not replaced by Example. Fixed `DATA_DIR` / single-library Docker keep their pinned path.
 
-The reusable demo pointer lives in the machine registry under `demo-state/source.json`, outside user libraries. Demo creation is serialized with a registry-side lock. A missing demo may be recreated in a new empty location; an invalid existing demo is not overwritten.
+On a local desktop (`ATLAS_LOCAL_DESKTOP=1`), `POST /api/libraries/pick-folder` opens a native OS folder dialog (mockable with `ATLAS_DOCS_PICK_FOLDER_MOCK` in tests). Without a desktop, the UI browses only within `ATLAS_DOCS_ALLOWED_ROOTS`. `POST /api/libraries/reveal` opens the active project folder, or a registered project selected by its registry ID, after path and access checks. It does not accept arbitrary paths or commands. Empty folders can be initialized in place after confirmation (`initialize-empty`); unknown folders are refused without conversion or copy. Missing registry paths can be relocated or removed from the list without deleting files.
+
+The Example pointer lives in the machine registry under `demo-state/source.json`, outside user projects. Creation is serialized with a registry-side lock. A missing Example may be recreated in a new empty location; an invalid existing Example is not overwritten.
+
+Preparing Example also registers it without changing the most recently opened project. The recent-project API resolves Example identity from that pointer, not its display name, and returns `isExample` and an explicit `exampleError` when unavailable. The project manager displays Example first, each current/recent project once, and missing locations in a collapsed section.
+
+### Project selection routes
+
+`/` redirects to `/projects`, which renders the project list without mounting Workspace or fetching document data. `/workspace` is the workspace home; document, folder, media, and Help routes keep their URLs. Shell loads Workspace dynamically only after validating the runtime session. Missing sessions and unacknowledged switch errors return to Projects. Selecting the current project acknowledges a recovered runtime without restarting it; switching projects waits for the new runtime before entering `/workspace`. Reloading workspace routes does not require selecting the project again.

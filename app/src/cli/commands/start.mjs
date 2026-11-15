@@ -8,6 +8,7 @@ import {
   assertWithinAllowedRoots,
   resolveAllowedRoots,
   inspectOpenTarget,
+  resolveManagedStartupProject,
 } from '../../library/index.mjs';
 import {resolveListenPort, startServer} from '../start.mjs';
 import {confirmMigrate} from '../ui.mjs';
@@ -86,9 +87,10 @@ export async function runStart(packageRoot, options, manifest) {
   const [major, minor] = process.versions.node.split('.').map(Number);
   if (major < 22 || (major === 22 && minor < 12)) throw Error('Node.js 22.12 or newer is required');
 
+  const env = options.env || process.env;
   const resolved = await resolveLibraryPath({
     dataDir: options.dataDirFlag,
-    env: options.env || process.env,
+    env,
     cwd: options.cwd || process.cwd(),
   });
 
@@ -96,7 +98,7 @@ export async function runStart(packageRoot, options, manifest) {
   options = {...options, port};
   const updateStateFile = process.env.ATLAS_UPDATE_STATE || (await createUpdateState());
   const agentKit = path.join(packageRoot, 'agent-kit');
-  const backupEnv = (options.env || process.env).ATLAS_DOCS_UPGRADE_BACKUP_DIR;
+  const backupEnv = env.ATLAS_DOCS_UPGRADE_BACKUP_DIR;
 
   let current = {
     dataDir: resolved.root,
@@ -112,17 +114,38 @@ export async function runStart(packageRoot, options, manifest) {
   if (resolved.source === 'flag' || resolved.source === 'env' || resolved.source === 'config') {
     const inspection = await inspectLibrary(resolved.root);
     if (inspection.state === 'newer' || inspection.state === 'unknown') {
-      throw Error(`${inspection.message || 'Invalid library.'} Selected path: ${resolved.root}. Data was not changed.`);
+      throw Error(`${inspection.message || 'Invalid project.'} Selected path: ${resolved.root}. Data was not changed.`);
+    }
+  } else if (resolved.source === 'welcome' || resolved.source === 'recent') {
+    // Managed CLI: open recent when valid, otherwise ensure and open Example.
+    try {
+      const startup = await resolveManagedStartupProject({env, packageRoot});
+      current = {
+        dataDir: startup.root,
+        mode: 'library',
+        displayName: startup.displayName,
+        allowInit: false,
+        switchError: null,
+      };
+      resolved.source = startup.source;
+    } catch (error) {
+      current = {
+        dataDir: null,
+        mode: 'manager',
+        displayName: null,
+        allowInit: false,
+        switchError: error.message,
+      };
     }
   }
 
   if (current.mode === 'library') {
-    console.log(`[Atlas Docs] Library: ${current.dataDir} (${resolved.source})`);
+    console.log(`[Atlas Docs] Project: ${current.dataDir} (${resolved.source})`);
     await prepareTargetLibrary(packageRoot, manifest, current.dataDir, options, {
-      allowInit: current.allowInit || resolved.source === 'config' || resolved.source === 'recent',
+      allowInit: current.allowInit || resolved.source === 'config' || resolved.source === 'recent' || resolved.source === 'example',
     });
   } else {
-    console.log('[Atlas Docs] No library selected — opening library manager.');
+    console.log('[Atlas Docs] No project selected — opening project manager.');
     if (current.switchError) console.log(`[Atlas Docs] ${current.switchError}`);
   }
 

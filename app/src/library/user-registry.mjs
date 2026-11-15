@@ -98,7 +98,15 @@ function normalizeRegistry(raw) {
   libraries.sort((a, b) => String(b.lastOpenedAt || '').localeCompare(String(a.lastOpenedAt || '')));
   base.libraries = libraries;
   const recent = typeof raw.recentId === 'string' ? raw.recentId : null;
-  base.recentId = recent && libraries.some(l => l.id === recent) ? recent : (libraries[0]?.id || null);
+  if (recent && libraries.some(l => l.id === recent)) {
+    base.recentId = recent;
+  } else if (recent) {
+    // Stale id after remove — fall back to the newest listed project.
+    base.recentId = libraries[0]?.id || null;
+  } else {
+    // Explicit null means no recent project yet (e.g. registered companion only).
+    base.recentId = null;
+  }
   return base;
 }
 
@@ -246,6 +254,56 @@ export async function removeLibraryEntry(id, env = process.env, platform = proce
   return updateUserRegistry(reg => {
     reg.libraries = reg.libraries.filter(l => l.id !== id);
     if (reg.recentId === id) reg.recentId = reg.libraries[0]?.id || null;
+    return reg;
+  }, env, platform);
+}
+
+/**
+ * Point an existing registry entry at a new folder path after the user re-selects it.
+ * Does not move or copy project files.
+ */
+export async function relocateLibraryEntry(id, newPath, env = process.env, platform = process.platform) {
+  const root = canonicalize(newPath);
+  const identityKey = libraryIdentityKey(root, platform);
+  return updateUserRegistry(reg => {
+    const entry = reg.libraries.find(l => l.id === id);
+    if (!entry) throw new AtlasError('registry.missing', 'Project is not in the list.', {id});
+    const clash = reg.libraries.find(l => l.identityKey === identityKey && l.id !== id);
+    if (clash) {
+      throw new AtlasError(
+        'registry.pathTaken',
+        `Another project entry already uses this folder: ${root}`,
+        {id, path: root, otherId: clash.id},
+      );
+    }
+    entry.path = root;
+    entry.identityKey = identityKey;
+    return reg;
+  }, env, platform);
+}
+
+/**
+ * Ensure a path appears in the registry without making it the recent project.
+ * Used to keep an existing repo data/ project listed beside Example.
+ */
+export async function ensureRegistered(libraryRoot, {displayName, env = process.env, platform = process.platform} = {}) {
+  const root = canonicalize(libraryRoot);
+  const identityKey = libraryIdentityKey(root, platform);
+  const name = (displayName && String(displayName).trim()) || path.basename(root) || 'Project';
+  return updateUserRegistry(reg => {
+    const existing = reg.libraries.find(l => l.identityKey === identityKey);
+    if (existing) {
+      existing.path = root;
+      if (displayName && String(displayName).trim()) existing.displayName = String(displayName).trim();
+      return reg;
+    }
+    reg.libraries.push({
+      id: randomUUID(),
+      path: root,
+      displayName: name,
+      lastOpenedAt: null,
+      identityKey,
+    });
     return reg;
   }, env, platform);
 }

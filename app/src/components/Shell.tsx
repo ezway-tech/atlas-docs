@@ -1,11 +1,22 @@
 'use client';
-import {usePathname} from 'next/navigation';
-import Workspace from './Workspace';
+import {usePathname,useRouter} from 'next/navigation';
+import {useEffect,useState} from 'react';
+import dynamic from 'next/dynamic';
+import {loadAtlasSession} from '@/lib/atlas-client';
 import {KeymapProvider} from './KeymapProvider';
-import {LocaleProvider} from './LocaleProvider';
+import {LocaleProvider,useT} from './LocaleProvider';
 import type {Locale} from '@/lib/i18n/locales';
-
+const Workspace=dynamic(()=>import('./Workspace'));
+function WorkspaceGate(){
+ const router=useRouter(),t=useT();const [ready,setReady]=useState(false);
+ useEffect(()=>{let cancelled=false;loadAtlasSession(true).then(s=>{
+  if(cancelled)return;
+  if(s.mode==='manager'||!s.libraryRoot||(s.switchError&&sessionStorage.getItem('atlas-recovery-accepted')!==s.runtimeId)){router.replace('/projects');return;}
+  setReady(true);
+ }).catch(()=>{if(!cancelled)router.replace('/projects');});return()=>{cancelled=true;};},[router]);
+ return ready?<Workspace/>:<div role="status">{t('common.loading')}</div>;
+}
 export default function Shell({children,initialLocale}:{children:React.ReactNode;initialLocale:Locale}){
- const help=usePathname().startsWith('/help');
- return <LocaleProvider initialLocale={initialLocale}><KeymapProvider>{!help&&<Workspace/>}{children}</KeymapProvider></LocaleProvider>;
+ const path=usePathname();const workspace=path!=='/'&&path!=='/projects'&&!path.startsWith('/help');
+ return <LocaleProvider initialLocale={initialLocale}><KeymapProvider>{workspace&&<WorkspaceGate/>}{children}</KeymapProvider></LocaleProvider>;
 }

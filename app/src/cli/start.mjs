@@ -238,9 +238,16 @@ export async function startServer(packageRoot, options) {
     await markUpdateReady(options.updateStateFile, options.appVersion);
     if (options.dataDir && options.rememberOpen !== false) {
       try {
-        await rememberSuccessfulOpen(options.dataDir, {displayName: options.displayName});
+        const registryEnv = {
+          ...process.env,
+          ...(options.envExtra || {}),
+        };
+        await rememberSuccessfulOpen(options.dataDir, {
+          displayName: options.displayName,
+          env: registryEnv,
+        });
       } catch (error) {
-        console.warn(`[Atlas Docs] Could not update recent libraries (${error.message}).`);
+        console.warn(`[Atlas Docs] Could not update recent projects (${error.message}).`);
       }
     }
     if (options.open) {

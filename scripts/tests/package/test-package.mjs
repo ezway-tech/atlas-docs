@@ -16,9 +16,19 @@ await access(tarball);
 await assertPrivatePathFreeTarball(tarball);
 const temp = await mkdtemp(path.join(tmpdir(), 'atlas-package-'));
 const children = new Set();
-const env = {...process.env}; delete env.DATA_DIR;
+const registryDir = path.join(temp, 'registry');
+const librariesDir = path.join(temp, 'libraries');
+const env = {
+  ...process.env,
+  ATLAS_DOCS_REGISTRY_DIR: registryDir,
+  ATLAS_DOCS_LIBRARIES_DIR: librariesDir,
+  ATLAS_DOCS_ALLOWED_ROOTS: temp,
+};
+delete env.DATA_DIR;
 const installed = path.join(temp, 'install');
 const cwd = path.join(temp, 'dự án có dấu');
+await mkdir(registryDir, {recursive: true});
+await mkdir(librariesDir, {recursive: true});
 async function port() {
   const server = net.createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

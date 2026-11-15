@@ -1,159 +1,438 @@
 import {browserOptions} from '../helpers/browser.mjs';
 import {appRequire, appRoot, repoRoot} from '../../dependencies.mjs';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, writeFile, readFile, rm, readdir} from 'node:fs/promises';
+import {mkdtemp, mkdir, writeFile, readFile, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
-import {initEmptyLibrary, acquireLibraryLock} from '../../../app/src/library/index.mjs';
+import {initEmptyLibrary, acquireLibraryLock, ensureRegistered} from '../../../app/src/library/index.mjs';
+
 const {chromium} = appRequire('@playwright/test');
 const root = await mkdtemp(path.join(os.tmpdir(), 'atlas-picker-ui-'));
-const port = Number(process.env.TEST_PORT || 3257), origin = `http://127.0.0.1:${port}`;
+const port = Number(process.env.TEST_PORT || 3257);
+const origin = `http://127.0.0.1:${port}`;
 const output = path.join(appRoot, 'test-results/source-picker');
-const env = {...process.env, DATA_DIR: '', ATLAS_LIBRARY_MODE: 'manager',
+const emptyProject = path.join(root, 'empty-project');
+const readyProject = path.join(root, 'ready-project');
+const env = {
+  ...process.env,
+  DATA_DIR: '',
+  ATLAS_LIBRARY_MODE: 'manager',
   ATLAS_DIST_DIR: process.env.ATLAS_DIST_DIR || 'test-results/builds/source-picker',
-  ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry'), ATLAS_DOCS_LIBRARIES_DIR: path.join(root, 'libraries'),
-  ATLAS_DOCS_ALLOWED_ROOTS: root, ATLAS_DOCS_NO_UPDATE_CHECK: '1'};
-let child, browser, logs = '';
+  ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'registry'),
+  ATLAS_DOCS_LIBRARIES_DIR: path.join(root, 'libraries'),
+  ATLAS_DOCS_ALLOWED_ROOTS: root,
+  ATLAS_DOCS_NO_UPDATE_CHECK: '1',
+  ATLAS_LOCAL_DESKTOP: '1',
+  ATLAS_DOCS_PICK_FOLDER_MOCK: '',
+};
+let child;
+let browser;
+let logs = '';
+
 function launch(extra = {}) {
-  child = spawn(process.execPath, [path.join(repoRoot, 'scripts/setup/source-start.mjs'), process.env.ATLAS_SOURCE_TEST_DEV ? 'dev' : 'start', '--port', String(port)], {
-    cwd: appRoot, env: {...env, ...extra}, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true});
-  child.stdout.on('data', b => {logs = (logs + b).slice(-16000);});
-  child.stderr.on('data', b => {logs = (logs + b).slice(-16000);});
+  child = spawn(
+    process.execPath,
+    [path.join(repoRoot, 'scripts/setup/source-start.mjs'), process.env.ATLAS_SOURCE_TEST_DEV ? 'dev' : 'start', '--port', String(port)],
+    {cwd: appRoot, env: {...env, ...extra}, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true},
+  );
+  child.stdout.on('data', b => {
+    logs = (logs + b).slice(-16000);
+  });
+  child.stderr.on('data', b => {
+    logs = (logs + b).slice(-16000);
+  });
 }
+
 async function ready() {
   for (let i = 0; i < 180; i++) {
     if (child.exitCode !== null) throw Error(logs);
-    try {if ((await fetch(origin + '/api/libraries/ready')).ok) return;} catch {}
+    try {
+      if ((await fetch(origin + '/api/libraries/ready')).ok) return;
+    } catch {}
     await delay(250);
   }
   throw Error('Not ready: ' + logs);
 }
+
 async function stop() {
   if (!child || child.exitCode !== null) return;
   const ended = new Promise(resolve => child.once('exit', resolve));
   child.send('atlas:stop');
   await ended;
 }
+
 async function api(route, body, session) {
   session ||= await (await fetch(origin + '/api/libraries/session')).json();
-  return fetch(origin + route, {method: body ? 'POST' : 'GET', headers: {
-    'Content-Type': 'application/json', 'X-Atlas-Library-Api': '1',
-    'X-Atlas-Runtime': session.runtimeId, 'X-Atlas-Library': session.libraryId,
-  }, ...(body ? {body: JSON.stringify(body)} : {})});
+  return fetch(origin + route, {
+    method: body ? 'POST' : 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Atlas-Library-Api': '1',
+      'X-Atlas-Runtime': session.runtimeId,
+      'X-Atlas-Library': session.libraryId,
+    },
+    ...(body ? {body: JSON.stringify(body)} : {}),
+  });
 }
+
+async function waitSession(match, timeoutMs = 60_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const next = await (await fetch(origin + '/api/libraries/session')).json();
+      if (match(next)) return next;
+    } catch {
+      // Runtime is restarting after a project switch.
+    }
+    await delay(250);
+  }
+  throw Error('Timed out waiting for project session');
+}
+
+async function gotoApp(page, path = '/workspace') {
+  const url = origin + path;
+  for (let i = 0; i < 8; i++) {
+    try {
+      await page.goto(url, {waitUntil: 'domcontentloaded'});
+      return;
+    } catch {
+      await delay(400);
+    }
+  }
+  await page.goto(url, {waitUntil: 'domcontentloaded'});
+}
+
 try {
   await mkdir(path.join(root, 'libraries'), {recursive: true});
-  await mkdir(path.join(root, 'original', 'guide'), {recursive: true});
-  await writeFile(path.join(root, 'original', 'guide', 'hello.md'), '# Hello\nOriginal bytes');
-  await writeFile(path.join(root, 'original', 'photo.png'), 'keep');
+  await mkdir(emptyProject, {recursive: true});
+  await initEmptyLibrary(readyProject);
+  await mkdir(path.join(readyProject, 'docs', 'guide'), {recursive: true});
+  await writeFile(
+    path.join(readyProject, 'docs', 'guide', 'note.md'),
+    '---\ntitle: Ready note\ndescription: ""\n---\n\n# Ready note\n',
+  );
   await mkdir(output, {recursive: true});
-  launch(); await ready();
+
+  launch();
+  await ready();
   browser = await chromium.launch(browserOptions);
   const page = await browser.newPage({viewport: {width: 1440, height: 900}});
   await page.context().addCookies([{name: 'atlas-locale', value: 'en', url: origin}]);
   page.setDefaultTimeout(process.env.ATLAS_SOURCE_TEST_DEV ? 120000 : 30000);
   page.setDefaultNavigationTimeout(process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 30000);
-  await page.goto(origin);
-  const chooser = page.getByRole('dialog', {name: 'Choose a document source', exact: true});
-  await chooser.getByRole('button', {name: 'Use demo docs', exact: false}).waitFor();
+  const contentRequests=[];
+  page.on('request',r=>{if(/\/api\/(docs|folders|order|dashboard|comments|links)(?:[/?]|$)/.test(r.url()))contentRequests.push(r.url());});
+  await gotoApp(page, '/');
+
+  const manager = page.getByRole('region', {name: 'Projects', exact: true});
+  await manager.getByRole('button', {name: 'Open project', exact: false}).waitFor();
+  await manager.getByRole('button', {name: 'Create project', exact: false}).waitFor();
+  await manager.locator('[data-example=true]').waitFor();
+  assert.equal(await manager.locator('.source-choices,.source-current').count(), 0);
+  assert.equal(await manager.locator('.project-list li').first().getAttribute('data-example'), 'true');
   await page.screenshot({path: path.join(output, 'desktop.png')});
-  const bounds = await chooser.boundingBox();
+  const bounds = await manager.boundingBox();
+  assert.ok(bounds.width <= 800);
+  const cardBounds=await page.locator('.projects-layout').boundingBox();
+  assert.ok(cardBounds.width<=800);
+  assert.ok(Math.abs(cardBounds.y+cardBounds.height/2-450)<3);
   assert.ok(Math.abs(bounds.x + bounds.width / 2 - 720) < 3);
-  assert.ok(Math.abs(bounds.y + bounds.height / 2 - 450) < 3);
+  assert.equal(await page.locator('.app-shell,.sidebar,.ui-dialog-overlay').count(),0);
+  assert.equal(contentRequests.length,0,'project page must not load document data');
+  assert.ok(page.url().endsWith('/projects'));
   await page.setViewportSize({width: 390, height: 844});
   await page.screenshot({path: path.join(output, 'mobile.png')});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.evaluate(()=>document.documentElement.classList.add('dark'));
+  await page.screenshot({path:path.join(output,'mobile-dark.png')});
   await page.setViewportSize({width: 1440, height: 900});
-  await chooser.getByRole('button', {name: 'Use demo docs', exact: false}).click();
-  await chooser.waitFor({state: 'hidden', timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  await page.waitForSelector('.source-switcher', {timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  assert.equal(await chooser.count(), 0, 'successful switch skips the opening chooser');
-  const demoSession = await (await fetch(origin + '/api/libraries/session')).json();
-  if (process.env.ATLAS_SOURCE_TEST_DEV) {
-    assert.equal(demoSession.mode, 'library');
-    console.log('PASS: development launcher, centered chooser and demo switch');
-  } else {
-  await writeFile(path.join(demoSession.libraryRoot, 'docs', 'keep.txt'), 'demo edit');
-  await page.reload(); await chooser.waitFor();
-  await chooser.getByRole('button', {name: 'Use demo docs', exact: false}).click();
-  await chooser.waitFor({state: 'hidden', timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  await page.waitForSelector('.source-switcher', {timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  const demoAgain = await (await fetch(origin + '/api/libraries/session')).json();
-  assert.equal(demoAgain.libraryRoot, demoSession.libraryRoot);
-  assert.equal(await readFile(path.join(demoAgain.libraryRoot, 'docs', 'keep.txt'), 'utf8'), 'demo edit');
-  assert.equal((await api('/api/settings', null, demoSession)).status, 409, 'old sessions are refused');
-  const lockedRoot = path.join(root, 'locked');
-  await initEmptyLibrary(lockedRoot);
-  const lock = await acquireLibraryLock(lockedRoot);
-  try {assert.equal((await api('/api/libraries/open', {path: lockedRoot})).status, 409);}
-  finally {await lock.release();}
-  assert.equal((await api('/api/libraries/open', {path: path.join(root, 'missing')})).status, 409);
-  await page.locator('.source-switcher').click();
-  await chooser.getByRole('button', {name: 'My documents', exact: false}).click();
-  await chooser.getByRole('textbox', {name: 'Folder path', exact: true}).fill(path.join(root, 'original'));
-  await chooser.getByRole('button', {name: 'Open library', exact: true}).click();
-  await chooser.getByRole('button', {name: 'Preview import', exact: true}).click();
-  await chooser.getByText('guide/hello.md', {exact: true}).waitFor();
-  await chooser.getByText(/photo.png —/).waitFor();
-  await page.screenshot({path: path.join(output, 'import.png')});
-  await chooser.getByRole('button', {name: 'Import and open', exact: true}).click();
-  await chooser.waitFor({state: 'hidden', timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  await page.waitForSelector('.source-switcher', {timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  const copied = await (await fetch(origin + '/api/libraries/session')).json();
-  assert.equal(await readFile(path.join(copied.libraryRoot, 'docs', 'guide', 'hello.md'), 'utf8'), '# Hello\nOriginal bytes');
-  assert.deepEqual((await readdir(path.join(root, 'original'))).sort(), ['guide', 'photo.png']);
-  assert.equal(await readFile(path.join(root, 'original', 'guide', 'hello.md'), 'utf8'), '# Hello\nOriginal bytes');
-  // Unsaved document text must not be lost when the user cancels source switching.
-  await page.goto(origin + '/docs/guide/hello');
-  await chooser.getByRole('button', {name: 'Continue reading', exact: true}).click();
-  await page.getByRole('button', {name: 'Edit', exact: true}).click();
-  await page.getByRole('radio', {name: 'Visual', exact: true}).click();
-  await page.locator('.tiptap[contenteditable=true]').fill('Unsaved document');
-  await page.locator('.source-switcher').click();
-  const discard = page.getByRole('dialog', {name: 'Discard changes', exact: true});
-  await discard.getByRole('button', {name: 'Cancel', exact: true}).click();
-  assert.equal(await chooser.count(), 0);
-  assert.ok((await page.locator('.tiptap[contenteditable=true]').innerText()).includes('Unsaved document'));
-  await page.locator('.source-switcher').click();
-  await discard.getByRole('button', {name: 'Discard changes', exact: true}).click();
-  await chooser.waitFor();
-  await chooser.getByRole('button', {name: 'Open folder', exact: true}).waitFor();
-  // Exercise reveal without supplying a path: only the active temporary library opens.
-  const revealed = await api('/api/libraries/reveal', {path: path.join(root, 'original')});
-  assert.equal(revealed.status, 200);
-  await page.keyboard.press('Escape'); assert.equal(await chooser.count(), 0);
-  await page.locator('.source-switcher').focus(); await page.keyboard.press('Enter'); await chooser.waitFor();
-  await chooser.locator('.library-manager-list li').filter({hasText: 'Little Café'}).getByRole('button', {name: 'Open library', exact: true}).click();
-  await chooser.waitFor({state: 'hidden', timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, demoSession.libraryRoot);
-  // A migration that was not approved must restore the current source and explain the failure.
-  const legacyRoot = path.join(root, 'legacy');
-  await initEmptyLibrary(legacyRoot);
-  const legacyDb = JSON.parse(await readFile(path.join(legacyRoot, 'db.json'), 'utf8'));
-  delete legacyDb.schemaVersion;
-  await writeFile(path.join(legacyRoot, 'db.json'), JSON.stringify(legacyDb));
-  await page.locator('.source-switcher').click();
-  await chooser.getByRole('button', {name: 'My documents', exact: false}).click();
-  await chooser.getByRole('textbox', {name: 'Folder path', exact: true}).fill(legacyRoot);
-  await chooser.getByRole('button', {name: 'Open library', exact: true}).click();
-  await chooser.locator('[role=alert]').waitFor({timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
-  assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, demoSession.libraryRoot);
+  await page.screenshot({path:path.join(output,'desktop-dark.png')});
+  await page.evaluate(()=>document.documentElement.classList.remove('dark'));
+  // Layout-only fixtures: do not create projects or modify the real registry.
+  await page.evaluate(()=>{
+    const list=document.querySelector('.project-list');
+    const original=list.firstElementChild;
+    for(let i=0;i<15;i++){
+      const row=original.cloneNode(true);row.dataset.layoutFixture='true';
+      row.querySelector('strong').textContent='Long project name '.repeat(6);
+      row.querySelector('code').textContent='C:/very-long-project-location/'.repeat(12);
+      list.append(row);
+    }
+  });
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert.ok((await page.locator('.projects-layout').boundingBox()).y>=0,'long lists keep their heading reachable');
+  await page.locator('[data-layout-fixture]').last().scrollIntoViewIfNeeded();
+  await page.screenshot({path:path.join(output,'long-list-mobile.png')});
+  await page.evaluate(()=>{document.querySelectorAll('[data-layout-fixture]').forEach(row=>row.remove());window.scrollTo(0,0);});
+  await page.setViewportSize({width:1440,height:900});
+
+  // Cancel native folder pick (mock).
   await stop();
-  launch({DATA_DIR: copied.libraryRoot, ATLAS_LOCAL_DESKTOP: '0'}); await ready();
-  await page.goto(origin); await chooser.waitFor();
-  assert.equal(await chooser.locator('.source-choice').count(), 0, 'fixed mode shows no unavailable choices');
-  assert.equal(await chooser.getByRole('button', {name: 'Open folder', exact: true}).count(), 0);
-  await chooser.getByRole('button', {name: 'Copy path', exact: true}).waitFor();
-  await chooser.getByRole('button', {name: 'Continue reading', exact: true}).click();
-  assert.equal(await chooser.count(), 0);
-  console.log('PASS: source picker, desktop/mobile, demo reuse, import copy, stale sessions, locked/missing sources, unsaved draft, reveal, keyboard, fixed mode');
+  launch({ATLAS_DOCS_PICK_FOLDER_MOCK: '__cancel__'});
+  await ready();
+  await gotoApp(page);
+  await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+  await delay(500);
+  assert.ok(await manager.isVisible());
+  assert.equal(await manager.locator('[role=alert]').count(), 0);
+
+  // Example is registered at startup — open it from the project list.
+  await manager.locator('.library-manager-list li').filter({hasText: 'Example'}).getByRole('button', {name: 'Example', exact: true}).click();
+  await page.waitForSelector('.source-switcher', {timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
+  assert.equal(await manager.count(), 0, 'successful switch skips the project manager on load');
+  const demoSession = await (await fetch(origin + '/api/libraries/session')).json();
+  assert.equal(demoSession.displayName, 'Example');
+
+  if (process.env.ATLAS_SOURCE_TEST_DEV) {
+    console.log('PASS: development launcher, centered manager and Example switch');
+  } else {
+    await writeFile(path.join(demoSession.libraryRoot, 'docs', 'keep.txt'), 'example edit');
+    await page.reload();
+    await page.waitForSelector('.source-switcher');
+    assert.equal(await manager.count(), 0, 'reload must not reopen the project manager');
+    assert.equal(await page.locator('.source-switcher').innerText(), 'Example');
+    assert.equal(await readFile(path.join(demoSession.libraryRoot, 'docs', 'keep.txt'), 'utf8'), 'example edit');
+    // Switch to another project via API to mint a new runtime; previous session headers must 409.
+    const staleSession = {...demoSession};
+    const switched = await api('/api/libraries/open', {path: readyProject}, staleSession);
+    assert.equal(switched.status, 202, await switched.clone().text());
+    await waitSession(next => next.libraryRoot === readyProject && next.runtimeId !== staleSession.runtimeId);
+    assert.equal((await api('/api/settings', null, staleSession)).status, 409, 'old sessions are refused');
+    const live = await (await fetch(origin + '/api/libraries/session')).json();
+    const back = await api('/api/libraries/demo', {}, live);
+    assert.equal(back.status, 202, await back.clone().text());
+    Object.assign(
+      demoSession,
+      await waitSession(next => next.displayName === 'Example' && next.runtimeId !== live.runtimeId),
+    );
+    await gotoApp(page);
+    await page.waitForSelector('.source-switcher', {timeout: 60000});
+
+    const lockedRoot = path.join(root, 'locked');
+    await initEmptyLibrary(lockedRoot);
+    const lock = await acquireLibraryLock(lockedRoot);
+    try {
+      assert.equal((await api('/api/libraries/open', {path: lockedRoot})).status, 409);
+    } finally {
+      await lock.release();
+    }
+    assert.equal((await api('/api/libraries/open', {path: path.join(root, 'missing')})).status, 409);
+
+    // Open ready project via mocked native picker (stay in managed library mode with Example open).
+    await stop();
+    launch({
+      ATLAS_LIBRARY_MODE: '',
+      ATLAS_OPEN_LIBRARY: demoSession.libraryRoot,
+      ATLAS_DOCS_PICK_FOLDER_MOCK: readyProject,
+    });
+    await ready();
+    await gotoApp(page);
+    await page.waitForSelector('.source-switcher');
+    await page.locator('.source-switcher').click();
+    await manager.waitFor();
+    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    const opened = await waitSession(next => next.libraryRoot === readyProject);
+    await page.waitForSelector('.source-switcher', {timeout: 60000});
+    assert.equal(opened.libraryRoot, readyProject);
+
+    // Empty folder requires confirm initialize.
+    await stop();
+    launch({
+      ATLAS_LIBRARY_MODE: '',
+      ATLAS_OPEN_LIBRARY: readyProject,
+      ATLAS_DOCS_PICK_FOLDER_MOCK: emptyProject,
+    });
+    await ready();
+    await gotoApp(page);
+    await page.waitForSelector('.source-switcher');
+    await page.locator('.source-switcher').click();
+    await manager.waitFor();
+    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    const emptyDialog = page.getByRole('dialog', {name: 'Create project here?', exact: true});
+    await emptyDialog.waitFor();
+    await emptyDialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+    assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, readyProject);
+    // Manager stays open after cancelling the empty-folder confirm.
+    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await emptyDialog.waitFor();
+    await emptyDialog.getByRole('button', {name: 'Create project here', exact: true}).click();
+    const emptyOpened = await waitSession(next => next.libraryRoot === emptyProject);
+    await page.waitForSelector('.source-switcher', {timeout: 60000});
+    assert.equal(emptyOpened.libraryRoot, emptyProject);
+    assert.ok(await readFile(path.join(emptyProject, 'db.json'), 'utf8'));
+
+    // Invalid non-project folder: clear error, no mutate.
+    const junk = path.join(root, 'junk');
+    await mkdir(junk, {recursive: true});
+    await writeFile(path.join(junk, 'notes.txt'), 'not a project');
+    await stop();
+    launch({
+      ATLAS_LIBRARY_MODE: '',
+      ATLAS_OPEN_LIBRARY: emptyProject,
+      ATLAS_DOCS_PICK_FOLDER_MOCK: junk,
+    });
+    await ready();
+    await gotoApp(page);
+    await page.waitForSelector('.source-switcher');
+    await page.locator('.source-switcher').click();
+    await manager.waitFor();
+    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await manager.locator('[role=alert]').waitFor();
+    assert.equal(await readFile(path.join(junk, 'notes.txt'), 'utf8'), 'not a project');
+
+    // Unsaved draft cancel keeps draft.
+    await stop();
+    launch({ATLAS_LIBRARY_MODE: '', ATLAS_OPEN_LIBRARY: readyProject, ATLAS_DOCS_PICK_FOLDER_MOCK: ''});
+    await ready();
+    await gotoApp(page, '/docs/guide/note');
+    await page.waitForSelector('.source-switcher');
+    if (await manager.count()) await page.keyboard.press('Escape');
+    await page.getByRole('button', {name: 'Edit', exact: true}).waitFor({timeout: 60000});
+    assert.equal(await manager.count(), 0);
+    await page.reload();
+    await page.getByRole('button', {name: 'Edit', exact: true}).waitFor();
+    assert.ok(page.url().endsWith('/docs/guide/note'),'document reload keeps its URL');
+    await page.getByRole('button', {name: 'Edit', exact: true}).click();
+    await page.getByRole('radio', {name: 'Visual', exact: true}).click();
+    await page.locator('.tiptap[contenteditable=true]').fill('Unsaved document');
+    await page.locator('.source-switcher').click();
+    const discard = page.getByRole('dialog', {name: 'Discard changes', exact: true});
+    await discard.getByRole('button', {name: 'Cancel', exact: true}).click();
+    assert.equal(await manager.count(), 0);
+    assert.ok((await page.locator('.tiptap[contenteditable=true]').innerText()).includes('Unsaved document'));
+    await page.locator('.source-switcher').click();
+    await discard.getByRole('button', {name: 'Discard changes', exact: true}).click();
+    await manager.waitFor();
+    await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
+    await page.getByRole('menuitem', {name: 'Open folder', exact: true}).waitFor();
+    await page.keyboard.press('Escape');
+    const runtimeBeforeEnter=(await (await fetch(origin+'/api/libraries/session')).json()).runtimeId;
+    const revealed = await api('/api/libraries/reveal', {});
+    assert.equal(revealed.status, 200);
+    await manager.locator('.current .project-name').click();
+    await page.waitForSelector('.source-switcher');
+    assert.equal(await manager.count(), 0);
+    assert.equal((await (await fetch(origin+'/api/libraries/session')).json()).runtimeId,runtimeBeforeEnter,'entering current project does not restart runtime');
+    await page.goBack();
+    await manager.waitFor();
+    assert.equal(await page.locator('.app-shell').count(),0);
+    await page.goForward();
+    await page.waitForSelector('.source-switcher');
+    await page.locator('.source-switcher').focus();
+    await page.keyboard.press('Enter');
+    await manager.waitFor();
+    await manager.locator('.library-manager-list li').filter({hasText: 'Example'}).getByRole('button', {name: 'Example', exact: true}).click();
+    const exampleAgain = await waitSession(next => next.displayName === 'Example');
+    assert.equal(exampleAgain.libraryRoot, demoSession.libraryRoot);
+    Object.assign(demoSession, exampleAgain);
+
+    // Migration cancel restores previous project.
+    const legacyRoot = path.join(root, 'legacy');
+    await initEmptyLibrary(legacyRoot);
+    const legacyDb = JSON.parse(await readFile(path.join(legacyRoot, 'db.json'), 'utf8'));
+    delete legacyDb.schemaVersion;
+    await writeFile(path.join(legacyRoot, 'db.json'), JSON.stringify(legacyDb));
+    await stop();
+    launch({
+      ATLAS_LIBRARY_MODE: '',
+      ATLAS_OPEN_LIBRARY: demoSession.libraryRoot,
+      ATLAS_DOCS_PICK_FOLDER_MOCK: legacyRoot,
+    });
+    await ready();
+    await gotoApp(page);
+    await page.waitForSelector('.source-switcher');
+    await page.locator('.source-switcher').click();
+    await manager.waitFor();
+    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await manager.locator('[role=alert]').waitFor({timeout: 60000});
+    assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, demoSession.libraryRoot);
+
+    // Missing path: relocate / remove from list.
+    const gone = path.join(root, 'gone-project');
+    await initEmptyLibrary(gone);
+    const liveForGone = await (await fetch(origin + '/api/libraries/session')).json();
+    const openGone = await api('/api/libraries/open', {path: gone, displayName: 'Gone'}, liveForGone);
+    assert.equal(openGone.status, 202, await openGone.clone().text());
+    await waitSession(next => next.libraryRoot === gone);
+    // Wait until the supervisor records the open in the registry (happens just after Ready).
+    for (let i = 0; i < 40; i++) {
+      const listed = await (await api('/api/libraries/recent')).json();
+      if ((listed.libraries || []).some(item => item.path === gone || item.displayName === 'Gone')) break;
+      await delay(250);
+    }
+    await stop();
+    await rm(gone, {recursive: true, force: true});
+    for(let i=0;i<9;i++) await ensureRegistered(path.join(root,'missing-'+i),{displayName:'Missing '+i,env});
+    launch({ATLAS_LIBRARY_MODE: 'manager', ATLAS_OPEN_LIBRARY: ''});
+    await ready();
+    await gotoApp(page);
+    await manager.waitFor();
+    await manager.locator('.project-missing-summary').waitFor();
+    const missingDialog=page.getByRole('dialog',{name:'Missing locations',exact:true});
+    assert.equal(await missingDialog.count(),0);
+    await page.screenshot({path:path.join(output,'missing-collapsed.png')});
+    await manager.getByRole('button',{name:'Manage',exact:true}).click();
+    await missingDialog.waitFor();
+    assert.equal(await missingDialog.locator('li').count(),10);
+    const dialogBounds=await missingDialog.boundingBox();
+    assert.ok(dialogBounds.height<=852);
+    await page.screenshot({path:path.join(output,'missing-dialog-desktop.png')});
+    await page.setViewportSize({width:390,height:844});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await missingDialog.locator('li').last().scrollIntoViewIfNeeded();
+    const headingBounds=await missingDialog.locator('h2').boundingBox();
+    assert.ok(headingBounds.y>=0 && headingBounds.y<844);
+    await page.screenshot({path:path.join(output,'missing-dialog-mobile.png')});
+    await page.setViewportSize({width:1440,height:900});
+    await missingDialog.getByRole('button',{name:'Actions for Gone',exact:true}).click();
+    await page.getByRole('menuitem',{name:'Choose location again',exact:true}).waitFor();
+    await page.keyboard.press('Escape');
+    const listed=await (await api('/api/libraries/recent')).json();
+    await missingDialog.getByRole('button',{name:'Remove all missing entries',exact:true}).click();
+    const confirmation=page.getByRole('dialog',{name:'Remove all missing entries',exact:true});
+    await confirmation.getByRole('button',{name:'Cancel',exact:true}).click();
+    assert.equal(await missingDialog.locator('li').count(),10);
+    await missingDialog.getByRole('button',{name:'Remove all missing entries',exact:true}).click();
+    await confirmation.getByRole('button',{name:'Remove all missing entries',exact:true}).click();
+    await missingDialog.getByText('No missing locations.',{exact:true}).waitFor();
+    const afterRemoval=await (await api('/api/libraries/recent')).json();
+    assert.equal(afterRemoval.missing.length,0);
+    assert.deepEqual(afterRemoval.libraries.map(x=>x.id),listed.libraries.map(x=>x.id));
+    assert.ok(await readFile(path.join(readyProject,'db.json'),'utf8'));
+    await missingDialog.getByRole('button',{name:'Close',exact:true}).click();
+    assert.equal(await manager.locator('.project-missing-summary').count(),0);
+
+    await stop();
+    launch({DATA_DIR: readyProject, ATLAS_LOCAL_DESKTOP: '0', ATLAS_LIBRARY_MODE: 'fixed'});
+    await ready();
+    await gotoApp(page);
+    await page.waitForSelector('.source-switcher');
+    assert.equal(await manager.count(), 0, 'fixed mode does not auto-open the project manager');
+    await page.locator('.source-switcher').click();
+    await manager.waitFor();
+    assert.equal(await manager.locator('.source-choice').count(), 0, 'fixed mode shows no project choices');
+    assert.equal(await manager.getByRole('button', {name: 'Open folder', exact: true}).count(), 0);
+    await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
+    await page.getByRole('menuitem', {name: 'Copy path', exact: true}).waitFor();
+    await page.keyboard.press('Escape');
+    await manager.locator('.current .project-name').click();
+    await page.waitForSelector('.source-switcher');
+    assert.equal(await manager.count(), 0);
+
+    console.log(
+      'PASS: project manager, Example, reload, open/create empty, invalid folder, cancel pick, missing list, draft, reveal, keyboard, fixed mode',
+    );
   }
 } catch (error) {
-  console.error(logs, error); throw error;
+  const failedPage = browser?.contexts()[0]?.pages()[0];
+  if (failedPage) {await failedPage.screenshot({path: path.join(output, 'failure.png')}); console.error(await failedPage.locator('body').innerText());}
+  console.error(logs, error);
+  throw error;
 } finally {
-  await browser?.close(); await stop();
-  // root is exclusively created by this test under the system temporary directory.
+  await browser?.close();
+  await stop();
   await rm(root, {recursive: true, force: true});
 }

@@ -16,17 +16,19 @@ npm run bootstrap
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. The source launcher shows a centered source chooser and supports switching libraries without restarting the launcher. An existing repository `data/` library remains available. Without an existing library, no library is created until you choose a source.
+Open http://127.0.0.1:3000. The managed launcher opens the most recent valid project, or the durable **Example** project on first use, and can switch projects without restarting the launcher. An existing repository `data/` project stays in the project list and is not replaced by Example. The home page opens the separate Projects screen before loading the workspace. Reloading a workspace or opening a document link keeps that page.
 
-Setting `DATA_DIR` explicitly keeps the source launcher in single-library mode. `ATLAS_LIBRARY_MODE=fixed` also preserves the repository data default.
+Setting `DATA_DIR` explicitly keeps the launcher in single-project mode. `ATLAS_LIBRARY_MODE=fixed` also preserves the repository data default.
 
-The separate bootstrap command uses the shared `core` prepare path: it creates an **empty** library when missing, and migrates a legacy library only when `ATLAS_DOCS_MIGRATE_YES=1` is set (the npm CLI can prompt or accept `--yes` instead). It is no longer run automatically before the source chooser. An explicitly selected fixed library is prepared when its runtime starts. Repeating it does not replace existing user documents. For production, run `npm run build`, then `npm start`.
+The separate bootstrap command uses the shared `core` prepare path: it creates an **empty** project when missing, and migrates a legacy library only when `ATLAS_DOCS_MIGRATE_YES=1` is set (the npm CLI can prompt or accept `--yes` instead). It is not required before first open when Example is used. An explicitly selected fixed project is prepared when its runtime starts. Repeating it does not replace existing user documents. For production, run `npm run build`, then `npm start`.
 
-Libraries store `schemaVersion` in `db.json` (currently 1). Existing source libraries in repository `data/` are preserved. New libraries and demos use the local application-data library directory, or `ATLAS_DOCS_LIBRARIES_DIR`. Fixed Docker continues to use `/data`.
+Projects store `schemaVersion` in `db.json` (currently 1). Existing source data in repository `data/` is preserved. New projects and Example use the local application-data libraries directory, or `ATLAS_DOCS_LIBRARIES_DIR`. Fixed Docker continues to use `/data`.
 
-## Optional Little Café demo
+## Example project (Little Café content)
 
-With the app stopped, from the repository root:
+Managed launches create the durable **Example** project once under the application-data libraries directory (or `ATLAS_DOCS_LIBRARIES_DIR`). Opening it again keeps your edits. It is never re-seeded over existing content. Your repository `data/` project, if present, remains listed separately.
+
+To load the same sample into a different empty folder with the app stopped:
 
 ```powershell
 npm run seed:demo
@@ -237,7 +239,7 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | `npm run test:package` | Install and exercise the actual tarball outside the checkout |
 | `npm run test:upgrade-artifacts` | Verify upgrade from the pinned 5.1.0 tarball to the locally built release, using temporary libraries |
 | `npm run check:distribution` | Typecheck, storage tests, core tests, and CLI tests |
-| `npm run dev` | Start the managed development server and source chooser |
+| `npm run dev` | Start the managed development server (recent project or Example) |
 | `npm run build` / `npm start` | Build / start the production app |
 | `npm run bootstrap` | Initialize an empty library without starting the app |
 | `npm run seed:demo` | Load Little Café into an empty library, with the app stopped |
@@ -327,8 +329,8 @@ After a production build, run `npm --prefix app run test:help`. It starts a sepa
 
 Review the screenshots visually before committing: the red numbered outlines identify actual controls, and nearby guide text explains the numbers. Keep browser dimensions and the demo consistent when refreshing images.
 
-### Source chooser checks
+### Project manager checks
 
-`npm --prefix app run test:source-picker` exercises demo reuse, ordinary-folder copies, stale tabs, locked and missing sources, unsaved drafts, keyboard controls, desktop/mobile layout, and fixed mode. It uses temporary libraries and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development chooser and one demo switch instead. The reveal check opens only a temporary test library.
+`npm --prefix app run test:source-picker` exercises Example open/reuse, create/open/initialize empty, invalid folders, cancel folder pick, missing-path list, stale tabs, locked projects, unsaved drafts, keyboard controls, desktop/mobile layout, and fixed mode. It uses temporary projects and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development manager and one Example switch instead. Native folder picks are mocked with `ATLAS_DOCS_PICK_FOLDER_MOCK`. The reveal check opens only a temporary test project.
 
-Set `ATLAS_LOCAL_DESKTOP=0` for a source or CLI server without a local desktop; its chooser offers path copying instead of opening the machine’s file manager.
+Set `ATLAS_LOCAL_DESKTOP=0` for a server without a local desktop; the UI uses in-app browse and path copying instead of the OS folder dialog or host file manager.

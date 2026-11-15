@@ -18,7 +18,9 @@ const root=await mkdtemp(path.join(tmpdir(),'atlas-managed-test-')),prefix=path.
 const pkg=path.join(prefix,process.platform==='win32'?'node_modules/atlas-docs':'lib/node_modules/atlas-docs');
 const cli=path.join(pkg,'bin/atlas-docs.mjs');let server,logs='';
 const cleanEnv={...process.env};for(const key of ['DATA_DIR','CI','ATLAS_DOCS_NO_UPDATE_CHECK','ATLAS_APP_VERSION','ATLAS_PACKAGE_ROOT','ATLAS_CORE_PATH','ATLAS_UPDATE_STATE'])delete cleanEnv[key];
-const env={...cleanEnv,npm_config_prefix:prefix,ATLAS_DOCS_UPDATE_CACHE:path.join(root,'update-cache.json')};
+const registryDir=path.join(root,'registry'),librariesDir=path.join(root,'libraries');
+await mkdir(registryDir,{recursive:true});await mkdir(librariesDir,{recursive:true});
+const env={...cleanEnv,npm_config_prefix:prefix,ATLAS_DOCS_UPDATE_CACHE:path.join(root,'update-cache.json'),ATLAS_DOCS_REGISTRY_DIR:registryDir,ATLAS_DOCS_LIBRARIES_DIR:librariesDir,ATLAS_DOCS_ALLOWED_ROOTS:root};
 async function unusedPort(){const s=net.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const value=s.address().port;await new Promise(r=>s.close(r));return value;}
 const port=await unusedPort(),origin=`http://127.0.0.1:${port}`;
 async function start(fail=false){

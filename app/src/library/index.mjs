@@ -50,6 +50,8 @@ export {
   rememberSuccessfulOpen,
   renameLibraryEntry,
   removeLibraryEntry,
+  relocateLibraryEntry,
+  ensureRegistered,
   getRecentLibrary,
   defaultLibraryParentDir,
   pathExists,
@@ -66,8 +68,11 @@ export {
   previewCreateLibrary,
   createLibrary,
   inspectOpenTarget,
+  initializeEmptyProject,
   uniqueDemoPath,
 } from './library-ops.mjs';
 export {resolveManagerInitialLibrary, applyLibraryDataDir} from './manager-env.mjs';
 export {previewFolderImport, importFolderCopy} from './folder-import.mjs';
-export {ensureDemoLibrary} from './demo-library.mjs';
+export {ensureDemoLibrary, readExampleProject} from './demo-library.mjs';
+export {pickNativeFolder} from './native-folder-dialog.mjs';
+export {resolveManagedStartupProject} from './managed-startup.mjs';

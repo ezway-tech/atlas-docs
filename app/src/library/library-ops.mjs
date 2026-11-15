@@ -88,7 +88,7 @@ export async function createLibrary({name, parentDir, allowedRoots, env = proces
 
 /**
  * Classify a path the user wants to open. Never initializes.
- * Empty folders are not opened as libraries — use Create instead.
+ * Empty folders need explicit confirmation via initializeEmptyProject.
  */
 export async function inspectOpenTarget(targetPath, allowedRoots) {
   let root;
@@ -116,9 +116,10 @@ export async function inspectOpenTarget(targetPath, allowedRoots) {
       root,
       inspection,
       openable: false,
+      canInitialize: true,
       error: {
         code: 'library.emptyFolder',
-        message: `Folder is empty and is not an Atlas Docs library yet: ${root}. Use Create to initialize it.`,
+        message: `Folder is empty and is not an Atlas Docs project yet: ${root}. Confirm to create a project here.`,
       },
     };
   }
@@ -137,7 +138,9 @@ export async function inspectOpenTarget(targetPath, allowedRoots) {
       openable: false,
       error: {
         code: 'library.unknown',
-        message: inspection.message || 'Directory is not a recognized Atlas Docs library.',
+        message:
+          inspection.message ||
+          `This folder is not an Atlas Docs project (expected docs/, uploads/, history/, and db.json). Nothing was changed: ${root}`,
       },
     };
   }
@@ -145,11 +148,47 @@ export async function inspectOpenTarget(targetPath, allowedRoots) {
   return {root, inspection, openable: true, error: null};
 }
 
+/**
+ * Initialize an empty folder as a project in place. Refuses non-empty or unknown content.
+ * Call only after the user confirms.
+ */
+export async function initializeEmptyProject(targetPath, allowedRoots) {
+  const inspected = await inspectOpenTarget(targetPath, allowedRoots);
+  if (inspected.inspection.state === 'empty' && inspected.canInitialize) {
+    const names = await readdir(inspected.root);
+    const meaningful = names.filter(n => n !== '.gitkeep');
+    if (meaningful.length > 0) {
+      throw new AtlasError(
+        'library.createConflict',
+        `Cannot initialize project: folder is not empty: ${inspected.root}`,
+        {path: inspected.root},
+      );
+    }
+    await initEmptyLibrary(inspected.root);
+    return {
+      root: inspected.root,
+      displayName: path.basename(inspected.root) || 'Project',
+    };
+  }
+  if (inspected.openable) {
+    return {
+      root: inspected.root,
+      displayName: path.basename(inspected.root) || 'Project',
+      alreadyReady: true,
+    };
+  }
+  throw new AtlasError(
+    inspected.error?.code || 'library.unknown',
+    inspected.error?.message || `Cannot initialize project at ${inspected.root}`,
+    {path: inspected.root, state: inspected.inspection?.state},
+  );
+}
+
 export async function uniqueDemoPath(parentDir, allowedRoots, env = process.env) {
   const parent = canonicalize(parentDir || defaultLibraryParentDir(env));
   await assertWithinAllowedRoots(parent, allowedRoots, {mustExist: false});
   await mkdir(parent, {recursive: true});
-  const base = 'Little-Cafe-Demo';
+  const base = 'Example';
   for (let i = 0; i < 50; i++) {
     const name = i === 0 ? base : `${base}-${i}`;
     const target = path.join(parent, name);
@@ -159,9 +198,9 @@ export async function uniqueDemoPath(parentDir, allowedRoots, env = process.env)
       await assertWithinAllowedRoots(target, allowedRoots, {mustExist: false});
       return {
         path: canonicalize(target),
-        displayName: i === 0 ? 'Little Café (demo)' : `Little Café (demo ${i})`,
+        displayName: i === 0 ? 'Example' : `Example ${i}`,
       };
     }
   }
-  throw new AtlasError('library.demoBusy', 'Could not find a free demo library folder name.');
+  throw new AtlasError('library.demoBusy', 'Could not find a free Example project folder name.');
 }
