@@ -291,6 +291,30 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     return json(await core.inspectOpenTarget(String(o.path || ''), allowed));
   }
 
+  if (seg[1] === 'summary' && method === 'POST') {
+    requireManage(req);
+    const o = await body();
+    const allowed = core.resolveAllowedRoots(process.env, process.platform);
+    let target = String(o.path || '').trim();
+    if (!target && o.id) {
+      const reg = await core.loadUserRegistrySafe(process.env);
+      const entry = reg.libraries.find((item: {id: string}) => item.id === String(o.id));
+      target = entry?.path || '';
+    }
+    if (!target) {
+      return json({error: 'Project path or id is required.', errorKey: 'errors.library.required', counts: null}, 400);
+    }
+    try {
+      const root = await core.assertWithinAllowedRoots(target, allowed, {mustExist: true});
+      return json(await core.summarizeLibraryProject(root));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const code = (error as {code?: string})?.code || 'errors.library.summaryFailed';
+      const status = code === 'fs.notFound' || code === 'fs.outsideRoots' ? 404 : 409;
+      return json({error: message, errorKey: code, root: target, state: 'unavailable', schemaVersion: null, counts: null}, status);
+    }
+  }
+
   if (seg[1] === 'preview-create' && method === 'POST') {
     requireManage(req);
     if (!caps.canCreate) throw new AppError('errors.library.fixedMode', 409);
@@ -415,6 +439,38 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     const o = await body();
     const reg = await core.removeLibraryEntry(String(o.id || ''));
     return json({ok: true, libraries: reg.libraries, recentId: reg.recentId});
+  }
+
+  if (seg[1] === 'delete' && method === 'POST') {
+    requireManage(req);
+    if (!caps.canRemoveRecent) throw new AppError('errors.library.fixedMode', 409);
+    const o = await body();
+    const allowed = core.resolveAllowedRoots(process.env, process.platform);
+    const example = await core.readExampleProject({allowedRoots: allowed});
+    try {
+      const reg = await core.deleteLibraryOnDisk({
+        id: String(o.id || ''),
+        allowedRoots: allowed,
+        currentRoot: identity.libraryRoot || null,
+        examplePath: example.path || null,
+      });
+      return json({ok: true, libraries: reg.libraries, recentId: reg.recentId});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const code = (error as {code?: string})?.code || 'errors.library.deleteFailed';
+      const status =
+        code === 'registry.missing' || code === 'fs.notFound'
+          ? 404
+          : code === 'library.deleteCurrent' ||
+              code === 'library.deleteExample' ||
+              code === 'library.deleteProtected' ||
+              code === 'library.locked' ||
+              code === 'fs.outsideRoots' ||
+              code === 'fs.notDirectory'
+            ? 409
+            : 500;
+      return json({error: message, errorKey: code}, status);
+    }
   }
 
   if (seg[1] === 'use-for-project' && method === 'POST') {

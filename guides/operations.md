@@ -2,7 +2,7 @@
 
 [Documentation home](../README.md) · [User guide](user-guide.md) · [Agent guide](agent-guide.md)
 
-Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one under **Utilities → Language**. Guides use English names for features; on-screen labels follow the selected language.
+Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one from the **Language** control in the top bar. Guides use English names for features; on-screen labels follow the selected language.
 ## Install and run
 
 For the npm/npx distribution, use [Atlas Docs with npm](npm.md). The commands and default
@@ -331,6 +331,6 @@ Review the screenshots visually before committing: the red numbered outlines ide
 
 ### Project manager checks
 
-`npm --prefix app run test:source-picker` exercises Example open/reuse, create/open/initialize empty, invalid folders, cancel folder pick, missing-path list, stale tabs, locked projects, unsaved drafts, keyboard controls, desktop/mobile layout, and fixed mode. It uses temporary projects and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development manager and one Example switch instead. Native folder picks are mocked with `ATLAS_DOCS_PICK_FOLDER_MOCK`. The reveal check opens only a temporary test project.
+`npm --prefix app run test:source-picker` exercises Example open/reuse, create/open/initialize empty, invalid folders, cancel folder pick, missing-path list, remove/delete confirmation, stale tabs, locked projects, unsaved drafts, keyboard controls, desktop/mobile layout, and fixed mode. It uses temporary projects and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development manager and one Example switch instead. Native folder picks are mocked with `ATLAS_DOCS_PICK_FOLDER_MOCK`. The reveal check opens only a temporary test project.
 
 Set `ATLAS_LOCAL_DESKTOP=0` for a server without a local desktop; the UI uses in-app browse and path copying instead of the OS folder dialog or host file manager.

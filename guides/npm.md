@@ -42,7 +42,7 @@ Relative `--data-dir` and `DATA_DIR` values resolve from the calling directory.
 A broken config or missing/invalid explicit path is an error; the CLI does not fall back to recent or invent another library.
 Passing `--data-dir` for one run does not rewrite project config. Opening a library in the UI also does not rewrite project config unless you use an explicit “use for this project” action.
 
-Recent libraries are stored outside any library folder (Windows: `%LOCALAPPDATA%\atlas-docs`, Linux: `$XDG_CONFIG_HOME/atlas-docs` or `~/.config/atlas-docs`). Override with `ATLAS_DOCS_REGISTRY_DIR` (useful in tests and Docker). Remove from recent deletes the registry entry only.
+Recent libraries are stored outside any library folder (Windows: `%LOCALAPPDATA%\atlas-docs`, Linux: `$XDG_CONFIG_HOME/atlas-docs` or `~/.config/atlas-docs`). Override with `ATLAS_DOCS_REGISTRY_DIR` (useful in tests and Docker). Remove from list deletes the registry entry only. Delete project folder removes the folder on disk (with safety checks), then the registry entry.
 
 ```sh
 atlas-docs library use ./project-docs

@@ -1,11 +1,17 @@
-import {access, mkdir, readdir} from 'node:fs/promises';
+import {access, lstat, mkdir, readdir, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {AtlasError} from './errors.mjs';
 import {inspectLibrary} from './inspect.mjs';
 import {initEmptyLibrary} from './init.mjs';
-import {canonicalize} from './paths.mjs';
-import {assertWithinAllowedRoots} from './fs-policy.mjs';
-import {defaultLibraryParentDir} from './user-registry.mjs';
+import {canonicalize, normalizePathForCompare} from './paths.mjs';
+import {assertWithinAllowedRoots, isDriveRoot} from './fs-policy.mjs';
+import {isLockStale, readLibraryLock} from './lock.mjs';
+import {
+  defaultLibraryParentDir,
+  libraryIdentityKey,
+  loadUserRegistry,
+  removeLibraryEntry,
+} from './user-registry.mjs';
 
 const NAME_RE = /^[^<>:"/\\|?*\u0000-\u001f]+$/u;
 
@@ -203,4 +209,84 @@ export async function uniqueDemoPath(parentDir, allowedRoots, env = process.env)
     }
   }
   throw new AtlasError('library.demoBusy', 'Could not find a free Example project folder name.');
+}
+
+/**
+ * Delete a registered project folder on disk, then remove it from the registry.
+ * Never deletes Example, the current session library, drive roots, or an allowed root itself.
+ * Registry is only updated after a successful rm.
+ */
+export async function deleteLibraryOnDisk({
+  id,
+  allowedRoots,
+  currentRoot = null,
+  examplePath = null,
+  env = process.env,
+  platform = process.platform,
+} = {}) {
+  const entryId = String(id || '').trim();
+  if (!entryId) {
+    throw new AtlasError('registry.missing', 'Library is not in recent list.', {id: entryId});
+  }
+  const reg = await loadUserRegistry(env, platform);
+  const entry = reg.libraries.find(item => item.id === entryId);
+  if (!entry) {
+    throw new AtlasError('registry.missing', 'Library is not in recent list.', {id: entryId});
+  }
+
+  if (examplePath) {
+    const exampleKey = libraryIdentityKey(examplePath, platform);
+    if (entry.identityKey === exampleKey || libraryIdentityKey(entry.path, platform) === exampleKey) {
+      throw new AtlasError(
+        'library.deleteExample',
+        'The Example project cannot be deleted from disk.',
+        {id: entryId, path: entry.path},
+      );
+    }
+  }
+
+  const root = await assertWithinAllowedRoots(entry.path, allowedRoots, {mustExist: true, platform});
+  if (isDriveRoot(root, platform)) {
+    throw new AtlasError(
+      'library.deleteProtected',
+      `Refusing to delete a drive root: ${root}`,
+      {id: entryId, path: root},
+    );
+  }
+  for (const allowed of allowedRoots || []) {
+    if (normalizePathForCompare(root, platform) === normalizePathForCompare(allowed, platform)) {
+      throw new AtlasError(
+        'library.deleteProtected',
+        `Refusing to delete an allowed storage root: ${root}`,
+        {id: entryId, path: root},
+      );
+    }
+  }
+
+  if (currentRoot) {
+    if (libraryIdentityKey(root, platform) === libraryIdentityKey(currentRoot, platform)) {
+      throw new AtlasError(
+        'library.deleteCurrent',
+        'Cannot delete the project that is open in this session. Switch to another project first.',
+        {id: entryId, path: root},
+      );
+    }
+  }
+
+  const lock = await readLibraryLock(root);
+  if (lock && !isLockStale(lock)) {
+    throw new AtlasError(
+      'library.locked',
+      `Project is in use by another process and cannot be deleted: ${root}`,
+      {id: entryId, path: root, pid: lock.pid},
+    );
+  }
+
+  const st = await lstat(root);
+  if (!st.isDirectory()) {
+    throw new AtlasError('fs.notDirectory', `Not a directory: ${root}`, {path: root});
+  }
+
+  await rm(root, {recursive: true, force: true});
+  return removeLibraryEntry(entryId, env, platform);
 }

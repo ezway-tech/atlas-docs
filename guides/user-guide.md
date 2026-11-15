@@ -2,20 +2,20 @@
 
 [Documentation home](../README.md) · [Agent guide](agent-guide.md) · [Operations](operations.md)
 
-Atlas Docs organizes a local document library. The interface supports Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Choose a language under **Utilities → Language**; the browser stores that choice in a cookie and does not rewrite library files. This guide uses English feature names. Start with the [installation instructions](operations.md#install-and-run) if the app is not running.
+Atlas Docs organizes a local document library. The interface supports Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Choose a language from the **Language** control in the top bar; the browser stores that choice in a cookie and does not rewrite library files. Light and dark theme use the same top-bar control on Projects, workspace, and Help. This guide uses English feature names. Start with the [installation instructions](operations.md#install-and-run) if the app is not running.
 
 
 ## Manage projects
 
 Each project is one folder that holds `docs/`, `uploads/`, `history/`, and `db.json`. The first launch prepares the sample **Example** project. Later launches prepare your most recent valid project, but you enter the workspace only after choosing a project. The home page opens the separate Projects screen. Select a project to load the workspace. Reloading a workspace or opening a document link keeps that page.
 
-Use the project name in the top bar to leave the workspace and open the separate **Projects** page. Unsaved changes must be saved first or discarded through the confirmation dialog. The compact list puts **Example** first, followed by projects in recent-open order. Click a name to open it; click the current project to return to work. **Open project folder** uses the operating-system folder dialog on a personal desktop. In Docker or other environments without a local desktop, browse stays inside the storage mounts the app is allowed to see.
+Use the project name in the top bar to leave the workspace and open the separate **Projects** page. Unsaved changes must be saved first or discarded through the confirmation dialog. The Projects page uses the same top bar style as the workspace (brand on the left; language, light/dark theme, and Help on the right). Bundled Help also uses that top bar, with Back to library and theme controls; guide text stays in English. The page uses a list on the left and project details on the right. It shows a project count and a search box for name or path. **Example** is first, then projects in recent-open order. Select a project to review its path, status, and a short summary (topics, folders, documents, comments, assets, and schema version). Then use **Open** or **Continue reading** for the current project. Double-click a row also opens it. **Open project folder** uses the operating-system folder dialog on a personal desktop. In Docker or other environments without a local desktop, browse stays inside the storage mounts the app is allowed to see.
 
 **Open project** opens the chosen folder in place. It does not copy files. An empty folder can become a new project after you confirm. A folder that has other files but is not an Atlas Docs project is explained and left unchanged. **Create project** asks for a name and save location, then creates a new project folder.
 
-**Missing locations (N)** stays as one summary line below the list. Select **Manage** to open a compact, scrollable dialog. Each row has a menu to **Choose location again** or **Remove from list**. **Remove all missing entries** asks for confirmation and only removes missing entries from the list. Removing from the list does not delete files on disk. If Example cannot be prepared, its row shows an unavailable status and error details.
+**Missing locations (N)** stays as one summary line below the list. Select **Manage** to open a compact, scrollable dialog. Each row has a menu to **Choose location again** or **Remove from list** (with confirmation). **Remove all missing entries** asks for confirmation and only removes missing entries from the list. Removing from the list does not delete files on disk. If Example cannot be prepared, its row shows an unavailable status and error details.
 
-Each project's menu contains **Open folder** and **Copy path**, with rename and remove actions for your registered projects. **Open folder** reveals that project in the local file manager on desktop launches. Fixed installations (including single-library Docker) show only their current project.
+Each project's menu contains **Open folder** and **Copy path**, with rename, **Remove from list**, and **Delete project folder** for your registered projects (not Example, and not the project open in this session). Both remove and delete ask for confirmation. **Remove from list** only updates the registry. **Delete project folder** permanently deletes that folder on disk, then removes the registry entry. **Open folder** reveals that project in the local file manager on desktop launches. Fixed installations (including single-library Docker) show only their current project.
 
 
 ## Create your first document
@@ -37,7 +37,7 @@ New projects begin empty. The built-in **Example** project already includes the 
 
 ## Projects
 
-Atlas Docs keeps the app separate from your data. Each project is a folder you choose. One running app serves one project and holds its lock. Use the project name in the top bar to open the project manager, switch projects, rename a display name, or remove an entry from the list (files on disk are not deleted).
+Atlas Docs keeps the app separate from your data. Each project is a folder you choose. One running app serves one project and holds its lock. Use the project name in the top bar to open the project manager, switch projects, rename a display name, remove an entry from the list (files on disk are not deleted), or delete a project folder from disk after confirmation.
 
 Opening a project from the UI does not rewrite `atlas-docs.config.json`. Project-aware CLI users still bind a path with `atlas-docs library use`.
 

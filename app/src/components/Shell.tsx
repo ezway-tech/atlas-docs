@@ -4,17 +4,18 @@ import {useEffect,useState} from 'react';
 import dynamic from 'next/dynamic';
 import {loadAtlasSession} from '@/lib/atlas-client';
 import {KeymapProvider} from './KeymapProvider';
-import {LocaleProvider,useT} from './LocaleProvider';
+import {LocaleProvider} from './LocaleProvider';
+import WorkspaceLoading from './WorkspaceLoading';
 import type {Locale} from '@/lib/i18n/locales';
 const Workspace=dynamic(()=>import('./Workspace'));
 function WorkspaceGate(){
- const router=useRouter(),t=useT();const [ready,setReady]=useState(false);
+ const router=useRouter();const [ready,setReady]=useState(false);
  useEffect(()=>{let cancelled=false;loadAtlasSession(true).then(s=>{
   if(cancelled)return;
   if(s.mode==='manager'||!s.libraryRoot||(s.switchError&&sessionStorage.getItem('atlas-recovery-accepted')!==s.runtimeId)){router.replace('/projects');return;}
   setReady(true);
  }).catch(()=>{if(!cancelled)router.replace('/projects');});return()=>{cancelled=true;};},[router]);
- return ready?<Workspace/>:<div role="status">{t('common.loading')}</div>;
+ return ready?<Workspace/>:<WorkspaceLoading/>;
 }
 export default function Shell({children,initialLocale}:{children:React.ReactNode;initialLocale:Locale}){
  const path=usePathname();const workspace=path!=='/'&&path!=='/projects'&&!path.startsWith('/help');

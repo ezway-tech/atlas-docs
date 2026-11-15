@@ -1,7 +1,7 @@
 'use client';
 
-import {useCallback, useEffect, useId, useState} from 'react';
-import {FolderOpen, FolderPlus, Library, MoreHorizontal, Copy, FolderOpen as RevealFolder, X} from 'lucide-react';
+import {useCallback, useEffect, useId, useMemo, useState} from 'react';
+import {FolderOpen, FolderPlus, Library, MoreHorizontal, Copy, FolderOpen as RevealFolder, Search, X} from 'lucide-react';
 import {Button, Input} from './ui/controls';
 import {Dialog, ConfirmDialog} from './ui/dialog';
 import {DropdownMenu, MenuItem} from './ui/patterns';
@@ -38,6 +38,20 @@ type RecentEntry = {
   status: string;
 };
 
+type ProjectSummary = {
+  root: string;
+  state: string;
+  schemaVersion: number | null;
+  counts: {
+    docs: number;
+    folders: number;
+    topics: number;
+    comments: number;
+    assets: number;
+  } | null;
+  error?: string | null;
+};
+
 type BrowseResult = {
   path: string;
   parent: string | null;
@@ -53,17 +67,36 @@ type Props = {
   session?: AtlasSession | null;
 };
 
+function BusyStatus({label}: {label: string}) {
+  return (
+    <div className="atlas-busy-status" role="status" aria-live="polite">
+      <p>{label}</p>
+      <div className="atlas-busy-track" aria-hidden="true">
+        <span />
+      </div>
+    </div>
+  );
+}
+
 export default function LibraryManager({embedded, onClose, onEnterCurrent, session: initialSession}: Props) {
-  const {t} = useLocale();
+  const {t, lowerText, formatDateTime} = useLocale();
   const titleId = useId();
+  const searchId = useId();
   const [caps, setCaps] = useState<Caps | null>(null);
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [missingOpen, setMissingOpen] = useState(false);
   const [confirmMissing, setConfirmMissing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    kind: 'remove' | 'delete';
+    id: string;
+    name: string;
+    path: string;
+  } | null>(null);
   const [missingError, setMissingError] = useState('');
   const [missing, setMissing] = useState<RecentEntry[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [panel, setPanel] = useState<'home' | 'open' | 'create'>('home');
   const [pickingParent, setPickingParent] = useState(false);
   const [relocateId, setRelocateId] = useState<string | null>(null);
@@ -77,7 +110,23 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   const [previewPath, setPreviewPath] = useState('');
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [session, setSession] = useState<AtlasSession | null>(initialSession || null);
+  const [query, setQuery] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
+  const [summary, setSummary] = useState<ProjectSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+  const [session] = useState<AtlasSession | null>(initialSession || null);
+
+  const beginBusy = (key: string) => {
+    setBusy(true);
+    setBusyKey(key);
+  };
+
+  const endBusy = () => {
+    setBusy(false);
+    setBusyKey(null);
+  };
 
   const refresh = useCallback(async () => {
     const capabilities = await libraryApi<Caps>('/api/libraries/capabilities');
@@ -121,7 +170,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   }
 
   async function openBrowse(target?: string) {
-    setBusy(true);
+    beginBusy('browse');
     setError('');
     try {
       const data = await libraryApi<BrowseResult>(
@@ -133,7 +182,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
@@ -142,7 +191,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       await openBrowse(startPath);
       return null;
     }
-    setBusy(true);
+    beginBusy('pick');
     setError('');
     try {
       const picked = await libraryApi<{cancelled: boolean; path: string | null; error?: {message: string}}>(
@@ -159,12 +208,12 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       setError((e as Error).message);
       return null;
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
   async function openPath(target: string, displayName?: string) {
-    setBusy(true);
+    beginBusy(target);
     setError('');
     setPendingEmpty(null);
     try {
@@ -195,13 +244,13 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
   async function confirmInitializeEmpty() {
     if (!pendingEmpty) return;
-    setBusy(true);
+    beginBusy(pendingEmpty);
     setError('');
     try {
       const created = await libraryApi<{libraryId: string}>('/api/libraries/initialize-empty', {
@@ -213,7 +262,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
@@ -224,7 +273,11 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   }
 
   async function beginCreateParentPick() {
-    if (!caps?.canPickFolder) {setPickingParent(true); await openBrowse(createParent || caps?.defaultBrowseDir); return;}
+    if (!caps?.canPickFolder) {
+      setPickingParent(true);
+      await openBrowse(createParent || caps?.defaultBrowseDir);
+      return;
+    }
     const path = await pickFolder(t('libraries.pick.parentTitle'), createParent || caps?.defaultParentDir);
     if (!path) return;
     setCreateParent(path);
@@ -233,13 +286,17 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
 
   async function beginRelocate(id: string) {
     setRelocateId(id);
-    if (!caps?.canPickFolder) {setPickingParent(false); await openBrowse(caps?.defaultBrowseDir); return;}
+    if (!caps?.canPickFolder) {
+      setPickingParent(false);
+      await openBrowse(caps?.defaultBrowseDir);
+      return;
+    }
     const path = await pickFolder(t('libraries.pick.relocateTitle'), caps?.defaultBrowseDir);
     if (!path) {
       setRelocateId(null);
       return;
     }
-    setBusy(true);
+    beginBusy(id);
     setError('');
     try {
       await libraryApi('/api/libraries/relocate', {
@@ -252,7 +309,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       setError((e as Error).message);
       setRelocateId(null);
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
@@ -265,7 +322,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   }
 
   async function createLibrary() {
-    setBusy(true);
+    beginBusy('create');
     setError('');
     try {
       const created = await libraryApi<{root: string; libraryId: string}>('/api/libraries/create', {
@@ -276,7 +333,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
@@ -299,7 +356,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   }
 
   async function renameEntry(id: string) {
-    setBusy(true);
+    beginBusy(id);
     try {
       await libraryApi('/api/libraries/rename', {
         method: 'POST',
@@ -310,82 +367,342 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(false);
+      endBusy();
     }
   }
 
+  function askRemoveEntry(entry: Pick<RecentEntry, 'id' | 'displayName' | 'path' | 'isExample'>) {
+    if (!entry.id || entry.isExample) return;
+    setConfirmAction({kind: 'remove', id: entry.id, name: entry.displayName, path: entry.path});
+  }
+
+  function askDeleteEntry(entry: Pick<RecentEntry, 'id' | 'displayName' | 'path' | 'isExample' | 'current' | 'status'>) {
+    if (!entry.id || entry.isExample || entry.current || entry.status === 'missing') return;
+    setConfirmAction({kind: 'delete', id: entry.id, name: entry.displayName, path: entry.path});
+  }
+
   async function removeEntry(id: string) {
-    setBusy(true);
+    beginBusy(id);
     try {
       await libraryApi('/api/libraries/remove', {method: 'POST', body: JSON.stringify({id})});
+      setConfirmAction(null);
       await refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(false);
+      endBusy();
     }
+  }
+
+  async function deleteEntry(id: string) {
+    beginBusy(id);
+    try {
+      await libraryApi('/api/libraries/delete', {method: 'POST', body: JSON.stringify({id})});
+      setConfirmAction(null);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      endBusy();
+    }
+  }
+
+  async function confirmPendingAction() {
+    if (!confirmAction) return;
+    if (confirmAction.kind === 'delete') await deleteEntry(confirmAction.id);
+    else await removeEntry(confirmAction.id);
   }
 
   async function removeAllMissing() {
     const selected = new Set(missing.map(entry => entry.id));
-    setBusy(true); setMissingError('');
+    beginBusy('missing');
+    setMissingError('');
     try {
       const latest = await libraryApi<{missing: RecentEntry[]}>('/api/libraries/recent');
       for (const entry of latest.missing || []) {
         if (selected.has(entry.id)) await libraryApi('/api/libraries/remove', {method: 'POST', body: JSON.stringify({id: entry.id})});
       }
-    } catch (e) {setMissingError((e as Error).message);}
-    finally {
-      try {await refresh();} catch(e) {setMissingError((e as Error).message);}
-      setConfirmMissing(false); setBusy(false);
+    } catch (e) {
+      setMissingError((e as Error).message);
+    } finally {
+      try {
+        await refresh();
+      } catch (e) {
+        setMissingError((e as Error).message);
+      }
+      setConfirmMissing(false);
+      endBusy();
     }
   }
 
   const fixed = !!caps && !caps.canSwitch;
 
-  const projects = [...recent];
-  if (session?.libraryRoot && !projects.some(entry => entry.current)) {
-    projects.push({id: '', path: session.libraryRoot, displayName: session.displayName || 'Project',
-      current: true, status: 'available', lastOpenedAt: null});
-  }
-  projects.sort((a, b) => Number(b.isExample) - Number(a.isExample) || (b.lastOpenedAt || '').localeCompare(a.lastOpenedAt || ''));
+  const projects = useMemo(() => {
+    const list = [...recent];
+    if (session?.libraryRoot && !list.some(entry => entry.current)) {
+      list.push({
+        id: '',
+        path: session.libraryRoot,
+        displayName: session.displayName || 'Project',
+        current: true,
+        status: 'available',
+        lastOpenedAt: null,
+      });
+    }
+    list.sort(
+      (a, b) => Number(b.isExample) - Number(a.isExample) || (b.lastOpenedAt || '').localeCompare(a.lastOpenedAt || ''),
+    );
+    return list;
+  }, [recent, session]);
 
-  function renderEntry(entry: RecentEntry, opts: {missing?: boolean} = {}) {
-    return <li key={entry.path} className={entry.current ? 'current' : ''} data-example={entry.isExample || undefined}>
-      <div className="project-row-main">
-        <Button className="project-name" disabled={busy || !!opts.missing || (!entry.current && (fixed || entry.status === 'in_use'))}
-          onClick={() => entry.current ? (onEnterCurrent || onClose)?.() : void openPath(entry.path, entry.displayName)}>
-          <FolderOpen size={18}/><strong>{entry.isExample ? 'Example' : entry.displayName}</strong>
-        </Button>
-        <code title={entry.path}>{entry.path}</code>
-      </div>
-      {entry.current ? <span className="status status-current">{t('libraries.status.current')}</span> : entry.status !== 'available' && !opts.missing ?
-        <span className="status">{t(('libraries.status.' + entry.status) as 'libraries.status.available')}</span> : null}
-      {opts.missing ? <DropdownMenu align="end" trigger={<Button className="icon" disabled={busy || fixed} aria-label={t('libraries.actions.more', {name: entry.displayName})}><MoreHorizontal size={18}/></Button>}>
-        <MenuItem onSelect={() => {setMissingOpen(false); void beginRelocate(entry.id);}}>{t('libraries.actions.relocate')}</MenuItem>
-        <MenuItem onSelect={() => void removeEntry(entry.id)}>{t('libraries.actions.removeRecent')}</MenuItem>
-      </DropdownMenu> : <DropdownMenu align="end" trigger={<Button className="icon" disabled={busy} aria-label={t('libraries.actions.more', {name: entry.displayName})}><MoreHorizontal size={18}/></Button>}>
-        {caps?.canReveal && <MenuItem onSelect={() => void reveal(entry.id || undefined)}><RevealFolder size={16}/>{t('libraries.reveal')}</MenuItem>}
-        <MenuItem onSelect={() => {void navigator.clipboard.writeText(entry.path).then(() => setCopied(true)).catch(e => setError(e.message));}}><Copy size={16}/>{t('libraries.copyPath')}</MenuItem>
-        {!fixed && entry.id && !entry.isExample && <>
-          <MenuItem onSelect={() => {setRenameId(entry.id); setRenameValue(entry.displayName);}}>{t('libraries.actions.rename')}</MenuItem>
-          <MenuItem disabled={entry.current} onSelect={() => void removeEntry(entry.id)}>{t('libraries.actions.removeRecent')}</MenuItem>
-        </>}
-      </DropdownMenu>}
-    </li>;
+  const filteredProjects = useMemo(() => {
+    const needle = lowerText(query.trim());
+    if (!needle) return projects;
+    return projects.filter(entry => {
+      const name = entry.isExample ? 'Example' : entry.displayName;
+      return lowerText(name).includes(needle) || lowerText(entry.path).includes(needle);
+    });
+  }, [projects, query, lowerText]);
+
+  useEffect(() => {
+    if (!filteredProjects.length) {
+      setSelectedPath(null);
+      return;
+    }
+    setSelectedPath(prev => {
+      if (prev && filteredProjects.some(entry => entry.path === prev)) return prev;
+      const preferred =
+        filteredProjects.find(entry => entry.current) ||
+        filteredProjects.find(entry => entry.isExample) ||
+        filteredProjects[0];
+      return preferred.path;
+    });
+  }, [filteredProjects]);
+
+  const selected = filteredProjects.find(entry => entry.path === selectedPath) || null;
+  const summaryForSelected =
+    selected && summary && summary.root === selected.path ? summary : null;
+  const summaryCounts = summaryForSelected?.counts ?? null;
+
+  useEffect(() => {
+    if (!selected || selected.status === 'missing') {
+      setSummary(null);
+      setSummaryError('');
+      setSummaryLoading(false);
+      return;
+    }
+    const targetPath = selected.path;
+    const targetId = selected.id || '';
+    let cancelled = false;
+    setSummaryError('');
+    setSummaryLoading(true);
+    void (async () => {
+      try {
+        const result = await libraryApi<ProjectSummary>('/api/libraries/summary', {
+          method: 'POST',
+          body: JSON.stringify(targetId ? {id: targetId, path: targetPath} : {path: targetPath}),
+        });
+        if (cancelled) return;
+        setSummary(result);
+        setSummaryError(!result.counts && result.error ? result.error : '');
+      } catch (e) {
+        if (cancelled) return;
+        setSummary(null);
+        setSummaryError((e as Error).message);
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.path, selected?.id, selected?.status]);
+
+  function enterCurrent(entry: RecentEntry) {
+    beginBusy(entry.path);
+    try {
+      (onEnterCurrent || onClose)?.();
+    } finally {
+      endBusy();
+    }
+  }
+
+  function selectEntry(entry: RecentEntry) {
+    setSelectedPath(entry.path);
+    setMobileShowDetail(true);
+  }
+
+  function openEntry(entry: RecentEntry) {
+    if (busy || (!entry.current && (fixed || entry.status === 'in_use'))) return;
+    if (entry.current) enterCurrent(entry);
+    else void openPath(entry.path, entry.displayName);
+  }
+
+  function copyPath(path: string) {
+    void navigator.clipboard
+      .writeText(path)
+      .then(() => setCopied(true))
+      .catch(e => setError(e.message));
+  }
+
+  function renderMissingEntry(entry: RecentEntry) {
+    return (
+      <li key={entry.path}>
+        <div className="project-row-main">
+          <span className="project-name">
+            <FolderOpen size={16} />
+            <strong>{entry.displayName}</strong>
+          </span>
+          <code title={entry.path}>{entry.path}</code>
+        </div>
+        <DropdownMenu
+          align="end"
+          trigger={
+            <Button className="icon" disabled={busy || fixed} aria-label={t('libraries.actions.more', {name: entry.displayName})}>
+              <MoreHorizontal size={16} />
+            </Button>
+          }
+        >
+          <MenuItem
+            onSelect={() => {
+              setMissingOpen(false);
+              void beginRelocate(entry.id);
+            }}
+          >
+            {t('libraries.actions.relocate')}
+          </MenuItem>
+          <MenuItem onSelect={() => askRemoveEntry(entry)}>{t('libraries.actions.removeRecent')}</MenuItem>
+        </DropdownMenu>
+      </li>
+    );
+  }
+
+  function renderListEntry(entry: RecentEntry) {
+    const rowBusy = busy && busyKey === entry.path;
+    const selectedRow = selectedPath === entry.path;
+    const rowClass = [
+      entry.current ? 'current' : '',
+      selectedRow ? 'selected' : '',
+      rowBusy ? 'project-row-busy' : '',
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined;
+    const canOpen = entry.current || (!fixed && entry.status !== 'in_use');
+    return (
+      <li
+        key={entry.path}
+        className={rowClass}
+        data-example={entry.isExample || undefined}
+        aria-selected={selectedRow}
+        aria-busy={rowBusy || undefined}
+      >
+        <button
+          type="button"
+          className="project-list-select"
+          disabled={busy}
+          aria-busy={rowBusy || undefined}
+          onClick={() => selectEntry(entry)}
+          onDoubleClick={() => openEntry(entry)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && canOpen) {
+              e.preventDefault();
+              openEntry(entry);
+            }
+          }}
+        >
+          <FolderOpen size={16} />
+          <span className="project-list-copy">
+            <strong>{entry.isExample ? 'Example' : entry.displayName}</strong>
+          </span>
+          {entry.current ? (
+            <span className="status status-current">{t('libraries.status.current')}</span>
+          ) : entry.status !== 'available' ? (
+            <span className="status">{t(('libraries.status.' + entry.status) as 'libraries.status.available')}</span>
+          ) : null}
+        </button>
+        <DropdownMenu
+          align="end"
+          trigger={
+            <Button className="icon" disabled={busy} aria-label={t('libraries.actions.more', {name: entry.displayName})}>
+              <MoreHorizontal size={16} />
+            </Button>
+          }
+        >
+          {caps?.canReveal && (
+            <MenuItem onSelect={() => void reveal(entry.id || undefined)}>
+              <RevealFolder size={16} />
+              {t('libraries.reveal')}
+            </MenuItem>
+          )}
+          <MenuItem onSelect={() => copyPath(entry.path)}>
+            <Copy size={16} />
+            {t('libraries.copyPath')}
+          </MenuItem>
+          {!fixed && entry.id && !entry.isExample && (
+            <>
+              <MenuItem
+                onSelect={() => {
+                  setRenameId(entry.id);
+                  setRenameValue(entry.displayName);
+                }}
+              >
+                {t('libraries.actions.rename')}
+              </MenuItem>
+              <MenuItem disabled={entry.current} onSelect={() => askRemoveEntry(entry)}>
+                {t('libraries.actions.removeRecent')}
+              </MenuItem>
+              <MenuItem
+                disabled={entry.current || entry.status === 'in_use' || entry.status === 'missing'}
+                onSelect={() => askDeleteEntry(entry)}
+              >
+                {t('libraries.actions.deleteFolder')}
+              </MenuItem>
+            </>
+          )}
+        </DropdownMenu>
+      </li>
+    );
   }
 
   const body = (
     <div className="library-manager" role="region" aria-labelledby={titleId}>
-      <div className="library-manager-head">
-        <div>
+      <div className="library-manager-head projects-sticky-tools">
+        <div className="library-manager-title">
           <h1 id={titleId}>{t('libraries.welcome.title')}</h1>
-          {embedded && <p className="projects-intro">{t('libraries.welcome.subtitle')}</p>}
+          {caps && panel === 'home' && (
+            <p className="projects-count">{t('libraries.recent.count', {count: filteredProjects.length})}</p>
+          )}
+          {embedded && panel === 'home' && <p className="projects-intro">{t('libraries.welcome.subtitle')}</p>}
         </div>
-        {panel === 'home' && caps && !fixed && <div className="project-toolbar">
-          <Button className="btn" disabled={busy} onClick={() => {setPickingParent(false); setRelocateId(null); void beginOpenProject();}}><FolderOpen size={16}/>{t('libraries.actions.open')}</Button>
-          <Button className="btn primary" disabled={busy} onClick={() => {setPanel('create'); void updatePreview(createName, createParent || caps.defaultParentDir);}}><FolderPlus size={16}/>{t('libraries.actions.create')}</Button>
-        </div>}
+        {panel === 'home' && caps && !fixed && (
+          <div className="project-toolbar">
+            <Button
+              className={`btn${busyKey === 'open' || busyKey === 'pick' ? ' project-action-busy' : ''}`}
+              disabled={busy}
+              aria-busy={busyKey === 'open' || busyKey === 'pick' || undefined}
+              onClick={() => {
+                setPickingParent(false);
+                setRelocateId(null);
+                void beginOpenProject();
+              }}
+            >
+              <FolderOpen size={16} />
+              {t('libraries.actions.open')}
+            </Button>
+            <Button
+              className={`btn primary${busyKey === 'create' ? ' project-action-busy' : ''}`}
+              disabled={busy}
+              aria-busy={busyKey === 'create' || undefined}
+              onClick={() => {
+                setPanel('create');
+                void updatePreview(createName, createParent || caps.defaultParentDir);
+              }}
+            >
+              <FolderPlus size={16} />
+              {t('libraries.actions.create')}
+            </Button>
+          </div>
+        )}
         {onClose && (
           <Button className="icon" disabled={busy} aria-label={t('common.close')} onClick={onClose}>
             <X size={18} />
@@ -404,20 +721,198 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         </div>
       )}
 
-      {panel === 'home' && <>
-        {!caps && <p role="status">{t('common.loading')}</p>}
-        {copied && <p role="status" className="library-manager-note">{t('libraries.copied')}</p>}
-        <ul className="library-manager-list project-list">
-          {!fixed && exampleError && <li className="example-unavailable"><div><strong>Example</strong><p role="status">{t('libraries.exampleUnavailable')}</p><details><summary>{t('common.advanced')}</summary><p>{exampleError}</p></details></div></li>}
-          {projects.map(entry => renderEntry(entry))}
-        </ul>
-        {caps && !projects.length && !exampleError && <p className="library-manager-empty">{t('libraries.recent.empty')}</p>}
-        {!fixed && missing.length > 0 && <div className="project-missing-summary">
-          <span>{t('libraries.missing.title')} ({missing.length})</span>
-          <Button className="btn" onClick={() => {setMissingError(''); setMissingOpen(true);}}>{t('libraries.missing.manage')}</Button>
-        </div>}
-
-      </>}
+      {panel === 'home' && (
+        <>
+          {!caps && <BusyStatus label={t('common.loading')} />}
+          {copied && (
+            <p role="status" className="library-manager-note">
+              {t('libraries.copied')}
+            </p>
+          )}
+          {caps && (
+            <div className={`projects-split${mobileShowDetail && selected ? ' show-detail' : ''}`}>
+              <div className="projects-master">
+                <label className="project-search" htmlFor={searchId}>
+                  <Search size={16} aria-hidden="true" />
+                  <Input
+                    id={searchId}
+                    type="search"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder={t('libraries.recent.searchPlaceholder')}
+                    aria-label={t('libraries.recent.search')}
+                    disabled={busy}
+                  />
+                </label>
+                <ul className="library-manager-list project-list" role="listbox" aria-label={t('libraries.welcome.title')}>
+                  {!fixed && exampleError && !query.trim() && (
+                    <li className="example-unavailable">
+                      <div>
+                        <strong>Example</strong>
+                        <p role="status">{t('libraries.exampleUnavailable')}</p>
+                        <details>
+                          <summary>{t('common.advanced')}</summary>
+                          <p>{exampleError}</p>
+                        </details>
+                      </div>
+                    </li>
+                  )}
+                  {filteredProjects.map(entry => renderListEntry(entry))}
+                </ul>
+                {caps && !projects.length && !exampleError && (
+                  <p className="library-manager-empty">{t('libraries.recent.empty')}</p>
+                )}
+                {caps && !!projects.length && !filteredProjects.length && (
+                  <p className="library-manager-empty" role="status">
+                    {t('libraries.recent.noMatches')}
+                  </p>
+                )}
+                {!fixed && missing.length > 0 && (
+                  <div className="project-missing-summary">
+                    <span>
+                      {t('libraries.missing.title')} ({missing.length})
+                    </span>
+                    <Button
+                      className="btn"
+                      onClick={() => {
+                        setMissingError('');
+                        setMissingOpen(true);
+                      }}
+                    >
+                      {t('libraries.missing.manage')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="project-detail" aria-live="polite">
+                {selected ? (
+                  <>
+                    <Button
+                      className="btn project-detail-back"
+                      onClick={() => setMobileShowDetail(false)}
+                    >
+                      {t('libraries.detail.backToList')}
+                    </Button>
+                    <div className="project-detail-head">
+                      <FolderOpen size={22} aria-hidden="true" />
+                      <div className="project-detail-title">
+                        <h2>{selected.isExample ? 'Example' : selected.displayName}</h2>
+                        {selected.current ? (
+                          <span className="status status-current">{t('libraries.status.current')}</span>
+                        ) : selected.status !== 'available' ? (
+                          <span className="status">
+                            {t(('libraries.status.' + selected.status) as 'libraries.status.available')}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <p className="project-detail-path">
+                      <code title={selected.path}>{selected.path}</code>
+                      <Button className="btn" disabled={busy} onClick={() => copyPath(selected.path)}>
+                        <Copy size={14} />
+                        {t('libraries.copyPath')}
+                      </Button>
+                    </p>
+                    {selected.lastOpenedAt && (
+                      <p className="project-detail-meta">
+                        {t('libraries.detail.lastOpened')}: {formatDateTime(selected.lastOpenedAt)}
+                      </p>
+                    )}
+                    <div
+                      className={`project-detail-stats${summaryLoading ? ' is-loading' : ''}`}
+                      aria-label={t('libraries.summary.label')}
+                      aria-busy={summaryLoading || undefined}
+                    >
+                      {!summaryLoading && summaryError && !summaryCounts ? (
+                        <p className="project-detail-stats-note" role="status">
+                          {t('libraries.summary.unavailable')}
+                        </p>
+                      ) : (
+                        <>
+                          <div>
+                            <span>{t('workspace.stats.topics')}</span>
+                            <strong>{summaryCounts ? summaryCounts.topics : '—'}</strong>
+                          </div>
+                          <div>
+                            <span>{t('workspace.stats.folders')}</span>
+                            <strong>{summaryCounts ? summaryCounts.folders : '—'}</strong>
+                          </div>
+                          <div>
+                            <span>{t('workspace.stats.docs')}</span>
+                            <strong>{summaryCounts ? summaryCounts.docs : '—'}</strong>
+                          </div>
+                          <div>
+                            <span>{t('workspace.stats.comments')}</span>
+                            <strong>{summaryCounts ? summaryCounts.comments : '—'}</strong>
+                          </div>
+                          <div>
+                            <span>{t('libraries.summary.assets')}</span>
+                            <strong>{summaryCounts ? summaryCounts.assets : '—'}</strong>
+                          </div>
+                          <div>
+                            <span>{t('libraries.summary.schema')}</span>
+                            <strong>
+                              {summaryForSelected?.schemaVersion != null
+                                ? summaryForSelected.schemaVersion
+                                : '—'}
+                            </strong>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="project-detail-actions">
+                      <Button
+                        className={`btn primary${busyKey === selected.path ? ' project-action-busy' : ''}`}
+                        disabled={
+                          busy || (!selected.current && (fixed || selected.status === 'in_use'))
+                        }
+                        aria-busy={busyKey === selected.path || undefined}
+                        onClick={() => openEntry(selected)}
+                      >
+                        {selected.current ? t('libraries.continue') : t('libraries.actions.openLibrary')}
+                      </Button>
+                      {caps.canReveal && (
+                        <Button className="btn" disabled={busy} onClick={() => void reveal(selected.id || undefined)}>
+                          <RevealFolder size={16} />
+                          {t('libraries.reveal')}
+                        </Button>
+                      )}
+                      {!fixed && selected.id && !selected.isExample && (
+                        <Button
+                          className="btn"
+                          disabled={busy}
+                          onClick={() => {
+                            setRenameId(selected.id);
+                            setRenameValue(selected.displayName);
+                          }}
+                        >
+                          {t('libraries.actions.rename')}
+                        </Button>
+                      )}
+                      {!fixed && selected.id && !selected.isExample && !selected.current && (
+                        <>
+                          <Button className="btn" disabled={busy} onClick={() => askRemoveEntry(selected)}>
+                            {t('libraries.actions.removeRecent')}
+                          </Button>
+                          <Button
+                            className="btn"
+                            disabled={busy || selected.status === 'in_use' || selected.status === 'missing'}
+                            onClick={() => askDeleteEntry(selected)}
+                          >
+                            {t('libraries.actions.deleteFolder')}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="library-manager-empty">{t('libraries.detail.empty')}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {panel === 'open' && browse && (
         <div className="library-picker">
@@ -450,7 +945,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                   void updatePreview(createName, browse.path);
                 } else if (relocateId) {
                   void (async () => {
-                    setBusy(true);
+                    beginBusy(relocateId);
                     try {
                       await libraryApi('/api/libraries/relocate', {
                         method: 'POST',
@@ -462,7 +957,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                     } catch (e) {
                       setError((e as Error).message);
                     } finally {
-                      setBusy(false);
+                      endBusy();
                     }
                   })();
                 } else void openPath(pathInput);
@@ -493,7 +988,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
               </button>
             ))}
           </nav>
-          {busy && <p>{t('common.loading')}</p>}
+          {busy && <BusyStatus label={t('libraries.working')} />}
           {!busy && browse.directories.length === 0 && (
             <p className="library-manager-empty">{t('libraries.picker.empty')}</p>
           )}
@@ -539,7 +1034,12 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
             </p>
           )}
           <div className="library-picker-toolbar">
-            <Button className="btn primary" disabled={busy || !createName.trim()} onClick={createLibrary}>
+            <Button
+              className={`btn primary${busyKey === 'create' ? ' project-action-busy' : ''}`}
+              disabled={busy || !createName.trim()}
+              aria-busy={busyKey === 'create' || undefined}
+              onClick={createLibrary}
+            >
               {t('libraries.actions.createConfirm')}
             </Button>
             <Button className="btn" disabled={busy} onClick={() => setPanel('home')}>
@@ -549,11 +1049,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         </div>
       )}
 
-      {busy && (
-        <p role="status" aria-live="polite">
-          {t('libraries.working')}
-        </p>
-      )}
+      {busy && panel === 'home' && <BusyStatus label={t('libraries.working')} />}
 
       {pendingEmpty && (
         <Dialog open onOpenChange={open => !open && setPendingEmpty(null)} title={t('libraries.empty.title')}>
@@ -575,17 +1071,77 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         </Dialog>
       )}
 
-      {missingOpen && <Dialog title={t('libraries.missing.title')} busy={busy} onOpenChange={setMissingOpen}>
-        <div className="modal missing-projects-dialog" data-ui-block-shortcuts="">
-          <div className="missing-projects-heading"><h2>{t('libraries.missing.title')} ({missing.length})</h2><Button className="icon" disabled={busy} aria-label={t('common.close')} onClick={() => setMissingOpen(false)}><X size={18}/></Button></div>
-          <p className="library-manager-note">{t('libraries.missing.blurb')}</p>
-          {(missingError || error) && <p role="alert" className="library-manager-error">{missingError || error}</p>}
-          <ul className="library-manager-list missing-projects-list">{missing.map(entry => renderEntry(entry, {missing: true}))}</ul>
-          {!missing.length && <p role="status">{t('libraries.missing.empty')}</p>}
-          <div className="missing-projects-footer"><Button className="btn" disabled={busy || !missing.length} onClick={() => setConfirmMissing(true)}>{t('libraries.missing.removeAll')}</Button></div>
-        </div>
-      </Dialog>}
-      {confirmMissing && <ConfirmDialog title={t('libraries.missing.removeAll')} busy={busy} danger onCancel={() => setConfirmMissing(false)} onConfirm={() => void removeAllMissing()} confirmLabel={t('libraries.missing.removeAll')}><p>{t('libraries.missing.confirm')}</p></ConfirmDialog>}
+      {missingOpen && (
+        <Dialog title={t('libraries.missing.title')} busy={busy} onOpenChange={setMissingOpen}>
+          <div className="modal missing-projects-dialog" data-ui-block-shortcuts="">
+            <div className="missing-projects-heading">
+              <h2>
+                {t('libraries.missing.title')} ({missing.length})
+              </h2>
+              <Button className="icon" disabled={busy} aria-label={t('common.close')} onClick={() => setMissingOpen(false)}>
+                <X size={18} />
+              </Button>
+            </div>
+            <p className="library-manager-note">{t('libraries.missing.blurb')}</p>
+            {(missingError || error) && (
+              <p role="alert" className="library-manager-error">
+                {missingError || error}
+              </p>
+            )}
+            <ul className="library-manager-list missing-projects-list">
+              {missing.map(entry => renderMissingEntry(entry))}
+            </ul>
+            {!missing.length && <p role="status">{t('libraries.missing.empty')}</p>}
+            <div className="missing-projects-footer">
+              <Button className="btn" disabled={busy || !missing.length} onClick={() => setConfirmMissing(true)}>
+                {t('libraries.missing.removeAll')}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+      {confirmMissing && (
+        <ConfirmDialog
+          title={t('libraries.missing.removeAll')}
+          busy={busy}
+          danger
+          onCancel={() => setConfirmMissing(false)}
+          onConfirm={() => void removeAllMissing()}
+          confirmLabel={t('libraries.missing.removeAll')}
+        >
+          <p>{t('libraries.missing.confirm')}</p>
+        </ConfirmDialog>
+      )}
+
+      {confirmAction && (
+        <ConfirmDialog
+          title={
+            confirmAction.kind === 'delete'
+              ? t('libraries.delete.title')
+              : t('libraries.remove.title')
+          }
+          busy={busy}
+          danger
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => void confirmPendingAction()}
+          confirmLabel={
+            confirmAction.kind === 'delete'
+              ? t('libraries.actions.deleteFolder')
+              : t('libraries.actions.removeRecent')
+          }
+        >
+          <p>
+            {confirmAction.kind === 'delete'
+              ? t('libraries.delete.confirm', {name: confirmAction.name, path: confirmAction.path})
+              : t('libraries.remove.confirm', {name: confirmAction.name})}
+          </p>
+          {confirmAction.kind === 'delete' && (
+            <p>
+              <code>{confirmAction.path}</code>
+            </p>
+          )}
+        </ConfirmDialog>
+      )}
 
       {renameId && (
         <Dialog open onOpenChange={open => !open && setRenameId(null)} title={t('libraries.actions.rename')}>

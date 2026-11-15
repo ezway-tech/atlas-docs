@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, writeFile, rm} from 'node:fs/promises';
+import {access, mkdtemp, mkdir, readFile, writeFile, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import {
@@ -12,9 +12,16 @@ import {
   defaultLibraryParentDir,
 } from '../../../app/src/library/user-registry.mjs';
 import {assertWithinAllowedRoots, resolveAllowedRoots} from '../../../app/src/library/fs-policy.mjs';
-import {createLibrary, inspectOpenTarget, previewCreateLibrary} from '../../../app/src/library/library-ops.mjs';
+import {
+  createLibrary,
+  deleteLibraryOnDisk,
+  inspectOpenTarget,
+  previewCreateLibrary,
+} from '../../../app/src/library/library-ops.mjs';
+import {summarizeLibraryProject} from '../../../app/src/library/summarize.mjs';
 import {writeProjectConfig, readProjectConfig} from '../../../app/src/library/project-config.mjs';
 import {initEmptyLibrary} from '../../../app/src/library/init.mjs';
+import {acquireLibraryLock} from '../../../app/src/library/lock.mjs';
 
 async function temp() {
   return mkdtemp(path.join(tmpdir(), 'atlas-registry-'));
@@ -94,6 +101,102 @@ test('project config stores absolute path for cross-drive style absolute targets
     assert.equal(raw.dataDir.startsWith('./') && /^[A-Za-z]:/.test(raw.dataDir.slice(2)), false);
     const read = await readProjectConfig(written.configPath);
     assert.equal(read.dataDir, path.resolve(absoluteLib));
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('deleteLibraryOnDisk removes folder and registry; guards current, example, locked, roots', async () => {
+  const root = await temp();
+  const env = {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'reg')};
+  const allowed = [root];
+  const parent = path.join(root, 'libs');
+  try {
+    await mkdir(parent, {recursive: true});
+    const doomed = await createLibrary({name: 'Doomed', parentDir: parent, allowedRoots: allowed, env});
+    await rememberSuccessfulOpen(doomed.root, {displayName: doomed.displayName, env});
+    let reg = await loadUserRegistry(env);
+    const doomedId = reg.libraries[0].id;
+
+    await deleteLibraryOnDisk({id: doomedId, allowedRoots: allowed, env});
+    reg = await loadUserRegistry(env);
+    assert.equal(reg.libraries.length, 0);
+    await assert.rejects(() => access(doomed.root), {code: 'ENOENT'});
+
+    const keep = await createLibrary({name: 'Keep', parentDir: parent, allowedRoots: allowed, env});
+    await rememberSuccessfulOpen(keep.root, {displayName: keep.displayName, env});
+    reg = await loadUserRegistry(env);
+    const keepId = reg.libraries.find(item => item.path === keep.root || item.displayName === 'Keep').id;
+
+    await assert.rejects(
+      () => deleteLibraryOnDisk({id: keepId, allowedRoots: allowed, currentRoot: keep.root, env}),
+      /open in this session|deleteCurrent/i,
+    );
+    await assert.rejects(
+      () => deleteLibraryOnDisk({id: keepId, allowedRoots: allowed, examplePath: keep.root, env}),
+      /Example|deleteExample/i,
+    );
+
+    const lock = await acquireLibraryLock(keep.root, 'test');
+    try {
+      await assert.rejects(
+        () => deleteLibraryOnDisk({id: keepId, allowedRoots: allowed, env}),
+        /in use|locked/i,
+      );
+    } finally {
+      await lock.release();
+    }
+
+    await assert.rejects(
+      () => deleteLibraryOnDisk({id: keepId, allowedRoots: [keep.root], env}),
+      /allowed storage root|deleteProtected/i,
+    );
+
+    await assert.rejects(
+      () => deleteLibraryOnDisk({id: 'missing-id', allowedRoots: allowed, env}),
+      /not in recent|registry.missing/i,
+    );
+
+    reg = await loadUserRegistry(env);
+    assert.equal(reg.libraries.some(item => item.id === keepId), true);
+    await access(keep.root);
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('summarizeLibraryProject counts docs tree and db arrays', async () => {
+  const root = await temp();
+  try {
+    const lib = path.join(root, 'counted');
+    await initEmptyLibrary(lib);
+    await mkdir(path.join(lib, 'docs', 'guide'), {recursive: true});
+    await mkdir(path.join(lib, 'docs', 'guide', 'nested'), {recursive: true});
+    await writeFile(
+      path.join(lib, 'docs', 'guide', 'note.md'),
+      '---\ntitle: Note\n---\n\n# Note\n',
+    );
+    await writeFile(path.join(lib, 'docs', 'guide', 'nested', 'deep.md'), '---\ntitle: Deep\n---\n\n# Deep\n');
+    const dbPath = path.join(lib, 'db.json');
+    const db = JSON.parse(await readFile(dbPath, 'utf8'));
+    db.comments = [{id: 'c1', docId: 'guide/note', content: 'hi'}];
+    db.assets = [{id: 'a1', storedName: 'pic.png', mimeType: 'image/png'}];
+    await writeFile(dbPath, JSON.stringify(db, null, 2));
+
+    const summary = await summarizeLibraryProject(lib);
+    assert.equal(summary.state, 'ready');
+    assert.equal(summary.schemaVersion, 1);
+    assert.deepEqual(summary.counts, {
+      docs: 2,
+      folders: 2,
+      topics: 1,
+      comments: 1,
+      assets: 1,
+    });
+
+    const missing = await summarizeLibraryProject(path.join(root, 'no-such'));
+    assert.equal(missing.state, 'missing');
+    assert.equal(missing.counts, null);
   } finally {
     await rm(root, {recursive: true, force: true});
   }

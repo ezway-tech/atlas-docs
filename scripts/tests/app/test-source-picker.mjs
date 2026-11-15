@@ -1,7 +1,7 @@
 import {browserOptions} from '../helpers/browser.mjs';
 import {appRequire, appRoot, repoRoot} from '../../dependencies.mjs';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, writeFile, readFile, rm} from 'node:fs/promises';
+import {access, mkdtemp, mkdir, writeFile, readFile, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
@@ -133,12 +133,13 @@ try {
   assert.equal(await manager.locator('.source-choices,.source-current').count(), 0);
   assert.equal(await manager.locator('.project-list li').first().getAttribute('data-example'), 'true');
   await page.screenshot({path: path.join(output, 'desktop.png')});
-  const bounds = await manager.boundingBox();
-  assert.ok(bounds.width <= 800);
-  const cardBounds=await page.locator('.projects-layout').boundingBox();
-  assert.ok(cardBounds.width<=800);
-  assert.ok(Math.abs(cardBounds.y+cardBounds.height/2-450)<3);
-  assert.ok(Math.abs(bounds.x + bounds.width / 2 - 720) < 3);
+  const layoutBounds=await page.locator('.projects-layout').boundingBox();
+  assert.ok(layoutBounds.width>=900,'Projects content uses a wide layout on desktop');
+  assert.ok(layoutBounds.y>=0,'Projects content starts below the page header');
+  assert.ok(await page.locator('.projects-page > .topbar').count(),'Projects page uses the shared top bar');
+  assert.ok(await page.locator('.projects-split').count(),'Projects uses master-detail split');
+  assert.ok(await page.locator('.project-detail').count(),'Projects shows a detail panel');
+  assert.ok(await page.getByRole('searchbox',{name:'Search projects'}).count(),'Projects list has search');
   assert.equal(await page.locator('.app-shell,.sidebar,.ui-dialog-overlay').count(),0);
   assert.equal(contentRequests.length,0,'project page must not load document data');
   assert.ok(page.url().endsWith('/projects'));
@@ -156,8 +157,8 @@ try {
     const original=list.firstElementChild;
     for(let i=0;i<15;i++){
       const row=original.cloneNode(true);row.dataset.layoutFixture='true';
-      row.querySelector('strong').textContent='Long project name '.repeat(6);
-      row.querySelector('code').textContent='C:/very-long-project-location/'.repeat(12);
+      const title=row.querySelector('strong');
+      if(title)title.textContent='Long project name '.repeat(6);
       list.append(row);
     }
   });
@@ -179,15 +180,16 @@ try {
   assert.ok(await manager.isVisible());
   assert.equal(await manager.locator('[role=alert]').count(), 0);
 
-  // Example is registered at startup — open it from the project list.
-  await manager.locator('.library-manager-list li').filter({hasText: 'Example'}).getByRole('button', {name: 'Example', exact: true}).click();
+  // Example is registered at startup — select it, then open from the detail panel.
+  await manager.locator('.project-list li').filter({hasText: 'Example'}).getByRole('button').first().click();
+  await manager.locator('.project-detail').getByRole('button', {name: 'Open', exact: true}).click();
   await page.waitForSelector('.source-switcher', {timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
   assert.equal(await manager.count(), 0, 'successful switch skips the project manager on load');
   const demoSession = await (await fetch(origin + '/api/libraries/session')).json();
   assert.equal(demoSession.displayName, 'Example');
 
   if (process.env.ATLAS_SOURCE_TEST_DEV) {
-    console.log('PASS: development launcher, centered manager and Example switch');
+    console.log('PASS: development launcher, Projects page layout and Example switch');
   } else {
     await writeFile(path.join(demoSession.libraryRoot, 'docs', 'keep.txt'), 'example edit');
     await page.reload();
@@ -312,7 +314,8 @@ try {
     const runtimeBeforeEnter=(await (await fetch(origin+'/api/libraries/session')).json()).runtimeId;
     const revealed = await api('/api/libraries/reveal', {});
     assert.equal(revealed.status, 200);
-    await manager.locator('.current .project-name').click();
+    await manager.locator('.current .project-list-select').click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Continue reading', exact: true}).click();
     await page.waitForSelector('.source-switcher');
     assert.equal(await manager.count(), 0);
     assert.equal((await (await fetch(origin+'/api/libraries/session')).json()).runtimeId,runtimeBeforeEnter,'entering current project does not restart runtime');
@@ -324,7 +327,8 @@ try {
     await page.locator('.source-switcher').focus();
     await page.keyboard.press('Enter');
     await manager.waitFor();
-    await manager.locator('.library-manager-list li').filter({hasText: 'Example'}).getByRole('button', {name: 'Example', exact: true}).click();
+    await manager.locator('.project-list li').filter({hasText: 'Example'}).getByRole('button').first().click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Open', exact: true}).click();
     const exampleAgain = await waitSession(next => next.displayName === 'Example');
     assert.equal(exampleAgain.libraryRoot, demoSession.libraryRoot);
     Object.assign(demoSession, exampleAgain);
@@ -383,7 +387,7 @@ try {
     await page.setViewportSize({width:390,height:844});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await missingDialog.locator('li').last().scrollIntoViewIfNeeded();
-    const headingBounds=await missingDialog.locator('h2').boundingBox();
+    const headingBounds=await missingDialog.locator('h2').filter({hasText: 'Missing locations ('}).boundingBox();
     assert.ok(headingBounds.y>=0 && headingBounds.y<844);
     await page.screenshot({path:path.join(output,'missing-dialog-mobile.png')});
     await page.setViewportSize({width:1440,height:900});
@@ -405,6 +409,55 @@ try {
     await missingDialog.getByRole('button',{name:'Close',exact:true}).click();
     assert.equal(await manager.locator('.project-missing-summary').count(),0);
 
+    // Selected project detail loads lightweight counts.
+    await manager.locator('.project-list li').filter({hasText: 'ready-project'}).getByRole('button').first().click();
+    const stats = manager.locator('.project-detail-stats');
+    await stats.waitFor({timeout: 30_000});
+    const statsText = await stats.innerText();
+    assert.match(statsText, /Documents/i);
+    assert.match(statsText, /Topics/i);
+    assert.match(statsText, /1/);
+    const summaryApi = await api('/api/libraries/summary', {path: readyProject});
+    assert.equal(summaryApi.status, 200, await summaryApi.clone().text());
+    const summaryBody = await summaryApi.json();
+    assert.equal(summaryBody.counts.docs, 1);
+    assert.equal(summaryBody.counts.topics, 1);
+    assert.equal(summaryBody.counts.folders, 1);
+
+    // Remove from list and Delete project folder both require confirmation.
+    const removable = path.join(root, 'removable-project');
+    const deletable = path.join(root, 'deletable-project');
+    await initEmptyLibrary(removable);
+    await initEmptyLibrary(deletable);
+    await ensureRegistered(removable, {displayName: 'Removable', env});
+    await ensureRegistered(deletable, {displayName: 'Deletable', env});
+    await page.reload();
+    await gotoApp(page);
+    await manager.waitFor();
+    await manager.locator('.project-list li').filter({hasText: 'Removable'}).waitFor({timeout: 30_000});
+    await manager.locator('.project-list li').filter({hasText: 'Deletable'}).waitFor({timeout: 30_000});
+    await manager.locator('.project-list li').filter({hasText: 'Removable'}).getByRole('button').first().click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Remove from list', exact: true}).click();
+    const removeConfirm = page.getByRole('dialog', {name: 'Remove from list', exact: true});
+    await removeConfirm.waitFor();
+    await removeConfirm.getByRole('button', {name: 'Cancel', exact: true}).click();
+    assert.equal(await manager.locator('.project-list li').filter({hasText: 'Removable'}).count(), 1);
+    await manager.locator('.project-detail').getByRole('button', {name: 'Remove from list', exact: true}).click();
+    await removeConfirm.getByRole('button', {name: 'Remove from list', exact: true}).click();
+    await manager.locator('.project-list li').filter({hasText: 'Removable'}).waitFor({state: 'detached'});
+    assert.ok(await readFile(path.join(removable, 'db.json'), 'utf8'));
+
+    await manager.locator('.project-list li').filter({hasText: 'Deletable'}).getByRole('button').first().click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Delete project folder', exact: true}).click();
+    const deleteConfirm = page.getByRole('dialog', {name: 'Delete project folder', exact: true});
+    await deleteConfirm.waitFor();
+    await deleteConfirm.getByRole('button', {name: 'Cancel', exact: true}).click();
+    assert.ok(await readFile(path.join(deletable, 'db.json'), 'utf8'));
+    await manager.locator('.project-detail').getByRole('button', {name: 'Delete project folder', exact: true}).click();
+    await deleteConfirm.getByRole('button', {name: 'Delete project folder', exact: true}).click();
+    await manager.locator('.project-list li').filter({hasText: 'Deletable'}).waitFor({state: 'detached'});
+    await assert.rejects(() => access(deletable), {code: 'ENOENT'});
+
     await stop();
     launch({DATA_DIR: readyProject, ATLAS_LOCAL_DESKTOP: '0', ATLAS_LIBRARY_MODE: 'fixed'});
     await ready();
@@ -418,12 +471,13 @@ try {
     await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
     await page.getByRole('menuitem', {name: 'Copy path', exact: true}).waitFor();
     await page.keyboard.press('Escape');
-    await manager.locator('.current .project-name').click();
+    await manager.locator('.current .project-list-select').click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Continue reading', exact: true}).click();
     await page.waitForSelector('.source-switcher');
     assert.equal(await manager.count(), 0);
 
     console.log(
-      'PASS: project manager, Example, reload, open/create empty, invalid folder, cancel pick, missing list, draft, reveal, keyboard, fixed mode',
+      'PASS: project manager, Example, reload, open/create empty, invalid folder, cancel pick, missing list, remove/delete confirm, draft, reveal, keyboard, fixed mode',
     );
   }
 } catch (error) {

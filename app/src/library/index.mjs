@@ -10,6 +10,7 @@ export {
   readSchemaVersion,
 } from './schema.mjs';
 export {inspectLibrary, assertOpenable} from './inspect.mjs';
+export {countDocsTree, summarizeLibraryProject} from './summarize.mjs';
 export {resolveLibraryPath, resolveAppDataRoot} from './resolve.mjs';
 export {findProjectConfig, readProjectConfig, writeProjectConfig} from './project-config.mjs';
 export {acquireLibraryLock, readLibraryLock, isLockStale, pidAlive} from './lock.mjs';
@@ -61,6 +62,7 @@ export {
   assertWithinAllowedRoots,
   listBrowsableDir,
   listAllowedRootInfos,
+  isDriveRoot,
 } from './fs-policy.mjs';
 export {
   slugifyLibraryName,
@@ -70,6 +72,7 @@ export {
   inspectOpenTarget,
   initializeEmptyProject,
   uniqueDemoPath,
+  deleteLibraryOnDisk,
 } from './library-ops.mjs';
 export {resolveManagerInitialLibrary, applyLibraryDataDir} from './manager-env.mjs';
 export {previewFolderImport, importFolderCopy} from './folder-import.mjs';

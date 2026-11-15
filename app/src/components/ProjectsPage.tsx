@@ -1,15 +1,85 @@
 'use client';
-import {useEffect,useState} from 'react';
+
+import {useEffect, useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {BookOpen} from 'lucide-react';
-import {loadAtlasSession,type AtlasSession} from '@/lib/atlas-client';
+import {loadAtlasSession, type AtlasSession} from '@/lib/atlas-client';
+import {applyUiTheme, readUiTheme, writeUiTheme} from '@/lib/ui-theme';
 import LibraryManager from './LibraryManager';
-import {useT} from './LocaleProvider';
-export default function ProjectsPage(){
- const t=useT(),router=useRouter();const [session,setSession]=useState<AtlasSession|null>(null),[error,setError]=useState('');
- useEffect(()=>{let cancelled=false;loadAtlasSession(true).then(s=>{if(!cancelled)setSession(s);}).catch(e=>{if(!cancelled)setError(e.message);});return()=>{cancelled=true;};},[]);
- const enter=()=>{if(!session?.libraryRoot)return;sessionStorage.setItem('atlas-recovery-accepted',session.runtimeId);router.push('/workspace');};
- return <main className="projects-page"><div className="projects-layout"><div className="projects-brand"><span className="projects-brand-icon"><BookOpen size={24}/></span><strong>Atlas Docs</strong></div>
- {error?<p role="alert">{error}</p>:session?<LibraryManager embedded session={session} onEnterCurrent={enter}/>:<p role="status">{t('common.loading')}</p>}
- </div></main>;
+import HelpMenu from './HelpMenu';
+import WorkspaceLoading from './WorkspaceLoading';
+import AppHeader from './AppHeader';
+import AppBrand from './AppBrand';
+import LocaleMenu from './LocaleMenu';
+import ThemeToggle from './ThemeToggle';
+
+export default function ProjectsPage() {
+  const router = useRouter();
+  const [session, setSession] = useState<AtlasSession | null>(null);
+  const [error, setError] = useState('');
+  const [dark, setDark] = useState(false);
+  const [themeReady, setThemeReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadAtlasSession(true)
+      .then(s => {
+        if (!cancelled) setSession(s);
+      })
+      .catch(e => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      const nextDark = await readUiTheme({useSettings: !!session.libraryRoot});
+      if (cancelled) return;
+      setDark(applyUiTheme(nextDark));
+      setThemeReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    void writeUiTheme(next, {persistSettings: !!session?.libraryRoot});
+  };
+
+  const enter = () => {
+    if (!session?.libraryRoot) return;
+    sessionStorage.setItem('atlas-recovery-accepted', session.runtimeId);
+    router.push('/workspace');
+  };
+
+  if (!session && !error) return <WorkspaceLoading />;
+
+  return (
+    <div className="projects-page">
+      <AppHeader
+        lead={<AppBrand />}
+        trail={
+          <>
+            <LocaleMenu />
+            <ThemeToggle dark={dark} onToggle={toggleTheme} disabled={!themeReady && !!session} />
+            <HelpMenu dirty={false} />
+          </>
+        }
+      />
+      <main className="projects-layout projects-enter">
+        {error ? (
+          <p role="alert">{error}</p>
+        ) : session ? (
+          <LibraryManager embedded session={session} onEnterCurrent={enter} />
+        ) : null}
+      </main>
+    </div>
+  );
 }

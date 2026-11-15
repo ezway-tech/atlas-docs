@@ -48,7 +48,8 @@ export function resolveAllowedRoots(env = process.env, platform = process.platfo
   return [...roots];
 }
 
-function isDriveRoot(target, platform = process.platform) {
+/** True when target is a filesystem drive/volume root (never safe to delete as a project). */
+export function isDriveRoot(target, platform = process.platform) {
   if (platform !== 'win32') return target === path.parse(target).root;
   const parsed = path.win32.parse(target);
   return parsed.root === target || parsed.root.replace(/\\/g, '/') === target.replace(/\\/g, '/');
