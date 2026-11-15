@@ -82,6 +82,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   const {t, lowerText, formatDateTime} = useLocale();
   const titleId = useId();
   const searchId = useId();
+  const missingSearchId = useId();
   const [caps, setCaps] = useState<Caps | null>(null);
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [missingOpen, setMissingOpen] = useState(false);
@@ -111,6 +112,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [query, setQuery] = useState('');
+  const [missingQuery, setMissingQuery] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
@@ -431,6 +433,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         setMissingError((e as Error).message);
       }
       setConfirmMissing(false);
+      setMissingQuery('');
       endBusy();
     }
   }
@@ -463,6 +466,19 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       return lowerText(name).includes(needle) || lowerText(entry.path).includes(needle);
     });
   }, [projects, query, lowerText]);
+
+  const filteredMissing = useMemo(() => {
+    const needle = lowerText(missingQuery.trim());
+    if (!needle) return missing;
+    return missing.filter(
+      entry => lowerText(entry.displayName).includes(needle) || lowerText(entry.path).includes(needle),
+    );
+  }, [missing, missingQuery, lowerText]);
+
+  function closeMissingDialog() {
+    setMissingOpen(false);
+    setMissingQuery('');
+  }
 
   useEffect(() => {
     if (!filteredProjects.length) {
@@ -565,7 +581,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         >
           <MenuItem
             onSelect={() => {
-              setMissingOpen(false);
+              closeMissingDialog();
               void beginRelocate(entry.id);
             }}
           >
@@ -1072,13 +1088,21 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       )}
 
       {missingOpen && (
-        <Dialog title={t('libraries.missing.title')} busy={busy} onOpenChange={setMissingOpen}>
+        <Dialog
+          title={t('libraries.missing.title')}
+          busy={busy}
+          overlayClassName="missing-projects-backdrop"
+          onOpenChange={open => {
+            if (!open) closeMissingDialog();
+            else setMissingOpen(true);
+          }}
+        >
           <div className="modal missing-projects-dialog" data-ui-block-shortcuts="">
             <div className="missing-projects-heading">
               <h2>
                 {t('libraries.missing.title')} ({missing.length})
               </h2>
-              <Button className="icon" disabled={busy} aria-label={t('common.close')} onClick={() => setMissingOpen(false)}>
+              <Button className="icon" disabled={busy} aria-label={t('common.close')} onClick={closeMissingDialog}>
                 <X size={18} />
               </Button>
             </div>
@@ -1088,10 +1112,27 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                 {missingError || error}
               </p>
             )}
+            {missing.length > 0 && (
+              <label className="project-search" htmlFor={missingSearchId}>
+                <Search size={16} aria-hidden="true" />
+                <Input
+                  id={missingSearchId}
+                  type="search"
+                  value={missingQuery}
+                  onChange={e => setMissingQuery(e.target.value)}
+                  placeholder={t('libraries.missing.searchPlaceholder')}
+                  aria-label={t('libraries.missing.search')}
+                  disabled={busy}
+                />
+              </label>
+            )}
             <ul className="library-manager-list missing-projects-list">
-              {missing.map(entry => renderMissingEntry(entry))}
+              {filteredMissing.map(entry => renderMissingEntry(entry))}
             </ul>
             {!missing.length && <p role="status">{t('libraries.missing.empty')}</p>}
+            {!!missing.length && !filteredMissing.length && (
+              <p role="status">{t('libraries.missing.noMatches')}</p>
+            )}
             <div className="missing-projects-footer">
               <Button className="btn" disabled={busy || !missing.length} onClick={() => setConfirmMissing(true)}>
                 {t('libraries.missing.removeAll')}

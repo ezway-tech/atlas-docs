@@ -174,13 +174,18 @@
 }
 
 .project-missing-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;border-top:1px solid var(--line);padding-top:12px;color:var(--muted);font-size:12px}
-.missing-projects-dialog{width:min(640px,calc(100vw - 32px));max-height:calc(100dvh - 48px);display:flex;flex-direction:column;overflow:hidden;padding:24px;gap:12px}
+.ui-dialog-overlay.missing-projects-backdrop{align-items:center;justify-content:center;padding:24px;overflow:hidden}
+.ui-dialog-overlay.missing-projects-backdrop>.missing-projects-dialog{width:min(1100px,calc(100vw - 48px));max-width:calc(100vw - 48px);max-height:calc(100dvh - 48px);height:auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:24px;gap:12px}
 .missing-projects-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
 .missing-projects-heading h2{margin:0;font-size:20px}
 .missing-projects-dialog>.library-manager-note{margin:0;flex-shrink:0}
-.missing-projects-dialog .missing-projects-list{overflow-y:auto;min-height:0;margin:0;overscroll-behavior:contain}
+.missing-projects-dialog .project-search{margin:0;flex-shrink:0;flex-direction:row;align-items:center;min-height:40px}
+.missing-projects-dialog .project-search .ui-input{flex:1;width:auto;min-width:0}
+.missing-projects-dialog .missing-projects-list{flex:0 1 auto;overflow-y:auto;min-height:0;max-height:min(56dvh,560px);margin:0;overscroll-behavior:contain}
 .missing-projects-dialog .missing-projects-list>li{display:flex;flex-direction:row;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.missing-projects-dialog .missing-projects-list>li:last-child{border-bottom:0}
+.missing-projects-dialog .project-row-main{min-width:0;flex:1}
 .missing-projects-dialog .project-name{padding:0;min-height:24px;opacity:1;color:var(--ink)}
-.missing-projects-dialog .project-row-main code{display:block;margin-top:4px;max-width:100%;color:var(--muted)}
-.missing-projects-footer{flex-shrink:0;border-top:1px solid var(--line);padding-top:12px}
-@media(max-width:600px){.missing-projects-dialog{padding:18px;max-height:calc(100dvh - 24px)}.missing-projects-heading h2{font-size:18px}}
+.missing-projects-dialog .project-row-main code{display:block;margin-top:4px;max-width:100%;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.missing-projects-footer{flex-shrink:0;border-top:1px solid var(--line);padding-top:12px;margin-top:0}
+@media(max-width:600px){.ui-dialog-overlay.missing-projects-backdrop{padding:12px}.ui-dialog-overlay.missing-projects-backdrop>.missing-projects-dialog{width:calc(100vw - 24px);max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:18px}.missing-projects-heading h2{font-size:18px}.missing-projects-dialog .missing-projects-list{max-height:min(50dvh,420px)}}

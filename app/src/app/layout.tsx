@@ -22,7 +22,11 @@ async function readLocale():Promise<Locale>{
 
 export async function generateMetadata():Promise<Metadata>{
  const locale=await readLocale();
- return {title:'Atlas Docs',description:translate(locale,'meta.description')};
+ return {
+  title:'Atlas Docs',
+  description:translate(locale,'meta.description'),
+  icons:{icon:[{url:'/favicon.svg',type:'image/svg+xml'}]},
+ };
 }
 
 export default async function RootLayout({children}:{children:React.ReactNode}){
