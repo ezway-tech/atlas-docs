@@ -834,6 +834,7 @@ const messages:Messages={
  "libraries.actions.demo":"Open Example",
  "libraries.actions.openLibrary":"Open project",
  "libraries.actions.openProjects":"Projects",
+ "libraries.switcher.open":"Open Projects · {name}",
  "libraries.actions.createConfirm":"Create project",
  "libraries.actions.rename":"Rename display name",
  "libraries.actions.removeRecent":"Remove from list",

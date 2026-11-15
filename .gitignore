@@ -15,6 +15,7 @@ app/.next/
 app/.next-*/
 app/out/
 app/test-results/
+/test-results/
 app/playwright-report/
 
 # Generated from guides/ for bundled Help

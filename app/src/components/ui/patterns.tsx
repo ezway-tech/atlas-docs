@@ -1,12 +1,13 @@
 'use client';
 import React,{useState,useRef} from 'react';
 import {DropdownMenu as Menu,Collapsible as Collapse,Tabs as RTabs,ToggleGroup as RToggle,Toast as RToast} from 'radix-ui';
-import {ChevronDown} from 'lucide-react';
+import {ChevronDown,ChevronRight} from 'lucide-react';
 import {cx} from './controls';
 import {useT} from '../LocaleProvider';
 export function DropdownMenu({trigger,children,open,onOpenChange,align='center'}:{trigger:React.ReactElement;children:React.ReactNode;open?:boolean;onOpenChange?:(v:boolean)=>void;align?:'start'|'center'|'end'}){return <Menu.Root open={open} onOpenChange={onOpenChange}><Menu.Trigger asChild>{trigger}</Menu.Trigger><Menu.Portal><Menu.Content className="ui-menu" data-ui-popup="" sideOffset={5} collisionPadding={12} align={align}>{children}</Menu.Content></Menu.Portal></Menu.Root>;}
 export function MenuItem({children,onSelect,disabled=false}:{children:React.ReactNode;onSelect?:()=>void;disabled?:boolean}){return <Menu.Item className="ui-menu-item" disabled={disabled} onSelect={onSelect}>{children}</Menu.Item>;}
 export function MenuSeparator(){return <Menu.Separator className="ui-menu-separator"/>;}
+export function MenuSub({trigger,children}:{trigger:React.ReactNode;children:React.ReactNode}){return <Menu.Sub><Menu.SubTrigger className="ui-menu-item ui-menu-sub-trigger">{trigger}<ChevronRight size={14}/></Menu.SubTrigger><Menu.Portal><Menu.SubContent className="ui-menu" data-ui-popup="" sideOffset={4} collisionPadding={12}>{children}</Menu.SubContent></Menu.Portal></Menu.Sub>;}
 export function MenuLink({href,children}:{href:string;children:React.ReactNode}){return <Menu.Item asChild className="ui-menu-item"><a href={href} target="_blank" rel="noopener noreferrer">{children}</a></Menu.Item>;}
 // A controlled menu at a pointer position also supports the tree's ellipsis button.
 export function ContextMenu({x,y,children,onClose,label}:{x:number;y:number;children:React.ReactNode;onClose:()=>void;label:string}){const previous=useRef<HTMLElement|null>(typeof document==='undefined'?null:document.activeElement as HTMLElement);return <Menu.Root open onOpenChange={v=>{if(!v)onClose();}}><Menu.Trigger style={{position:'fixed',left:x,top:y,width:1,height:1,opacity:0,pointerEvents:'none'}} aria-label={label}/><Menu.Portal><Menu.Content className="ui-menu" data-ui-popup="" align="start" collisionPadding={10} onCloseAutoFocus={e=>{e.preventDefault();if(previous.current?.isConnected)previous.current.focus();}}>{children}</Menu.Content></Menu.Portal></Menu.Root>;}

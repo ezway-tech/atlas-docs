@@ -9,8 +9,7 @@ import HelpMenu from './HelpMenu';
 import WorkspaceLoading from './WorkspaceLoading';
 import AppHeader from './AppHeader';
 import AppBrand from './AppBrand';
-import LocaleMenu from './LocaleMenu';
-import ThemeToggle from './ThemeToggle';
+import LibraryTools from './LibraryTools';
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -67,9 +66,12 @@ export default function ProjectsPage() {
         lead={<AppBrand />}
         trail={
           <>
-            <LocaleMenu />
-            <ThemeToggle dark={dark} onToggle={toggleTheme} disabled={!themeReady && !!session} />
             <HelpMenu dirty={false} />
+            <LibraryTools
+              dark={dark}
+              onToggleTheme={toggleTheme}
+              themeDisabled={!themeReady && !!session}
+            />
           </>
         }
       />

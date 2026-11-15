@@ -2,7 +2,7 @@
 
 [Documentation home](../README.md) · [User guide](user-guide.md) · [Agent guide](agent-guide.md)
 
-Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one from the **Language** control in the top bar. Guides use English names for features; on-screen labels follow the selected language.
+Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one from **Utilities → Language**. Guides use English names for features; on-screen labels follow the selected language.
 ## Install and run
 
 For the npm/npx distribution, use [Atlas Docs with npm](npm.md). The commands and default

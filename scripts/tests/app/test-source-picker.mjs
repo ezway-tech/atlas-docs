@@ -195,7 +195,7 @@ try {
     await page.reload();
     await page.waitForSelector('.source-switcher');
     assert.equal(await manager.count(), 0, 'reload must not reopen the project manager');
-    assert.equal(await page.locator('.source-switcher').innerText(), 'Example');
+    assert.match((await page.locator('.source-switcher').innerText()).replace(/\s+/g, ' ').trim(), /^Project\s*·\s*Example$/);
     assert.equal(await readFile(path.join(demoSession.libraryRoot, 'docs', 'keep.txt'), 'utf8'), 'example edit');
     // Switch to another project via API to mint a new runtime; previous session headers must 409.
     const staleSession = {...demoSession};

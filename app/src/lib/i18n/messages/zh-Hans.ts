@@ -834,6 +834,7 @@ const messages:Messages={
  "libraries.actions.demo":"打开 Example",
  "libraries.actions.openLibrary":"打开项目",
  "libraries.actions.openProjects":"项目",
+ "libraries.switcher.open":"打开项目 · {name}",
  "libraries.actions.createConfirm":"创建项目",
  "libraries.actions.rename":"重命名显示名称",
  "libraries.actions.removeRecent":"从列表中移除",

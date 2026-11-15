@@ -15,6 +15,7 @@ app/.next-*
 app/out
 app/build
 app/test-results
+test-results
 app/playwright-report
 app/src/generated/help.json
 app/public/help-assets

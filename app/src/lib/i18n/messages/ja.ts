@@ -834,6 +834,7 @@ const messages:Messages={
  "libraries.actions.demo":"Example を開く",
  "libraries.actions.openLibrary":"プロジェクトを開く",
  "libraries.actions.openProjects":"プロジェクト",
+ "libraries.switcher.open":"プロジェクトを開く · {name}",
  "libraries.actions.createConfirm":"プロジェクトを作成",
  "libraries.actions.rename":"表示名を変更",
  "libraries.actions.removeRecent":"一覧から外す",

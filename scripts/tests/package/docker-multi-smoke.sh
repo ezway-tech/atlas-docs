@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
-REPO=/mnt/c/Users/ADMIN/Desktop/workspace/projects/atlas-docs
-SMOKE=$REPO/test-results/docker-multi-smoke
-cd "$SMOKE"
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+export ATLAS_REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
+export SMOKE_DIR=$ATLAS_REPO_ROOT/test-results/docker-multi-smoke
+COMPOSE_FILE=$SCRIPT_DIR/docker-compose.multi-smoke.yml
 
-docker compose -f docker-compose.smoke.yml down >/dev/null 2>&1 || true
-docker compose -f docker-compose.smoke.yml up -d
+mkdir -p "$SMOKE_DIR/libraries" "$SMOKE_DIR/atlas-registry" "$SMOKE_DIR/upgrade-backups"
+cd "$SCRIPT_DIR"
+
+docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1 || true
+docker compose -f "$COMPOSE_FILE" up -d --build
 
 wait_ready() {
   local want="${1:-}"
@@ -27,7 +31,7 @@ echo "=== wait manager ==="
 wait_ready '"mode":"manager"'
 
 echo "=== /data before create ==="
-docker compose -f docker-compose.smoke.yml exec -T atlas-docs sh -c 'ls -la /data; test ! -f /data/db.json && echo NO_DATA_DB'
+docker compose -f "$COMPOSE_FILE" exec -T atlas-docs sh -c 'ls -la /data; test ! -f /data/db.json && echo NO_DATA_DB'
 
 SESSION=$(curl -sf http://127.0.0.1:17440/api/libraries/session)
 echo "SESSION=$SESSION"
@@ -52,20 +56,20 @@ echo "=== wait library mode ==="
 wait_ready '"mode":"library"'
 
 echo "=== host libraries ==="
-ls -la "$SMOKE/libraries"
+ls -la "$SMOKE_DIR/libraries"
 
 echo "=== /data after create ==="
-docker compose -f docker-compose.smoke.yml exec -T atlas-docs sh -c 'ls -la /data; test ! -f /data/db.json && echo NO_DATA_DB'
+docker compose -f "$COMPOSE_FILE" exec -T atlas-docs sh -c 'ls -la /data; test ! -f /data/db.json && echo NO_DATA_DB'
 
 echo "=== recreate ==="
-docker compose -f docker-compose.smoke.yml up -d --force-recreate
+docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 wait_ready '"ok":true'
 
 echo "=== after recreate ==="
-ls -la "$SMOKE/libraries"
-ls -la "$SMOKE/atlas-registry" || true
+ls -la "$SMOKE_DIR/libraries"
+ls -la "$SMOKE_DIR/atlas-registry" || true
 READY=$(cat /tmp/atlas-ready.json)
 echo "READY=$READY"
 
-docker compose -f docker-compose.smoke.yml down
+docker compose -f "$COMPOSE_FILE" down
 echo SMOKE_OK

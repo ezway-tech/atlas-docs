@@ -834,6 +834,7 @@ const messages:Messages={
  "libraries.actions.demo":"Mở Example",
  "libraries.actions.openLibrary":"Mở dự án",
  "libraries.actions.openProjects":"Dự án",
+ "libraries.switcher.open":"Mở Dự án · {name}",
  "libraries.actions.createConfirm":"Tạo dự án",
  "libraries.actions.rename":"Đổi tên hiển thị",
  "libraries.actions.removeRecent":"Bỏ khỏi danh sách",
