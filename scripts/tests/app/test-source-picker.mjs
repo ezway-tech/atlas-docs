@@ -309,13 +309,13 @@ try {
     await discard.getByRole('button', {name: 'Discard changes', exact: true}).click();
     await manager.waitFor();
     await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
-    await page.getByRole('menuitem', {name: 'Open folder', exact: true}).waitFor();
+    await page.getByRole('menuitem', {name: 'Open in Explorer', exact: true}).waitFor();
     await page.keyboard.press('Escape');
     const runtimeBeforeEnter=(await (await fetch(origin+'/api/libraries/session')).json()).runtimeId;
     const revealed = await api('/api/libraries/reveal', {});
     assert.equal(revealed.status, 200);
     await manager.locator('.current .project-list-select').click();
-    await manager.locator('.project-detail').getByRole('button', {name: 'Continue reading', exact: true}).click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Open project', exact: true}).click();
     await page.waitForSelector('.source-switcher');
     assert.equal(await manager.count(), 0);
     assert.equal((await (await fetch(origin+'/api/libraries/session')).json()).runtimeId,runtimeBeforeEnter,'entering current project does not restart runtime');
@@ -467,12 +467,12 @@ try {
     await page.locator('.source-switcher').click();
     await manager.waitFor();
     assert.equal(await manager.locator('.source-choice').count(), 0, 'fixed mode shows no project choices');
-    assert.equal(await manager.getByRole('button', {name: 'Open folder', exact: true}).count(), 0);
+    assert.equal(await manager.getByRole('button', {name: 'Open in Explorer', exact: true}).count(), 0);
     await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
     await page.getByRole('menuitem', {name: 'Copy path', exact: true}).waitFor();
     await page.keyboard.press('Escape');
     await manager.locator('.current .project-list-select').click();
-    await manager.locator('.project-detail').getByRole('button', {name: 'Continue reading', exact: true}).click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Open project', exact: true}).click();
     await page.waitForSelector('.source-switcher');
     assert.equal(await manager.count(), 0);
 
