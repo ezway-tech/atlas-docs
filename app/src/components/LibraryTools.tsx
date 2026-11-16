@@ -1,32 +1,50 @@
 'use client';
 
+import type {ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
-import {Archive, ChevronDown, Globe, HardDrive, Keyboard, Moon, Paperclip, Sun, Wrench} from 'lucide-react';
+import {
+  Archive,
+  ChevronDown,
+  Globe,
+  HardDrive,
+  Keyboard,
+  Moon,
+  Paperclip,
+  Sun,
+  Wrench,
+} from 'lucide-react';
 import {LOCALES, LOCALE_LABELS, type Locale} from '@/lib/i18n/locales';
 import {Button} from './ui/controls';
 import {DropdownMenu, MenuItem, MenuSeparator, MenuSub} from './ui/patterns';
 import {useLocale} from './LocaleProvider';
+import {HelpMenuChrome} from './HelpMenu';
 
 export default function LibraryTools({
   onBackup,
   onStorage,
   onKeymap,
+  includeChrome = false,
   dark,
   onToggleTheme,
   themeDisabled,
+  dirty = false,
 }: {
   onBackup?: () => void;
   onStorage?: () => void;
   onKeymap?: () => void;
+  /** When true, help also lives in this menu (compact header hides the Help button). */
+  includeChrome?: boolean;
   dark: boolean;
   onToggleTheme: () => void;
   themeDisabled?: boolean;
+  dirty?: boolean;
 }) {
   const router = useRouter();
   const {t, locale, setLocale} = useLocale();
   const themeLabel = dark ? t('utilities.menu.themeLight') : t('utilities.menu.themeDark');
   const workspaceTools = !!(onBackup && onStorage && onKeymap);
-  return (
+
+  const menu = (helpItems: ReactNode = null) => (
     <DropdownMenu
       align="end"
       trigger={
@@ -52,8 +70,10 @@ export default function LibraryTools({
           <MenuItem onSelect={onKeymap}>
             <Keyboard size={16} /> {t('utilities.menu.keymap')}
           </MenuItem>
+          <MenuSeparator />
         </>
       )}
+      {helpItems}
       <MenuSub
         trigger={
           <>
@@ -74,5 +94,13 @@ export default function LibraryTools({
         {dark ? <Sun size={16} /> : <Moon size={16} />} {themeLabel}
       </MenuItem>
     </DropdownMenu>
+  );
+
+  if (!includeChrome) return menu();
+
+  return (
+    <HelpMenuChrome dirty={dirty}>
+      {(items) => menu(<>{items}<MenuSeparator /></>)}
+    </HelpMenuChrome>
   );
 }

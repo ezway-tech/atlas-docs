@@ -16,8 +16,8 @@ export default function AppHeader({
 }) {
   return (
     <header className={['topbar', className].filter(Boolean).join(' ')}>
-      {lead}
-      {center}
+      {lead ? <div className="topbar-lead">{lead}</div> : null}
+      {center ? <div className="topbar-center">{center}</div> : null}
       {trail ? <div className="top-actions">{trail}</div> : null}
     </header>
   );

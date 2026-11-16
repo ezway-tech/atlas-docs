@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '../../../app/node_modules/@playwright/test';
+import {test,expect,type Page,type Locator} from '../../../app/node_modules/@playwright/test';
 import path from 'node:path';
 import {extractHeadings,splitMarkdown} from '../../../app/src/lib/headings';
 
@@ -37,6 +37,8 @@ async function mockApi(page:Page){
   const doc={id:'start/welcome',kind:'md' as const,title:'Responsive demo bài viết rất dài để kiểm tra xuống dòng tiêu đề tiếng Việt',description:'Mô tả dài',category:'start',updatedAt:'2026-11-04',order:1,raw:source,content:splitMarkdown(source).body,text:'',headings:extractHeadings(source)};
   const folder={path:'start',title:'Start here',imageId:null,icon:'book',depth:1};
   const settings={theme:'light',leftWidth:260,rightWidth:320,pinnedFolders:[],hiddenFolders:[],keymap:{}};
+  if(name==='/api/libraries/session')return route.fulfill({json:{runtimeId:'responsive-runtime',libraryId:'responsive-library',libraryRoot:'C:/tmp/atlas-responsive',mode:'library',displayName:'Responsive demo'}});
+  if(name.startsWith('/api/libraries/'))return route.fulfill({json:{}});
   if(name==='/api/docs'&&method==='GET')return route.fulfill({json:[doc]});
   if(name.startsWith('/api/docs/')&&method==='GET')return route.fulfill({json:doc});
   if(name.startsWith('/api/docs/')&&(method==='PUT'||method==='PATCH'||method==='POST'))return route.fulfill({json:{...doc,raw:source,updatedAt:new Date().toISOString()}});
@@ -82,6 +84,15 @@ async function dismissMobileMask(page:Page){
  const box=await page.locator('.mobile-mask').boundingBox();
  expect(box).toBeTruthy();
  await page.mouse.click(box!.x+Math.max(8,box!.width-8),box!.y+120);
+}
+
+function overlaps(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number}){
+ return a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+}
+async function box(locator:Locator){
+ const b=await locator.boundingBox();
+ expect(b).toBeTruthy();
+ return b!;
 }
 
 test.beforeEach(async({page})=>{
@@ -148,9 +159,9 @@ test('mobile edit keeps save reachable and format bar contained',async({page})=>
  await expect(save).toBeInViewport();
  const format=page.locator('.format-bar').first();
  await expect(format).toBeVisible();
- const box=await format.boundingBox();
- expect(box).toBeTruthy();
- expect(box!.width).toBeLessThanOrEqual(390);
+ const formatBox=await format.boundingBox();
+ expect(formatBox).toBeTruthy();
+ expect(formatBox!.width).toBeLessThanOrEqual(390);
  expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
 });
 
@@ -161,8 +172,8 @@ test('resize while overlays open stays usable',async({page})=>{
  await page.getByRole('button',{name:'Đóng hoặc mở thư viện'}).click();
  await expect(page.locator('.sidebar.mobile-show')).toBeVisible();
  await page.setViewportSize({width:1440,height:900});
- await page.waitForTimeout(200);
- await page.getByRole('button',{name:'Đóng hoặc mở thư viện'}).click();
+ await expect(page.locator('.mobile-menu')).toBeHidden({timeout:8000});
+ await expect(page.locator('.panel-left-toggle')).toBeVisible();
  expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
  await page.setViewportSize({width:360,height:800});
  await page.getByRole('button',{name:'Hiện bình luận'}).click();
@@ -177,5 +188,101 @@ test('tiny phone and landscape do not overflow shell',async({page})=>{
   await page.goto('/docs/start/welcome');
   await expect(page.getByRole('heading',{level:1,name:/Responsive demo/})).toBeVisible();
   expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
+ }
+});
+
+test('viewport sweep has no page overflow and mid header does not overlap',async({page})=>{
+ const widths=[320,375,390,467,768,834,899,901,999,1001,1024,1280,1440];
+ for(const width of widths){
+  await page.setViewportSize({width,height:844});
+  await page.goto('/docs/start/welcome');
+  await expect(page.getByRole('heading',{level:1,name:/Responsive demo/})).toBeVisible();
+  await closeRightIfOpen(page);
+  expect(await pageOverflow(page),`overflow at ${width}`).toBeLessThanOrEqual(1);
+ }
+
+ for(const width of [768,834,901,1024]){
+  await page.setViewportSize({width,height:844});
+  await page.goto('/docs/start/welcome');
+  await closeRightIfOpen(page);
+  const lead=await box(page.locator('.topbar-lead'));
+  const center=await box(page.locator('.topbar-center'));
+  const actions=await box(page.locator('.top-actions'));
+  expect(overlaps(lead,center),`lead/center overlap at ${width}`).toBeFalsy();
+  expect(overlaps(center,actions),`center/actions overlap at ${width}`).toBeFalsy();
+  expect(overlaps(lead,actions),`lead/actions overlap at ${width}`).toBeFalsy();
+  const crumbTitle=page.locator('.breadcrumbs > span').first();
+  const editBtn=page.getByRole('button',{name:'Sửa'});
+  if(await editBtn.count()){
+   const titleBox=await box(crumbTitle);
+   const editBox=await box(editBtn);
+   expect(overlaps(titleBox,editBox),`breadcrumb overlap at ${width}`).toBeFalsy();
+  }
+ }
+});
+
+test('mid band uses overlay nav and restores desktop panels',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/docs/start/welcome');
+ await closeRightIfOpen(page);
+ await expect(page.locator('.mobile-menu')).toBeHidden();
+ await expect(page.locator('.sidebar')).toBeVisible();
+
+ await page.setViewportSize({width:900,height:844});
+ await page.waitForTimeout(150);
+ await expect(page.locator('.mobile-menu')).toBeVisible();
+ await expect(page.locator('.sidebar.mobile-show')).toHaveCount(0);
+ await page.getByRole('button',{name:'Đóng hoặc mở thư viện'}).click();
+ await expect(page.locator('.sidebar.mobile-show')).toBeVisible();
+ await expect(page.locator('.mobile-mask')).toBeVisible();
+ await dismissMobileMask(page);
+
+ await page.setViewportSize({width:1280,height:900});
+ await expect(page.locator('.mobile-menu')).toBeHidden({timeout:8000});
+ await expect(page.locator('.sidebar')).toBeVisible();
+ expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
+});
+
+test('wide tables and code scroll locally without page overflow',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/docs/start/welcome',{waitUntil:'domcontentloaded'});
+ await expect(page.getByRole('heading',{level:1,name:/Responsive demo/})).toBeVisible({timeout:15000});
+ await closeRightIfOpen(page);
+ expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
+ const table=page.locator('.markdown-body table').first();
+ await expect(table).toBeVisible();
+ const canScrollOrFits=await table.evaluate(el=>{
+  const style=getComputedStyle(el);
+  const scrollable=style.overflowX==='auto'||style.overflowX==='scroll'||style.overflow==='auto'||style.overflow==='scroll';
+  return scrollable||el.scrollWidth<=el.clientWidth+2;
+ });
+ expect(canScrollOrFits).toBeTruthy();
+});
+
+test('compact header keeps utilities reachable',async({page})=>{
+ await page.setViewportSize({width:834,height:844});
+ await page.goto('/docs/start/welcome');
+ await expect(page.getByRole('heading',{level:1,name:/Responsive demo/})).toBeVisible();
+ await closeRightIfOpen(page);
+ await expect(page.getByRole('button',{name:'Trợ giúp'})).toHaveCount(0);
+ await page.getByRole('button',{name:'Tiện ích'}).click();
+ await expect(page.getByText('Ngôn ngữ',{exact:true})).toBeVisible();
+ await expect(page.getByText('Hướng dẫn',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
+});
+
+test('representative layout screenshots',async({page})=>{
+ const shots=[
+  {name:'narrow-390',width:390,height:844},
+  {name:'mid-834',width:834,height:844},
+  {name:'wide-1280',width:1280,height:900},
+ ];
+ for(const shot of shots){
+  await page.setViewportSize({width:shot.width,height:shot.height});
+  await page.goto('/docs/start/welcome');
+  await expect(page.getByRole('heading',{level:1,name:/Responsive demo/})).toBeVisible();
+  await closeRightIfOpen(page);
+  await page.screenshot({path:`test-results/responsive/${shot.name}.png`,fullPage:false});
  }
 });

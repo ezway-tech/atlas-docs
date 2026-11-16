@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {BookOpen,ChevronDown,CircleHelp,Coffee,Download,History,Info,X} from 'lucide-react';
 import {Button} from './ui/controls';
 import {Dialog,ConfirmDialog} from './ui/dialog';
@@ -14,7 +14,7 @@ async function readStatus(force=false):Promise<Status>{
  return response.json();
 }
 
-export default function HelpMenu({dirty}:{dirty:boolean}){
+function useHelpChrome(dirty:boolean){
  const {t}=useLocale();
  const [status,setStatus]=useState<Status|null>(null),[open,setOpen]=useState(false),[confirm,setConfirm]=useState(false),[checking,setChecking]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[phase,setPhase]=useState('');
  const running=useRef(false),alive=useRef(true),dirtyRef=useRef(dirty);
@@ -49,14 +49,14 @@ export default function HelpMenu({dirty}:{dirty:boolean}){
   finally{running.current=false;if(alive.current)setBusy(false);}
  };
  const label=status?.development?t('help.update.development'):status?.status==='available'?t('help.update.available',{version:status.latestVersion||''}):status?.status==='current'?t('help.update.current'):status?.status==='disabled'?t('help.update.disabled'):t('help.update.unavailable');
- return <>
-  <DropdownMenu align="end" trigger={<Button className="top-help" aria-label={t('utilities.menu.help')}><CircleHelp size={16}/><span>{t('utilities.menu.help')}</span>{status?.updateAvailable&&<i className="help-update-dot" aria-label={t('help.update.available',{version:status.latestVersion||''})}/>}<ChevronDown size={16}/></Button>}>
-   <MenuLink href="/help"><BookOpen size={16}/>{t('help.guide')}</MenuLink>
-   <MenuLink href="/help/changelog"><History size={16}/>{t('help.releaseNotes')}</MenuLink>
-   <MenuItem onSelect={()=>{setOpen(true);setError('');}}><Info size={16}/><span className="help-version-label">{t('help.version')}</span></MenuItem>
-   <MenuSeparator/>
-   <MenuLink href="https://atlasdocs.ezway.tech/donate/"><Coffee size={16}/>{t('help.donate')}</MenuLink>
-  </DropdownMenu>
+ const items=<>
+  <MenuLink href="/help"><BookOpen size={16}/>{t('help.guide')}</MenuLink>
+  <MenuLink href="/help/changelog"><History size={16}/>{t('help.releaseNotes')}</MenuLink>
+  <MenuItem onSelect={()=>{setOpen(true);setError('');}}><Info size={16}/><span className="help-version-label">{t('help.version')}</span></MenuItem>
+  <MenuSeparator/>
+  <MenuLink href="https://atlasdocs.ezway.tech/donate/"><Coffee size={16}/>{t('help.donate')}</MenuLink>
+ </>;
+ const dialogs=<>
   {open&&<Dialog title={t('help.version')} busy={busy} onOpenChange={setOpen}><section className="modal help-version-dialog" data-ui-block-shortcuts="">
    <div className="modal-heading"><h2>{t('help.version')}</h2><Button className="icon" disabled={busy} aria-label={t('common.close')} onClick={()=>setOpen(false)}><X size={18}/></Button></div>
    <p className="help-version-number">Atlas Docs <strong>{status?'v'+status.currentVersion:'…'}</strong></p>
@@ -76,5 +76,24 @@ export default function HelpMenu({dirty}:{dirty:boolean}){
    </div>
   </section></Dialog>}
   {confirm&&<ConfirmDialog title={t('help.update.install')} confirmLabel={t('help.update.install')} onCancel={()=>setConfirm(false)} onConfirm={()=>void update()}><p>{t('help.update.confirm')}</p></ConfirmDialog>}
+ </>;
+ return {items,dialogs,status};
+}
+
+/** Embed help links inside another menu; dialogs stay mounted outside the dropdown. */
+export function HelpMenuChrome({dirty,children}:{dirty:boolean;children:(items:ReactNode)=>ReactNode}){
+ const {items,dialogs}=useHelpChrome(dirty);
+ return <>{children(items)}{dialogs}</>;
+}
+
+/** Shared help / version / update menu used in the top bar. */
+export default function HelpMenu({dirty}:{dirty:boolean}){
+ const {t}=useLocale();
+ const {items,dialogs,status}=useHelpChrome(dirty);
+ return <>
+  <DropdownMenu align="end" trigger={<Button className="top-help" aria-label={t('utilities.menu.help')}><CircleHelp size={16}/><span>{t('utilities.menu.help')}</span>{status?.updateAvailable&&<i className="help-update-dot" aria-label={t('help.update.available',{version:status.latestVersion||''})}/>}<ChevronDown size={16}/></Button>}>
+   {items}
+  </DropdownMenu>
+  {dialogs}
  </>;
 }
