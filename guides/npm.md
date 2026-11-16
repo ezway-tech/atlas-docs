@@ -1,6 +1,20 @@
-# Atlas Docs with npm
+# Atlas Docs
 
-[Website](https://atlasdocs.ezway.tech/) · [Donate](https://atlasdocs.ezway.tech/donate/)
+**Keep your project docs organized, readable, and close to your code.**
+
+[![npm version](https://img.shields.io/npm/v/atlas-docs.svg)](https://www.npmjs.com/package/atlas-docs)
+[![Docker Image Version](https://img.shields.io/docker/v/ezwaytechvn/atlas-docs?label=docker)](https://hub.docker.com/r/ezwaytechvn/atlas-docs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ezway-tech/atlas-docs/blob/main/LICENSE)
+
+[Website](https://atlasdocs.ezway.tech/) · [GitHub](https://github.com/ezway-tech/atlas-docs) · [Docker Hub](https://hub.docker.com/r/ezwaytechvn/atlas-docs) · [Donate](https://atlasdocs.ezway.tech/donate/)
+
+Atlas Docs turns local Markdown, API definitions, and structured files into a browsable project library. Read, edit, search, and connect your documents in one workspace, with images, comments, and revision history alongside the content.
+
+![Atlas Docs with a folder tree, document reader, and table of contents](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/assets/originals/overview.png)
+
+*The Example project (Little Café content). Managed installs open Example or a recent project; new user projects start empty.*
+
+## Quick start (npm)
 
 Requires Node.js 22.12 or newer. Once the package is published:
 
@@ -23,6 +37,21 @@ atlas-docs doctor
 `atlas-docs` with no subcommand is the same as `atlas-docs start`. Keep the terminal running; press Ctrl+C to stop.
 The first npx run downloads the package and its production dependencies. No source checkout or build is needed.
 Offline use works after the package is already installed; update checks never block opening the app.
+Default URL: http://127.0.0.1:17430. There is no login on the write API; keep the application local.
+
+## What you get
+
+- Browse folders, search documents and comments, pin destinations, and follow a table of contents.
+- Markdown with Visual, Source, Split, and Preview editing; Mermaid diagrams; OpenAPI and SQL viewers.
+- Attachments, comments, and revision history saved through the app.
+
+![Atlas Docs visual editor with formatting tools and Visual, Source, Split, and Preview modes](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/assets/originals/editing.png)
+
+*Editing a document in the Little Café sample library.*
+
+![Atlas Docs document history with saved revisions and a restore action](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/assets/originals/history.png)
+
+*Reviewing an earlier revision in the Little Café sample library.*
 
 ## Library location
 
@@ -116,7 +145,7 @@ npx atlas-docs@latest --data-dir "/absolute/path/to/library"
 Pin a version when you need to stay on a known release:
 
 ```sh
-npx atlas-docs@5.3.0 --data-dir "/absolute/path/to/library"
+npx atlas-docs@5.4.1 --data-dir "/absolute/path/to/library"
 ```
 
 ### Global install
