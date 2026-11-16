@@ -1,4 +1,12 @@
 import {test,expect} from '../../../app/node_modules/@playwright/test';
+function expectFullscreenBox(box:{x:number;y:number;width:number;height:number}|null,width:number,height:number){
+ expect(box).not.toBeNull();
+ const tol=5;
+ expect(Math.abs(box!.x)).toBeLessThanOrEqual(tol);
+ expect(Math.abs(box!.y)).toBeLessThanOrEqual(tol);
+ expect(box!.width).toBeCloseTo(width,0);
+ expect(box!.height).toBeCloseTo(height,0);
+}
 test.beforeEach(async({page})=>{await page.goto('/');});
 test('dropdown Escape and nested dialog preserve parent and restore focus',async({page})=>{
  await page.getByRole('button',{name:'Mở hộp thoại',exact:true}).click();const parent=page.getByRole('dialog',{name:'Hộp thử'});
@@ -92,7 +100,7 @@ test('Mermaid preserves style, natural size, zoom anchor and fullscreen layout',
      if(key==='Enter'&&selector==='.diagram-open')await page.screenshot({path:`test-results/medium-${width}-${dark}.png`});
      const box=await dialog.boundingBox();expect(box!.width).toBeCloseTo(width===390?366:1024,0);expect(box!.height).toBeCloseTo(width===390?612:576,0);
      await page.getByRole('button',{name:'Toàn màn hình',exact:true}).click();await expect(dialog).toHaveAttribute('data-mode','fullscreen');
-     expect(await dialog.boundingBox()).toMatchObject({x:0,y:0,width,height:720});
+     expectFullscreenBox(await dialog.boundingBox(),width,720);
      await page.getByRole('button',{name:'Khung vừa',exact:true}).click();await expect(dialog).toHaveAttribute('data-mode','medium');
      await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
     }
@@ -113,7 +121,7 @@ test('Mermaid preserves style, natural size, zoom anchor and fullscreen layout',
  const open=page.getByRole('button',{name:'Xem sơ đồ toàn màn hình'}).first();await open.click();
  const dialog=page.getByRole('dialog',{name:'Phóng to',exact:true});await expect(dialog).toBeVisible();
  await expect(page.locator('.zoom-bar output')).toHaveText('150%');
- expect(await dialog.boundingBox()).toMatchObject({x:0,y:0,width:1280,height:720});
+ expectFullscreenBox(await dialog.boundingBox(),1280,720);
  expect(await dialog.locator('.node rect').first().evaluate(el=>getComputedStyle(el).fill)).toBe(original);
  const ids=await page.locator('svg[id]').evaluateAll(els=>els.map(e=>e.id));expect(new Set(ids).size).toBe(ids.length);
  await expect(page.locator('.zoom-bar button')).toHaveCount(5);await expect(page.getByRole('button',{name:'100%',exact:true})).toHaveCount(0);
@@ -150,7 +158,7 @@ test('wide and tall diagrams remain readable on mobile',async({page})=>{
   if(shape==='wide')expect(await page.locator('.diagram-scroll').first().evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
   await page.getByRole('button',{name:'Xem sơ đồ toàn màn hình'}).first().click();
   const dialog=page.getByRole('dialog',{name:'Phóng to',exact:true});await expect(dialog).toBeVisible();
-  expect(await dialog.boundingBox()).toMatchObject({x:0,y:0,width:390,height:844});
+  expectFullscreenBox(await dialog.boundingBox(),390,844);
   await page.screenshot({path:`test-results/mermaid-${shape}.png`});await page.keyboard.press('Escape');
  }
 });

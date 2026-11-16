@@ -8,7 +8,7 @@ Atlas Docs turns local Markdown, API definitions, and structured files into a br
 
 ![Atlas Docs with a folder tree, document reader, and table of contents](guides/assets/originals/overview.png)
 
-*The optional Little Café sample library. New libraries start empty.*
+*The Example project (Little Café content). Managed source opens Example or a recent project; new user projects start empty.*
 
 ## Why Atlas Docs?
 
@@ -66,7 +66,7 @@ Requires Node.js **22.12 or newer** for npm and source runs.
 npx atlas-docs@latest
 ```
 
-Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Opens a library you choose (or an existing `./atlas-docs-data` for compatibility). Default URL http://127.0.0.1:17430 (see [npm guide](guides/npm.md)).
+Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Resolves a library from flags/env/config/recent/`./atlas-docs-data`, or opens the Projects screen. Default URL http://127.0.0.1:17430 (see [npm guide](guides/npm.md)).
 
 **Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; default URL http://127.0.0.1:17430 (override host port with `ATLAS_DOCS_PORT`); data and upgrade backups use named volumes. For multiple libraries in one container, see [`docker-compose.hub.multi.yml`](docker-compose.hub.multi.yml). See [operations](guides/operations.md#docker-hub-image-end-users).
 
@@ -78,7 +78,7 @@ npm run bootstrap
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Bootstrap creates an empty library without replacing existing data and runs automatically before dev/start. For production, use `npm run build`, then `npm start`.
+Open http://127.0.0.1:3000. Managed `npm run dev` / `npm start` opens the Projects screen and uses a recent project or the durable Example project (existing repository `data/` stays listed and is not replaced). Set `DATA_DIR` or `ATLAS_LIBRARY_MODE=fixed` for a single pinned library. `npm run bootstrap` prepares the repository `data/` folder when you need that empty fixed library. For production, use `npm run build`, then `npm start`.
 
 Or build from source with Docker:
 
@@ -86,7 +86,7 @@ Or build from source with Docker:
 docker compose up -d --build
 ```
 
-Source Compose stores data in `./data`, upgrade backups in `./.atlas-docs-upgrade-backups`, and exposes http://127.0.0.1:3000.
+Source Compose pins `./data` (fixed single-library), upgrade backups in `./.atlas-docs-upgrade-backups`, and exposes http://127.0.0.1:3000.
 
 **Run locally:** there is no login on the write API; keep the application local.
 
@@ -113,7 +113,12 @@ Write project documents under `data/docs/`, not `guides/`. Follow the [agent gui
 
 ## Where your data lives
 
-The default library is `data/` beside `app/`: documents in `docs/`, attachments in `uploads/`, revisions in `history/`, and metadata in `db.json`. `data/` is ignored by Git. Set an absolute `DATA_DIR` to use another library; see [operations](guides/operations.md) for a separate documentation repository and full backup instructions.
+Each library folder holds `docs/`, `uploads/`, `history/`, and `db.json`.
+
+- **Managed source / npm multi-project:** Example and new projects live under the machine application-data libraries directory (override with `ATLAS_DOCS_LIBRARIES_DIR`). Recent entries use a separate registry (`ATLAS_DOCS_REGISTRY_DIR`). An existing repository `data/` library, if present, remains listed.
+- **Fixed mode:** set absolute `DATA_DIR`, or `ATLAS_LIBRARY_MODE=fixed` for the repository `data/` beside `app/` (ignored by Git). Single-library Docker mounts `/data`.
+
+See [operations](guides/operations.md) for a separate documentation repository and full backup instructions.
 
 ## Documentation
 
@@ -133,7 +138,7 @@ The default library is `data/` beside `app/`: documents in `docs/`, attachments 
 - `app/src/library/`: shared library initialization, locking, migration, and recovery.
 - `app/src/cli/`: terminal commands for the npm installation.
 - `scripts/`: build and setup tools, tests, templates, and fixtures.
-- `examples/little-cafe/`: optional sample library; [demo image prompts](guides/demo-image-prompts.md) are documented under `guides/`.
+- `examples/little-cafe/`: sample content used for the durable Example project and `npm run seed:demo`; [demo image prompts](guides/demo-image-prompts.md) are documented under `guides/`.
 
 ## Development
 

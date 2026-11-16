@@ -8,6 +8,7 @@ import net from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import {npmArgs,run} from '../../build/process.mjs';
 import {npmCli} from '../../../app/src/library/update/npm.mjs';
+import {jsonWithSession, loadRuntimeSession, fetchMediaBytes} from '../helpers/package-harness.mjs';
 
 // Use actual release runtime and actual npm installs, only substituting registry
 // discovery and package resolution so this never publishes or updates user npm.
@@ -41,19 +42,25 @@ try{
  await writeFile(preload,`import os from 'node:os';os.homedir=()=>${JSON.stringify(root)};const original=globalThis.fetch;globalThis.fetch=(url,options)=>String(url).startsWith('https://registry.npmjs.org/atlas-docs/latest')?Promise.resolve(Response.json({version:'${nextVersion}',engines:{node:'>=22.12.0'}})):original(url,options);`);
  await run(npmArgs(['install','-g','--prefix',prefix,'--no-audit','--no-fund',tarball]),{cwd:root,env});
  const before=await start(true);console.log('Initial update status:',JSON.stringify(before));assert.equal(before.method,'npm-global');assert.equal(before.canAutoUpdate,true);assert.equal(before.updateAvailable,true);
- const folder=await (await fetch(origin+'/api/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({parent:'',title:'Keep this folder'})})).json();
- const doc=await (await fetch(origin+'/api/docs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:folder.path,title:'Preserved document',kind:'md'})})).json();
- await fetch(origin+'/api/docs/'+doc.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw:'# Keep this content\n\nAcross updates.'})});
- const upload=new FormData();upload.set('file',new Blob(['preserve attachment bytes'],{type:'text/plain'}),'attachment.txt');const asset=await (await fetch(origin+'/api/media',{method:'POST',body:upload})).json();
+ let session=await loadRuntimeSession(origin);
+ const folder=await jsonWithSession(origin+'/api/folders',session,'POST',{parent:'',title:'Keep this folder'});
+ const doc=await jsonWithSession(origin+'/api/docs',session,'POST',{folder:folder.path,title:'Preserved document',kind:'md'});
+ await jsonWithSession(origin+'/api/docs/'+doc.id,session,'PUT',{raw:'# Keep this content\n\nAcross updates.'});
+ const upload=new FormData();upload.set('file',new Blob(['preserve attachment bytes'],{type:'text/plain'}),'attachment.txt');
+ const assetResp=await fetch(origin+'/api/media',{method:'POST',headers:{'X-Atlas-Runtime':session.runtimeId,'X-Atlas-Library':session.libraryId},body:upload});
+ assert.equal(assetResp.status,200,await assetResp.clone().text());
+ const asset=await assetResp.json();
  const dbBefore=await readFile(path.join(library,'db.json'),'utf8');
  assert.equal((await request()).status,202);const failed=await waitOperation('error');assert.equal(failed.operation.failedPhase,'installing');assert.equal(failed.currentVersion,version);
- assert.equal((await (await fetch(origin+'/api/docs/'+doc.id)).json()).raw,'# Keep this content\n\nAcross updates.');await stop();
+ session=await loadRuntimeSession(origin);
+ assert.equal((await jsonWithSession(origin+'/api/docs/'+doc.id,session)).raw,'# Keep this content\n\nAcross updates.');await stop();
  assert.equal(await readFile(path.join(library,'db.json'),'utf8'),dbBefore,'failed package install preserves metadata');
  await start();const accepted=await request();assert.equal(accepted.status,202,await accepted.clone().text());
  const duplicate=await request();assert.notEqual(duplicate.status,202,'duplicate is refused');
  const succeeded=await waitOperation('succeeded');assert.equal(succeeded.currentVersion,nextVersion);assert.equal(succeeded.updateAvailable,false);
- assert.equal((await (await fetch(origin+'/api/docs/'+doc.id)).json()).raw,'# Keep this content\n\nAcross updates.');
- assert.equal(await (await fetch(origin+'/api/media/'+asset.id)).text(),'preserve attachment bytes');
+ session=await loadRuntimeSession(origin);
+ assert.equal((await jsonWithSession(origin+'/api/docs/'+doc.id,session)).raw,'# Keep this content\n\nAcross updates.');
+ assert.equal(await fetchMediaBytes(origin,asset.id,session),'preserve attachment bytes');
  assert.equal(await readFile(path.join(library,'db.json'),'utf8'),dbBefore,'successful package install preserves metadata');
  await stop();await assert.rejects(()=>fetch(origin+'/api/health'));
  console.log('PASS actual npm global failure/recovery and update/restart; same prefix, port, library bytes and shutdown');

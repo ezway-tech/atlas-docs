@@ -127,7 +127,9 @@ try {
   await gotoApp(page, '/');
 
   const manager = page.getByRole('region', {name: 'Projects', exact: true});
-  await manager.getByRole('button', {name: 'Open project', exact: false}).waitFor();
+  const browseForProject = () =>
+    manager.locator('.project-toolbar').getByRole('button', {name: 'Browse for project', exact: true});
+  await browseForProject().waitFor();
   await manager.getByRole('button', {name: 'Create project', exact: false}).waitFor();
   await manager.locator('[data-example=true]').waitFor();
   assert.equal(await manager.locator('.source-choices,.source-current').count(), 0);
@@ -174,15 +176,24 @@ try {
   await stop();
   launch({ATLAS_DOCS_PICK_FOLDER_MOCK: '__cancel__'});
   await ready();
-  await gotoApp(page);
-  await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+  await gotoApp(page, '/projects');
+  await browseForProject().click();
   await delay(500);
   assert.ok(await manager.isVisible());
   assert.equal(await manager.locator('[role=alert]').count(), 0);
 
-  // Example is registered at startup — select it, then open from the detail panel.
-  await manager.locator('.project-list li').filter({hasText: 'Example'}).getByRole('button').first().click();
-  await manager.locator('.project-detail').getByRole('button', {name: 'Open', exact: true}).click();
+  // Example is registered at startup — wait until preparation finishes, then open from the detail panel.
+  const exampleSelect = manager
+    .locator('.project-list li')
+    .filter({hasText: 'Example'})
+    .locator('button.project-list-select');
+  await exampleSelect.waitFor({state: 'visible'});
+  for (let i = 0; i < 120 && (await exampleSelect.isDisabled()); i++) {
+    await delay(500);
+  }
+  assert.equal(await exampleSelect.isDisabled(), false, 'Example row must finish preparing before open');
+  await exampleSelect.click();
+  await manager.locator('.project-detail').getByRole('button', {name: 'Open project', exact: true}).click();
   await page.waitForSelector('.source-switcher', {timeout: process.env.ATLAS_SOURCE_TEST_DEV ? 180000 : 60000});
   assert.equal(await manager.count(), 0, 'successful switch skips the project manager on load');
   const demoSession = await (await fetch(origin + '/api/libraries/session')).json();
@@ -235,7 +246,7 @@ try {
     await page.waitForSelector('.source-switcher');
     await page.locator('.source-switcher').click();
     await manager.waitFor();
-    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await browseForProject().click();
     const opened = await waitSession(next => next.libraryRoot === readyProject);
     await page.waitForSelector('.source-switcher', {timeout: 60000});
     assert.equal(opened.libraryRoot, readyProject);
@@ -252,13 +263,13 @@ try {
     await page.waitForSelector('.source-switcher');
     await page.locator('.source-switcher').click();
     await manager.waitFor();
-    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await browseForProject().click();
     const emptyDialog = page.getByRole('dialog', {name: 'Create project here?', exact: true});
     await emptyDialog.waitFor();
     await emptyDialog.getByRole('button', {name: 'Cancel', exact: true}).click();
     assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, readyProject);
     // Manager stays open after cancelling the empty-folder confirm.
-    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await browseForProject().click();
     await emptyDialog.waitFor();
     await emptyDialog.getByRole('button', {name: 'Create project here', exact: true}).click();
     const emptyOpened = await waitSession(next => next.libraryRoot === emptyProject);
@@ -281,7 +292,7 @@ try {
     await page.waitForSelector('.source-switcher');
     await page.locator('.source-switcher').click();
     await manager.waitFor();
-    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await browseForProject().click();
     await manager.locator('[role=alert]').waitFor();
     assert.equal(await readFile(path.join(junk, 'notes.txt'), 'utf8'), 'not a project');
 
@@ -328,7 +339,7 @@ try {
     await page.keyboard.press('Enter');
     await manager.waitFor();
     await manager.locator('.project-list li').filter({hasText: 'Example'}).getByRole('button').first().click();
-    await manager.locator('.project-detail').getByRole('button', {name: 'Open', exact: true}).click();
+    await manager.locator('.project-detail').getByRole('button', {name: 'Open project', exact: true}).click();
     const exampleAgain = await waitSession(next => next.displayName === 'Example');
     assert.equal(exampleAgain.libraryRoot, demoSession.libraryRoot);
     Object.assign(demoSession, exampleAgain);
@@ -350,7 +361,7 @@ try {
     await page.waitForSelector('.source-switcher');
     await page.locator('.source-switcher').click();
     await manager.waitFor();
-    await manager.getByRole('button', {name: 'Open project', exact: false}).click();
+    await browseForProject().click();
     await manager.locator('[role=alert]').waitFor({timeout: 60000});
     assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, demoSession.libraryRoot);
 
@@ -410,13 +421,22 @@ try {
     assert.equal(await manager.locator('.project-missing-summary').count(),0);
 
     // Selected project detail loads lightweight counts.
-    await manager.locator('.project-list li').filter({hasText: 'ready-project'}).getByRole('button').first().click();
+    await manager
+      .locator('.project-list li')
+      .filter({hasText: 'ready-project'})
+      .locator('button.project-list-select')
+      .click();
     const stats = manager.locator('.project-detail-stats');
     await stats.waitFor({timeout: 30_000});
-    const statsText = await stats.innerText();
+    let statsText = '';
+    for (let i = 0; i < 60; i++) {
+      statsText = await stats.innerText();
+      if (/\d/.test(statsText)) break;
+      await delay(500);
+    }
     assert.match(statsText, /Documents/i);
     assert.match(statsText, /Topics/i);
-    assert.match(statsText, /1/);
+    assert.match(statsText, /1/, `Project summary counts did not load: ${statsText}`);
     const summaryApi = await api('/api/libraries/summary', {path: readyProject});
     assert.equal(summaryApi.status, 200, await summaryApi.clone().text());
     const summaryBody = await summaryApi.json();
