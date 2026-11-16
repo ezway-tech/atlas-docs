@@ -2,11 +2,15 @@
 
 **Keep your project docs organized, readable, and close to your code.**
 
+[![npm version](https://img.shields.io/npm/v/atlas-docs.svg)](https://www.npmjs.com/package/atlas-docs)
+[![Docker Image Version](https://img.shields.io/docker/v/ezwaytechvn/atlas-docs?label=docker)](https://hub.docker.com/r/ezwaytechvn/atlas-docs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Atlas Docs turns local Markdown, API definitions, and structured files into a browsable project library. Read, edit, search, and connect your documents in one workspace, with images, comments, and revision history alongside the content.
 
 [Website](https://atlasdocs.ezway.tech/) · [Features](#features) · [Quick start](#quick-start) · [Documentation](#documentation) · [Donate](https://atlasdocs.ezway.tech/donate/)
 
-![Atlas Docs with a folder tree, document reader, and table of contents](guides/assets/originals/overview.png)
+![Atlas Docs with a folder tree, document reader, and table of contents](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/assets/originals/overview.png)
 
 *The Example project (Little Café content). Managed source opens Example or a recent project; new user projects start empty.*
 
@@ -34,7 +38,7 @@ Write explanations with Markdown tables, images, and Mermaid diagrams. Browse Op
 
 Use **Visual** for simple prose, **Source** for direct Markdown editing, **Split** to write beside the rendered result, or **Preview** to inspect your draft.
 
-![Atlas Docs visual editor with formatting tools and Visual, Source, Split, and Preview modes](guides/assets/originals/editing.png)
+![Atlas Docs visual editor with formatting tools and Visual, Source, Split, and Preview modes](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/assets/originals/editing.png)
 
 *Editing a document in the Little Café sample library.*
 
@@ -48,7 +52,7 @@ Upload and reuse images and attachments from the resource library. Preview media
 
 Attach comments to selected passages. Inspect saved revisions, compare changes, and restore an earlier version when needed. Export a ZIP backup to preserve the library, including attachments and metadata.
 
-![Atlas Docs document history with saved revisions and a restore action](guides/assets/originals/history.png)
+![Atlas Docs document history with saved revisions and a restore action](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/assets/originals/history.png)
 
 *Reviewing an earlier revision in the Little Café sample library.*
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.4.1
+
+### Docs
+
+- Richer npm package README and Docker Hub Overview: screenshots (absolute image URLs), badges, and clearer quick-start copy.
+- Source of Hub Overview: [`guides/docker-hub-overview.md`](guides/docker-hub-overview.md); sync steps in [operations](guides/operations.md#update-docker-hub-overview).
+- Schema remains **1**. No app behavior change from 5.4.0. Docker image tags stay on **5.4.0** / `latest` for this docs patch; only the Hub description is updated.
+
+### Upgrade
+
+- **npm:** install `atlas-docs@5.4.1` (or `npx atlas-docs@5.4.1`). Same library paths as 5.4.0.
+- **Docker Hub:** keep using `ezwaytechvn/atlas-docs:5.4.0` (or `latest`). No image rebuild required for this patch.
+
 ## 5.4.0
 
 ### Fixes

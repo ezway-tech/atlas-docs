@@ -146,6 +146,24 @@ docker push "${imageName}:latest"
 Prefer `docker buildx` with `linux/amd64,linux/arm64` when you can test both. Only document architectures you actually verified. There is no CI workflow.
 npm publishing has a separate [local release checklist](npm.md#build-and-release-maintainers).
 
+### Update Docker Hub Overview
+
+The Hub repository short description and full Overview are not taken from the image. Edit [`docker-hub-overview.md`](docker-hub-overview.md), then update the Hub repository metadata after you authenticate with Docker Hub (JWT from the Hub login API; see [Docker Hub API authentication](https://docs.docker.com/docker-hub/api/latest/#tag/authentication)). Some personal access tokens return 403 for description updates — use an account password or a token that can update repository metadata.
+
+PowerShell example (set `$token` to the JWT from Hub authentication first):
+
+```powershell
+$overview = Get-Content -Raw guides/docker-hub-overview.md
+$headers = @{ Authorization = "JWT $token"; 'Content-Type' = 'application/json' }
+$body = @{
+  full_description = $overview
+  description = 'Local project docs library: browse, edit, and search Markdown, OpenAPI, SQL, and more.'
+} | ConvertTo-Json -Depth 3
+Invoke-RestMethod -Method Patch -Uri 'https://hub.docker.com/v2/repositories/ezwaytechvn/atlas-docs/' -Headers $headers -Body $body
+```
+
+Verify https://hub.docker.com/r/ezwaytechvn/atlas-docs shows the new Overview and screenshots. Image tags are unchanged by this step.
+
 ## Where data lives
 
 The library is `data/` next to `app/`, or the absolute directory in `DATA_DIR`. It holds `db.json`, `docs/`, `uploads/`, and `history/`. `history/<doc-id>/<timestamp>_<uuid>.md` is one revision; the matching `.json` file is its metadata. `history/observed/` is a copy of current document content written on save. Nothing reads that copy, and version cleanup does not delete it.
