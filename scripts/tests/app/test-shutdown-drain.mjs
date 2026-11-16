@@ -49,7 +49,9 @@ assert.ok(store.inflightLibraryOpCount() > 0, 'admitted op is in flight');
 store.beginShutdown();
 await assert.rejects(
   () => store.withLibraryLock(async () => 'nope'),
-  error => /previous library runtime|staleRuntime|stale/i.test(String(error?.message || error?.errorKey || error)),
+  error =>
+    error?.errorKey === 'errors.library.staleRuntime' ||
+    /previous (library|project) runtime|staleRuntime|stale/i.test(String(error?.message || error?.errorKey || error)),
   'new admits rejected after beginShutdown',
 );
 

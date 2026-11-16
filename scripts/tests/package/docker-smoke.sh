@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 set -eu
-IMG="${1:-ezwaytechvn/atlas-docs:5.2.1}"
-TMP="$(mktemp -d /tmp/atlas-docker-smoke-XXXXXX)"
+# Require the candidate image. Do not default to a Hub tag (avoids testing the wrong release).
+if [ -z "${1:-}" ]; then
+  echo "Usage: $0 <image>" >&2
+  echo "Example: $0 atlas-docs:release-candidate" >&2
+  exit 2
+fi
+IMG="$1"
+SMOKE_ROOT="${ATLAS_DOCKER_SMOKE_DIR:-}"
+if [ -n "$SMOKE_ROOT" ]; then
+  mkdir -p "$SMOKE_ROOT"
+  TMP="$(mktemp -d "${SMOKE_ROOT%/}/atlas-docker-smoke-XXXXXX")"
+else
+  TMP="$(mktemp -d /tmp/atlas-docker-smoke-XXXXXX)"
+fi
 CID=
 CID2=
 CID3=
@@ -9,6 +21,7 @@ cleanup() {
   docker rm -f ${CID:-} ${CID2:-} ${CID3:-} >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
+echo "IMG=$IMG TMP=$TMP"
 
 mkdir -p "$TMP/data" "$TMP/backups" "$TMP/legacy/docs" "$TMP/legacy/uploads" "$TMP/legacy/history"
 printf '%s' '{"assets":[],"folders":[],"comments":[],"navigationOrder":{},"settings":{}}' > "$TMP/legacy/db.json"

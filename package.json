@@ -9,6 +9,7 @@
     "test:package": "node scripts/tests/package/test-package.mjs",
     "test:managed-update": "node scripts/tests/package/test-managed-update.mjs",
     "test:upgrade-artifacts": "node scripts/tests/package/test-upgrade-artifacts.mjs",
+    "test:upgrade-from-5.3.0": "node scripts/tests/package/test-upgrade-from-5.3.0.mjs",
     "check:distribution": "npm run test:tooling && npm run check && npm run test:core && npm run test:cli",
     "setup": "npm --prefix app install",
     "dev": "npm --prefix app run dev",

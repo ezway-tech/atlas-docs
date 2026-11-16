@@ -35,7 +35,7 @@ Selection order:
 3. Nearest `atlas-docs.config.json` walking up from the current directory
 4. Valid recent library from this machine’s registry
 5. Existing `./atlas-docs-data` in the current directory (compatibility with earlier versions)
-6. Welcome screen — open, create, or try the demo (nothing is created until you confirm)
+6. Projects screen — open, create, or try the demo (nothing is created until you confirm)
 
 Relative `--data-dir` and `DATA_DIR` values resolve from the calling directory.
 `dataDir` inside the config file resolves from the config file's directory.
@@ -51,7 +51,7 @@ atlas-docs --data-dir ./project-docs --port 17431 --no-open
 atlas-docs start --yes
 ```
 
-Automation: always pass `--data-dir` or `DATA_DIR` when scripts expect a library without the welcome UI. Example for two projects at once:
+Automation: always pass `--data-dir` or `DATA_DIR` when scripts expect a library without the Projects UI. Example for two projects at once:
 
 ```sh
 atlas-docs --data-dir ./docs-a --port 17430

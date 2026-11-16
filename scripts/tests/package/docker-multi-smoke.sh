@@ -5,10 +5,12 @@ export ATLAS_REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
 export SMOKE_DIR=$ATLAS_REPO_ROOT/test-results/docker-multi-smoke
 COMPOSE_FILE=$SCRIPT_DIR/docker-compose.multi-smoke.yml
 
+docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1 || true
+# Fresh host dirs each run so create is not blocked by leftover Smoke-Lib content.
+rm -rf "$SMOKE_DIR"
 mkdir -p "$SMOKE_DIR/libraries" "$SMOKE_DIR/atlas-registry" "$SMOKE_DIR/upgrade-backups"
 cd "$SCRIPT_DIR"
 
-docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1 || true
 docker compose -f "$COMPOSE_FILE" up -d --build
 
 wait_ready() {

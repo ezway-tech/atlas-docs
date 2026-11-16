@@ -238,6 +238,7 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | `npm run test:cli` | Check CLI options and agent-guide preservation using temporary directories |
 | `npm run test:package` | Install and exercise the actual tarball outside the checkout |
 | `npm run test:upgrade-artifacts` | Verify upgrade from the pinned 5.1.0 tarball to the locally built release, using temporary libraries |
+| `npm run test:upgrade-from-5.3.0` | Download published 5.3.0, seed a temp library, then reopen it with the local release tarball (no schema migration expected) |
 | `npm run check:distribution` | Typecheck, storage tests, core tests, and CLI tests |
 | `npm run dev` | Start the managed development server (recent project or Example) |
 | `npm run build` / `npm start` | Build / start the production app |

@@ -20,17 +20,25 @@
 
 - Multi-library management for the npm CLI: open, create, rename display names, remove from recent, and try the Little Café demo from the UI without rewriting project config.
 - Machine-local recent library registry (Windows `LOCALAPPDATA/atlas-docs`, Linux XDG config; override with `ATLAS_DOCS_REGISTRY_DIR`). Recent entries are outside library folders and never delete library data.
-- Library selection order: `--data-dir` → `DATA_DIR` → `atlas-docs.config.json` → valid recent → existing `./atlas-docs-data` compatibility → welcome screen (no automatic empty library).
+- Library selection order: `--data-dir` → `DATA_DIR` → `atlas-docs.config.json` → valid recent → existing `./atlas-docs-data` compatibility → Projects screen (no automatic empty library).
 - Managed runtime supervisor switches libraries by starting a new child with a fixed `DATA_DIR` (same pattern as Update and restart). Stale tabs are rejected with runtime/library session headers.
+- Source checkout home redirects to `/projects`; workspace stays on `/workspace` and document links. Managed source opens a valid recent project or the durable Example project; an existing repository `data/` library stays listed and is not replaced.
 - Docker: keep single-library `/data` Compose; add opt-in multi-library Compose examples with `/libraries` + `/atlas-registry` and in-container switch without restarting the container.
 - Folder browser APIs stay local-only with origin/host checks and server-side allowed roots (canonical containment).
 
 ### Compatibility
 
-- Running `atlas-docs` with no library target no longer auto-creates `./atlas-docs-data`. Pass `--data-dir` / `DATA_DIR` for automation, or use the welcome UI. An existing openable `./atlas-docs-data` is still opened for upgrade compatibility.
+- Running `atlas-docs` with no library target no longer auto-creates `./atlas-docs-data`. Pass `--data-dir` / `DATA_DIR` for automation, or use the Projects UI. An existing openable `./atlas-docs-data` is still opened for upgrade compatibility.
 - Project config paths on another Windows drive are stored absolute (never `./D:/...`).
-- Source checkout and fixed Docker `/data` remain single-library (fixed mode) unless multi-library Compose is used.
-- npm package includes `demo/` (seed script + Little Café) for Try demo.
+- Source checkout is multi-project managed unless `DATA_DIR` or `ATLAS_LIBRARY_MODE=fixed` pins one library. Fixed Docker `/data` stays single-library; use multi-library Compose to switch projects in one container.
+- Schema remains **1**. Opening a 5.3.0 library in 5.4.0 does not run a schema migration or create an upgrade backup.
+- npm package includes `demo/` (seed script + Little Café) for Try demo / Example.
+
+### Upgrade
+
+- **npm:** stop the app, back up the library (or export a ZIP), install `atlas-docs@5.4.0` (or `npx atlas-docs@5.4.0`), then open the same absolute library path. See [npm updates](guides/npm.md#updates).
+- **Docker Hub:** set `ATLAS_DOCS_VERSION=5.4.0` (or pull `ezwaytechvn/atlas-docs:5.4.0`), keep the same data and upgrade-backup volumes, recreate the container. Single-library and multi-library Compose files both work with the same image tag.
+- Keep the library backup until you have checked documents, attachments, comments, and settings. Do not roll back only by installing an older package if a later schema migration already ran (not expected for 5.3.0 → 5.4.0).
 
 ## 5.3.0
 

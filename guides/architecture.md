@@ -26,7 +26,7 @@ Atlas Docs is a local Next.js application. React components provide the workspac
 | `app/src/middleware.ts` | Sets the `atlas-locale` cookie from Accept-Language on first visit |
 | `scripts/setup/` | Library bootstrap and demo seeding |
 | `scripts/tests/app/` | App tests and browser fixtures |
-| `examples/little-cafe/` | Optional sample content copied into an empty library |
+| `examples/little-cafe/` | Sample content for the durable Example project and `seed:demo` |
 | `scripts/templates/` | Library `AGENTS.md` template and agent-kit composition inputs |
 | `scripts/build/` | Release packaging, Help preparation, agent-kit composer, and process helper |
 | `scripts/tests/` | App, library, CLI, and package tests; shared test helpers |
@@ -64,7 +64,7 @@ The server process owns the lock for its lifetime. A second Atlas Docs process o
 
 ## Data model
 
-`DATA_DIR`, when set, selects the library root for source/Docker. The low-level runtime otherwise resolves to `../data` from the app working directory; the source launcher starts in manager mode when there is no existing library. Root npm commands run inside `app/`, so the normal source default is the repository's `data/`. Prefer absolute custom paths.
+`DATA_DIR`, when set, selects the library root for source/Docker (fixed mode). Without `DATA_DIR`, the managed source launcher opens a recent project or Example and can switch projects; the low-level child runtime still receives one absolute `DATA_DIR` per open project. `ATLAS_LIBRARY_MODE=fixed` keeps the repository `data/` default beside `app/`. Root npm commands run inside `app/`. Prefer absolute custom paths.
 
 | Library path | Contents |
 | --- | --- |
