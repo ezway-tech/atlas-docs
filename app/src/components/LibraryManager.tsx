@@ -438,7 +438,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     }
   }
 
-  const fixed = !!caps && !caps.canSwitch;
+  const switchUnavailable = !!caps && !caps.canSwitch;
 
   const projects = useMemo(() => {
     const list = [...recent];
@@ -549,7 +549,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   }
 
   function openEntry(entry: RecentEntry) {
-    if (busy || (!entry.current && (fixed || entry.status === 'in_use'))) return;
+    if (busy || (!entry.current && (switchUnavailable || entry.status === 'in_use'))) return;
     if (entry.current) enterCurrent(entry);
     else void openPath(entry.path, entry.displayName);
   }
@@ -574,7 +574,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         <DropdownMenu
           align="end"
           trigger={
-            <Button className="icon" disabled={busy || fixed} aria-label={t('libraries.actions.more', {name: entry.displayName})}>
+            <Button className="icon" disabled={busy || switchUnavailable} aria-label={t('libraries.actions.more', {name: entry.displayName})}>
               <MoreHorizontal size={16} />
             </Button>
           }
@@ -603,7 +603,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     ]
       .filter(Boolean)
       .join(' ') || undefined;
-    const canOpen = entry.current || (!fixed && entry.status !== 'in_use');
+    const canOpen = entry.current || (!switchUnavailable && entry.status !== 'in_use');
     return (
       <li
         key={entry.path}
@@ -654,7 +654,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
             <Copy size={16} />
             {t('libraries.copyPath')}
           </MenuItem>
-          {!fixed && entry.id && !entry.isExample && (
+          {!switchUnavailable && entry.id && !entry.isExample && (
             <>
               <MenuItem
                 onSelect={() => {
@@ -690,7 +690,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
           )}
           {embedded && panel === 'home' && <p className="projects-intro">{t('libraries.welcome.subtitle')}</p>}
         </div>
-        {panel === 'home' && caps && !fixed && (
+        {panel === 'home' && caps && !switchUnavailable && (
           <div className="project-toolbar">
             <Button
               className={`btn${busyKey === 'open' || busyKey === 'pick' ? ' project-action-busy' : ''}`}
@@ -731,9 +731,9 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
           {error}
         </div>
       )}
-      {fixed && (
+      {switchUnavailable && (
         <div className="library-manager-note" role="status">
-          {t('libraries.fixedExplanation')}
+          {t('libraries.supervisorExplanation')}
         </div>
       )}
 
@@ -761,7 +761,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                   />
                 </label>
                 <ul className="library-manager-list project-list" role="listbox" aria-label={t('libraries.welcome.title')}>
-                  {!fixed && exampleError && !query.trim() && (
+                  {!switchUnavailable && exampleError && !query.trim() && (
                     <li className="example-unavailable">
                       <div>
                         <strong>Example</strong>
@@ -783,7 +783,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                     {t('libraries.recent.noMatches')}
                   </p>
                 )}
-                {!fixed && missing.length > 0 && (
+                {!switchUnavailable && missing.length > 0 && (
                   <div className="project-missing-summary">
                     <span>
                       {t('libraries.missing.title')} ({missing.length})
@@ -880,7 +880,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                       <Button
                         className={`btn primary${busyKey === selected.path ? ' project-action-busy' : ''}`}
                         disabled={
-                          busy || (!selected.current && (fixed || selected.status === 'in_use'))
+                          busy || (!selected.current && (switchUnavailable || selected.status === 'in_use'))
                         }
                         aria-busy={busyKey === selected.path || undefined}
                         onClick={() => openEntry(selected)}
@@ -893,7 +893,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                           {t('libraries.reveal')}
                         </Button>
                       )}
-                      {!fixed && selected.id && !selected.isExample && (
+                      {!switchUnavailable && selected.id && !selected.isExample && (
                         <Button
                           className="btn"
                           disabled={busy}
@@ -905,7 +905,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                           {t('libraries.actions.rename')}
                         </Button>
                       )}
-                      {!fixed && selected.id && !selected.isExample && !selected.current && (
+                      {!switchUnavailable && selected.id && !selected.isExample && !selected.current && (
                         <>
                           <Button className="btn" disabled={busy} onClick={() => askRemoveEntry(selected)}>
                             {t('libraries.actions.removeRecent')}

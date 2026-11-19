@@ -72,17 +72,16 @@ npx atlas-docs@latest
 
 Or install globally: `npm install -g atlas-docs`, then `atlas-docs`. Resolves a library from flags/env/config/recent/`./atlas-docs-data`, or opens the Projects screen. Default URL http://127.0.0.1:17430 (see [npm guide](guides/npm.md)).
 
-**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Image `ezwaytechvn/atlas-docs`; default URL http://127.0.0.1:17430 (override host port with `ATLAS_DOCS_PORT`); data and upgrade backups use named volumes. For multiple libraries in one container, see [`docker-compose.hub.multi.yml`](docker-compose.hub.multi.yml). See [operations](guides/operations.md#docker-hub-image-end-users).
+**Docker Hub image (no checkout):** copy [`docker-compose.hub.yml`](docker-compose.hub.yml), then `docker compose -f docker-compose.hub.yml up -d`. Default URL http://127.0.0.1:17430. The standard Compose persists projects, registry, and upgrade backups. See [Docker operations and migration](guides/operations.md#docker).
 
 **From this repository:**
 
 ```powershell
 npm run setup
-npm run bootstrap
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Managed `npm run dev` / `npm start` opens the Projects screen and uses a recent project or the durable Example project (existing repository `data/` stays listed and is not replaced). Set `DATA_DIR` or `ATLAS_LIBRARY_MODE=fixed` for a single pinned library. `npm run bootstrap` prepares the repository `data/` folder when you need that empty fixed library. For production, use `npm run build`, then `npm start`.
+Open http://127.0.0.1:3000. All installations open Projects with one durable Example on first launch. Create or open your own project; Atlas initializes its database and storage folders. An existing repository `data/` stays listed if valid. For production, use `npm run build`, then `npm start`.
 
 Or build from source with Docker:
 
@@ -90,13 +89,17 @@ Or build from source with Docker:
 docker compose up -d --build
 ```
 
-Source Compose pins `./data` (fixed single-library), upgrade backups in `./.atlas-docs-upgrade-backups`, and exposes http://127.0.0.1:3000.
+Source Compose persists `./libraries`, `./atlas-registry`, and `./.atlas-docs-upgrade-backups`, and exposes http://127.0.0.1:3000.
 
 **Run locally:** there is no login on the write API; keep the application local.
 
 **Want to explore first?** Follow the [Little Café demo instructions](guides/operations.md#keep-existing-data-and-try-the-demo-separately) to try documents, diagrams, attachments, and history in a separate empty library without changing your existing data.
 
 ## Use alongside your project
+
+**Initialize the library before an agent writes documents.** `docs/` alone is not an Atlas Docs library. Atlas creates `db.json`, `docs/`, `uploads/`, and `history/`; the agent then writes content under `docs/<folder>/`. Do not ask the agent to invent or patch `db.json`. Follow the [initialization and recovery steps](guides/agent-guide.md#initialize-before-writing).
+
+This example uses a source checkout with the confirmed project folder at `atlas-docs/data/`. Managed source, npm, and Docker may use a different root; confirm it first.
 
 ```text
 workspace/
@@ -105,12 +108,16 @@ workspace/
   atlas-docs/
     AGENTS.md                 # Entry point for agents
     guides/                   # Instructions about Atlas Docs itself
-    data/docs/                # Your project's documents
-      overview/
-      architecture/
-      features/
-      api/
-      operations/
+    data/                     # Library root: select this in Atlas
+      db.json                 # Required metadata, created by Atlas
+      uploads/                # Attachments managed by Atlas
+      history/                # Revisions managed by Atlas
+      docs/                   # Agent writes project documents here
+        overview/
+        architecture/
+        features/
+        api/
+        operations/
 ```
 
 Write project documents under `data/docs/`, not `guides/`. Follow the [agent guide](guides/agent-guide.md) for file rules, a document template, and instructions to add to your project's AGENTS.md. Agents working in a sibling repository should not be assumed to discover this repository's instructions automatically.
@@ -120,7 +127,7 @@ Write project documents under `data/docs/`, not `guides/`. Follow the [agent gui
 Each library folder holds `docs/`, `uploads/`, `history/`, and `db.json`.
 
 - **Managed source / npm multi-project:** Example and new projects live under the machine application-data libraries directory (override with `ATLAS_DOCS_LIBRARIES_DIR`). Recent entries use a separate registry (`ATLAS_DOCS_REGISTRY_DIR`). An existing repository `data/` library, if present, remains listed.
-- **Fixed mode:** set absolute `DATA_DIR`, or `ATLAS_LIBRARY_MODE=fixed` for the repository `data/` beside `app/` (ignored by Git). Single-library Docker mounts `/data`.
+- **Docker:** individual projects live under `/libraries`; persist `/atlas-registry` and `/upgrade-backups` as well. Fixed mode is removed in version 6; see the [migration instructions](guides/operations.md#upgrade-from-the-old-fixed-data-layout).
 
 See [operations](guides/operations.md) for a separate documentation repository and full backup instructions.
 

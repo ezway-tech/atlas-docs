@@ -35,9 +35,9 @@ Paths in this table are relative to the repository root. The root package forwar
 
 All development tools live under `scripts/`. Node tools outside the app resolve dependencies through `scripts/dependencies.mjs`; no root dependency installation is needed. Tests are grouped into `app`, `library`, `cli`, and `package`, with shared helpers. New test builds, bundles, reports, and Help captures go under `app/test-results/`. Older ignored build caches may remain locally; they are not source folders.
 
-The npm distribution packages `bin/` (CLI), `core/`, `runtime/` (Next standalone), `demo/`, and `agent-kit/`. `npm run package:release` builds one tarball and a `.sha256` checksum. Source startup uses a supervisor and keeps an existing `../data` library available; explicit `DATA_DIR` and single-library Docker retain their fixed data paths (`../data` and `/data`); the npm CLI resolves a library through flag/env/config/recent/compat, or opens the library manager when none apply. Schema-upgrade backups default beside the library under `.atlas-docs-upgrade-backups`; set `ATLAS_DOCS_UPGRADE_BACKUP_DIR` to choose another parent (required for Docker persistence at `/upgrade-backups`). See [npm usage](npm.md) and [operations](operations.md#docker-hub-image-end-users).
+The npm distribution packages `bin/`, `core/`, `runtime/`, `demo/`, and `agent-kit/`. All launchers use Projects with a durable Example. Docker persists `/libraries`, `/atlas-registry`, and `/upgrade-backups`; it bundles the same agent-kit as npm. Schema-upgrade backups stay outside each project. See [npm usage](npm.md) and [operations](operations.md).
 
-Managed source, CLI, and multi-project Docker run a supervisor parent that spawns one child runtime per open project. Switching projects stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path. A project folder is the parent that contains `docs/`, `uploads/`, `history/`, and `db.json` (do not select `docs/` alone).
+Source, CLI, and Docker run a supervisor parent that spawns one child runtime per open project. Switching projects stops the child, releases the lock, and starts a new child with a fixed `DATA_DIR` — it does not mutate `DATA_DIR` inside a running Next process or restart the whole container for the usual switch path. A project folder is the parent that contains `docs/`, `uploads/`, `history/`, and `db.json` (do not select `docs/` alone).
 
 ## Versions
 
@@ -64,7 +64,7 @@ The server process owns the lock for its lifetime. A second Atlas Docs process o
 
 ## Data model
 
-`DATA_DIR`, when set, selects the library root for source/Docker (fixed mode). Without `DATA_DIR`, the managed source launcher opens a recent project or Example and can switch projects; the low-level child runtime still receives one absolute `DATA_DIR` per open project. `ATLAS_LIBRARY_MODE=fixed` keeps the repository `data/` default beside `app/`. Root npm commands run inside `app/`. Prefer absolute custom paths.
+Each child runtime receives the selected project root as internal `DATA_DIR`. Public launchers reject the obsolete `DATA_DIR` and fixed-mode configuration. Source/Docker accept `ATLAS_OPEN_LIBRARY`; npm accepts `--data-dir` or project config. These select a project without disabling switching.
 
 | Library path | Contents |
 | --- | --- |
@@ -106,9 +106,9 @@ The prepare step also copies `guides/assets/` into generated public assets. Dock
 
 ## Project manager and folder picking
 
-The source launcher reuses the CLI child supervisor with a source Next entry point. It does not mutate the active data root in a live process. Explicit `DATA_DIR` remains fixed. After a successful project switch, reloading the workspace keeps the open project and does not reopen the project manager.
+The source launcher reuses the CLI child supervisor with a source Next entry point. It does not mutate the active data root in a live process. All supported launchers allow project switching. After a successful project switch, reloading the workspace keeps the open project and does not reopen the project manager.
 
-Managed startup opens the valid recent project when present; otherwise it ensures the durable **Example** project once and opens it. An existing repository `data/` library is registered in the project list and is not replaced by Example. Fixed `DATA_DIR` / single-library Docker keep their pinned path.
+Managed startup opens the valid recent project when present; otherwise it ensures the durable **Example** project once and opens it. An existing repository `data/` library is registered in the project list and is not replaced by Example. Docker uses the same startup flow and persists Example identity in its registry.
 
 On a local desktop (`ATLAS_LOCAL_DESKTOP=1`), `POST /api/libraries/pick-folder` opens a native OS folder dialog (mockable with `ATLAS_DOCS_PICK_FOLDER_MOCK` in tests). Without a desktop, the UI browses only within `ATLAS_DOCS_ALLOWED_ROOTS`. `POST /api/libraries/reveal` opens the active project folder, or a registered project selected by its registry ID, after path and access checks. It does not accept arbitrary paths or commands. Empty folders can be initialized in place after confirmation (`initialize-empty`); unknown folders are refused without conversion or copy. Missing registry paths can be relocated or removed from the list without deleting files.
 

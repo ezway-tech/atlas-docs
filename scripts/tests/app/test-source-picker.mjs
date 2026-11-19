@@ -479,25 +479,18 @@ try {
     await assert.rejects(() => access(deletable), {code: 'ENOENT'});
 
     await stop();
-    launch({DATA_DIR: readyProject, ATLAS_LOCAL_DESKTOP: '0', ATLAS_LIBRARY_MODE: 'fixed'});
+    launch({ATLAS_OPEN_LIBRARY: readyProject, ATLAS_LOCAL_DESKTOP: '0', ATLAS_LIBRARY_MODE: ''});
     await ready();
-    await gotoApp(page);
-    await page.waitForSelector('.source-switcher');
-    assert.equal(await manager.count(), 0, 'fixed mode does not auto-open the project manager');
-    await page.locator('.source-switcher').click();
+    await page.goto(origin + '/projects');
     await manager.waitFor();
-    assert.equal(await manager.locator('.source-choice').count(), 0, 'fixed mode shows no project choices');
-    assert.equal(await manager.getByRole('button', {name: 'Open in Explorer', exact: true}).count(), 0);
-    await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
-    await page.getByRole('menuitem', {name: 'Copy path', exact: true}).waitFor();
-    await page.keyboard.press('Escape');
-    await manager.locator('.current .project-list-select').click();
-    await manager.locator('.project-detail').getByRole('button', {name: 'Open project', exact: true}).click();
-    await page.waitForSelector('.source-switcher');
-    assert.equal(await manager.count(), 0);
+    const capabilities = await api('/api/libraries/capabilities');
+    const capBody = await capabilities.json();
+    assert.equal(capBody.canSwitch, true);
+    assert.equal(capBody.canCreate, true);
+    assert.equal(capBody.canPickFolder, false);
 
     console.log(
-      'PASS: project manager, Example, reload, open/create empty, invalid folder, cancel pick, missing list, remove/delete confirm, draft, reveal, keyboard, fixed mode',
+      'PASS: project manager, Example, reload, open/create empty, invalid folder, cancel pick, missing list, remove/delete confirm, draft, reveal, keyboard, managed non-desktop startup',
     );
   }
 } catch (error) {

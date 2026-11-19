@@ -20,12 +20,12 @@ const portIndex = args.findIndex(x => x === '--port' || x === '-p');
 const port = Number(portIndex < 0 ? process.env.PORT || 3000 : args[portIndex + 1]);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid port');
 const {version} = JSON.parse(await readFile(path.join(app, 'package.json'), 'utf8'));
-const fixed = !!process.env.DATA_DIR || process.env.ATLAS_LIBRARY_MODE === 'fixed';
+if (process.env.DATA_DIR || process.env.ATLAS_LIBRARY_MODE === 'fixed') throw Error('Atlas Docs 6 uses Projects. Remove DATA_DIR / ATLAS_LIBRARY_MODE=fixed; use ATLAS_OPEN_LIBRARY to select an existing project. Existing data is unchanged.');
 const defaultRoot = path.join(repo, 'data');
-let current = fixed ? path.resolve(process.env.DATA_DIR || defaultRoot) : null;
+let current = null;
 let displayName;
 let switchError = '';
-if (!fixed) {
+{
   try {
     const startup = await resolveManagedStartupProject({
       env: process.env,
@@ -43,6 +43,7 @@ if (!fixed) {
       console.log(`[Atlas Docs] Project: ${current} (${startup.source})`);
     }
   } catch (error) {
+    if (process.env.ATLAS_OPEN_LIBRARY) throw error;
     current = null;
     switchError = error.message;
     console.log(`[Atlas Docs] Opening project manager (${error.message})`);
@@ -65,16 +66,16 @@ for (; !stopRequested; ) {
     result = await startServer(repo, {
       port,
       dataDir: current,
-      libraryMode: fixed ? 'fixed' : current ? 'library' : 'manager',
+      libraryMode: current ? 'library' : 'manager',
       development,
       runtimeCwd: app,
       runtimeEntry: path.join(repo, 'scripts/setup/source-runtime.mjs'),
       appVersion: version,
       switchError,
       displayName,
-      rememberOpen: !fixed,
+      rememberOpen: true,
       envExtra: {
-        ATLAS_CLI_MANAGED: fixed ? '' : '1',
+        ATLAS_CLI_MANAGED: '1',
         ATLAS_CORE_PATH: path.join(app, 'src/library/index.mjs'),
         ATLAS_LOCAL_DESKTOP: process.env.ATLAS_LOCAL_DESKTOP || '1',
         ATLAS_LAUNCH_CWD: repo,
@@ -96,7 +97,7 @@ for (; !stopRequested; ) {
     });
   } catch (error) {
     if (stopRequested) break;
-    if (fixed || !current) throw error;
+    if (!current) throw error;
     current = null;
     displayName = undefined;
     switchError = error.message;
@@ -104,7 +105,7 @@ for (; !stopRequested; ) {
   }
   if (stopRequested || !result.switch) break;
   try {
-    if (fixed || result.drainOk === false) throw Error('Could not finish saving. Project was not changed.');
+    if (result.drainOk === false) throw Error('Could not finish saving. Project was not changed.');
     const inspected = await inspectOpenTarget(result.switch.path, resolveAllowedRoots());
     if (!inspected.openable) throw Error(inspected.error?.message || 'Cannot open project');
     await prepareLibrary({

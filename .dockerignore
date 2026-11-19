@@ -24,3 +24,7 @@ app/next-env.d.ts
 
 # Development-only tooling
 scripts/tests
+
+libraries
+atlas-registry
+app/agent-kit

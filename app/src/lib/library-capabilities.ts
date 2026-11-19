@@ -4,7 +4,7 @@ import {loadCore} from './load-core';
 import {appRuntime} from './app-runtime';
 import {DATA_ROOT} from './data-root';
 
-export type LibraryMode = 'manager' | 'library' | 'fixed';
+export type LibraryMode = 'manager' | 'library';
 
 function env(name: string) {
   return process.env[JSON.parse(JSON.stringify(name)) as string];
@@ -19,11 +19,8 @@ function identityFromRoot(root: string) {
 export function libraryMode(): LibraryMode {
   const mode = env('ATLAS_LIBRARY_MODE');
   if (mode === 'manager') return 'manager';
-  if (mode === 'fixed') return 'fixed';
   if (mode === 'library') return 'library';
-  // Source/Docker without manager: fixed to DATA_DIR / default data root.
-  if (env('ATLAS_LIBRARY_MANAGER') === '1') return 'library';
-  return 'fixed';
+  return env('DATA_DIR') ? 'library' : 'manager';
 }
 
 export function isManagerMode() {
@@ -32,7 +29,6 @@ export function isManagerMode() {
 
 export function canManageLibraries() {
   const mode = libraryMode();
-  if (mode === 'fixed') return false;
   return appRuntime().managed || mode === 'manager';
 }
 
@@ -51,16 +47,16 @@ export async function libraryCapabilities() {
     managed,
     storageLocation: 'server' as const,
     canReveal: desktop,
-    canPickFolder: desktop && mode !== 'fixed',
-    canBrowse: mode !== 'fixed',
-    canCreate: mode !== 'fixed',
+    canPickFolder: desktop,
+    canBrowse: true,
+    canCreate: true,
     canSwitch: switchable,
-    canOpen: mode !== 'fixed',
-    canDemo: mode !== 'fixed',
-    canRenameRecent: mode !== 'fixed',
-    canRemoveRecent: mode !== 'fixed',
-    canRelocateRecent: mode !== 'fixed',
-    canUseForProject: mode !== 'fixed',
+    canOpen: true,
+    canDemo: true,
+    canRenameRecent: true,
+    canRemoveRecent: true,
+    canRelocateRecent: true,
+    canUseForProject: true,
     allowedRoots: roots,
     defaultParentDir: defaultParent,
     defaultBrowseDir: roots.find((root: {available: boolean}) => root.available)?.path || defaultParent,

@@ -171,3 +171,18 @@ test('registry env isolation does not use machine default when override is set',
     await rm(root, {recursive: true, force: true});
   }
 });
+
+test('packaged startup seeds from bundled demo directory, without global environment mutation', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'atlas-packaged-example-'));
+  try {
+    const packageRoot = path.join(root, 'package');
+    const bundled = path.join(packageRoot, 'demo', 'little-cafe');
+    await mkdir(bundled, {recursive: true});
+    await writeFile(path.join(packageRoot, 'demo', 'seed-demo.mjs'),
+      'export const demoRoot="/wrong/source/path"; export async function seedDemo(root,sample){if(!sample.endsWith("little-cafe"))throw Error("wrong sample");const fs=await import("node:fs/promises");await fs.mkdir(root,{recursive:true});await fs.writeFile(root+"/sample-path",sample);}'
+    );
+    const env = {ATLAS_DOCS_REGISTRY_DIR:path.join(root,'registry'),ATLAS_DOCS_LIBRARIES_DIR:path.join(root,'libraries'),ATLAS_DOCS_ALLOWED_ROOTS:root};
+    const selected = await resolveManagedStartupProject({packageRoot,env});
+    assert.equal(await readFile(path.join(selected.root,'sample-path'),'utf8'), bundled);
+  } finally { await rm(root, {recursive:true,force:true}); }
+});

@@ -5,122 +5,78 @@
 Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one from **Utilities → Language**. Guides use English names for features; on-screen labels follow the selected language.
 ## Install and run
 
-For the npm/npx distribution, use [Atlas Docs with npm](npm.md). The commands and default
-paths below refer to a source checkout unless explicitly marked as npm CLI instructions.
+All installations use **Projects**. On a clean first launch, Atlas prepares one durable **Example** project. Create a project or open an existing project folder; Atlas creates the database and storage directories before documents are added. Restarting preserves Example edits, projects, and the registry. The home URL opens Projects; reloading a workspace or document keeps that page.
 
-Requires Node.js 22.12 or newer. From the repository root:
+For npm, see [npm usage](npm.md). From a source checkout with Node.js 22.12 or newer:
 
 ```powershell
 npm run setup
-npm run bootstrap
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. The managed launcher opens the most recent valid project, or the durable **Example** project on first use, and can switch projects without restarting the launcher. An existing repository `data/` project stays in the project list and is not replaced by Example. The home page opens the separate Projects screen before loading the workspace. Reloading a workspace or opening a document link keeps that page.
+Open http://127.0.0.1:3000. For production, build with `npm run build`, then `npm start`. Use `ATLAS_OPEN_LIBRARY` with an absolute existing project root to select a project at startup; project switching remains available. Existing repository `data/` is registered if valid, never replaced.
 
-Setting `DATA_DIR` explicitly keeps the launcher in single-project mode. `ATLAS_LIBRARY_MODE=fixed` also preserves the repository data default.
+`DATA_DIR` and `ATLAS_LIBRARY_MODE=fixed` are no longer supported launcher configuration. Remove them before starting npm/source/Docker. `DATA_DIR` is still used internally by child runtimes and explicitly scoped bootstrap, seed, and test tools.
 
-The separate bootstrap command uses the shared `core` prepare path: it creates an **empty** project when missing, and migrates a legacy library only when `ATLAS_DOCS_MIGRATE_YES=1` is set (the npm CLI can prompt or accept `--yes` instead). It is not required before first open when Example is used. An explicitly selected fixed project is prepared when its runtime starts. Repeating it does not replace existing user documents. For production, run `npm run build`, then `npm start`.
-
-Projects store `schemaVersion` in `db.json` (currently 1). Existing source data in repository `data/` is preserved. New projects and Example use the local application-data libraries directory, or `ATLAS_DOCS_LIBRARIES_DIR`. Fixed Docker continues to use `/data`.
+For agent-generated content, follow [Initialize before writing](agent-guide.md#initialize-before-writing). A library includes `db.json`, `docs/`, `uploads/`, and `history/`. A manually created `docs/` without a database is refused.
 
 ## Example project (Little Café content)
 
-Managed launches create the durable **Example** project once under the application-data libraries directory (or `ATLAS_DOCS_LIBRARIES_DIR`). Opening it again keeps your edits. It is never re-seeded over existing content. Your repository `data/` project, if present, remains listed separately.
+Example is created once under the application-data libraries directory, or `ATLAS_DOCS_LIBRARIES_DIR`. Its identity is saved in the registry outside the project. Edits are preserved; an invalid existing Example is not overwritten. A missing Example can be recreated in a new empty location. Example failure does not prevent opening another valid project.
 
-To load the same sample into a different empty folder with the app stopped:
-
-```powershell
-npm run seed:demo
-npm run dev
-```
-
-Seeding validates the bundled sample, then copies it into an empty library. It refuses existing documents, folders, assets, comments, history, or unexpected files. There is no force/overwrite option. An empty database created by bootstrap is accepted. Do not seed while the app is running.
-
-Start at **Start here → Welcome to Little Café → Explore Atlas Docs**. The 13 short documents cover Markdown, links, Mermaid, OpenAPI, SQL, YAML, and JSON. Five original media files demonstrate image previews, CSV download, audio, and video. A sample comment and two older recipe revisions demonstrate discussion and history. Menu starts pinned; Operations → Stock starts hidden and can be shown from the dashboard.
-
-All content is fictional. The two café images were generated with OpenAI ImageGen in a photographic style; they do not depict a real café. The synthesized chime and animated diagram were created for this repository. Demo media is distributed with this repository under its MIT license. The ordering API is documentation only; no ordering backend is supplied. No external media downloads are needed to use the sample.
+Example includes Markdown, OpenAPI, SQL, YAML, JSON, media, comments, and history. All content is fictional and distributed under the repository MIT license. The café images were generated with OpenAI ImageGen. See [demo image credits](demo-image-prompts.md).
 
 ### Keep existing data and try the demo separately
 
-`DATA_DIR` is supported by the app, bootstrap, and seeder. Use an absolute path outside the repository for a separate library. PowerShell example, from the repository root:
-
-```powershell
-$env:DATA_DIR = Join-Path $env:LOCALAPPDATA 'AtlasDocs/little-cafe-demo'
-npm run seed:demo
-npm run dev
-```
-
-Keep that variable set for subsequent commands using this library. Stop the app and run `Remove-Item Env:DATA_DIR` to return to the default `data/`. On macOS/Linux, use `export DATA_DIR="$HOME/.local/share/atlas-docs/little-cafe-demo"` and `unset DATA_DIR` respectively. Root scripts execute inside `app/`, so relative `DATA_DIR` values resolve from `app/`; absolute paths are recommended.
-
-To reset a demo, use another empty directory. Do not delete a working library just to load the sample. Source files under `examples/` are committed; UI edits affect only the selected data directory.
-
-Demo updates do not migrate an already seeded library. To see the latest sample, stop the app, set `DATA_DIR` to a new empty directory (for example `AtlasDocs/little-cafe-demo-v2` under your local application-data directory), then run `npm run seed:demo` and `npm run dev` from the repository root. The Latte recipe demonstrates H2–H6 nesting; the table of contents defaults to H1–H3, so set its upper level to H6 to see every section. The Ordering app article includes SQL and OpenAPI embedded in Markdown.
+Open Example from Projects; it is separate from your own library. Do not seed or import over existing content. To test a newer sample, use a separate temporary registry and libraries directory. The maintenance command `npm run seed:demo` accepts a temporary absolute `DATA_DIR` and refuses a nonempty library. Unset that variable before launching the app, then open the prepared folder through Projects.
 
 ## Docker
 
-There is no login on the write API; keep the application local (do not expose it as a shared multi-user service).
-
 ### Docker Hub image (end users)
 
-No source checkout is required. Copy `docker-compose.hub.yml` from the Atlas Docs repository root (or recreate it), then:
+Copy [docker-compose.hub.yml](../docker-compose.hub.yml), then:
 
 ```powershell
 docker compose -f docker-compose.hub.yml up -d
 ```
 
-Default image: `ezwaytechvn/atlas-docs:5.4.0` (override with env `ATLAS_DOCS_VERSION`). The Compose file binds `127.0.0.1:17430:3000` by default (override the host port with env `ATLAS_DOCS_PORT`), uses named volumes for `/data` (library) and `/upgrade-backups` (schema-upgrade backups), and sets `restart: unless-stopped`. Open http://127.0.0.1:17430 unless you changed `ATLAS_DOCS_PORT`.
+Open http://127.0.0.1:17430. The default image is `ezwaytechvn/atlas-docs:6.0.0`; override with `ATLAS_DOCS_VERSION`. Override the host port with `ATLAS_DOCS_PORT`. Keep the localhost binding: there is no login on the write API.
 
-Schema upgrades write a full filesystem backup under `ATLAS_DOCS_UPGRADE_BACKUP_DIR` (default `/upgrade-backups` in the image). That path is outside the library and must stay on a persistent volume. Replacing the container while keeping both volumes preserves documents, attachments, and upgrade backups.
+Projects is the only Docker mode. The standard Compose persists three named volumes: `/libraries` for individual projects (including Example), `/atlas-registry` for the project list and Example identity, and `/upgrade-backups` for schema backups. Preserve all three when recreating or upgrading the container. Never run `docker compose down -v` to update.
 
-**Single-library (default):** `docker-compose.hub.yml` mounts one library at `/data`. The UI cannot switch libraries in this fixed mode.
+Use a host bind mount instead of the libraries named volume when a host agent needs direct file access. Container paths and host paths are different; the UI only browses mounted allowed roots. On Linux, writable folders must be accessible to UID 1000. `ATLAS_OPEN_LIBRARY=/libraries/my-project` optionally selects an existing project, without disabling switching. Docker installs the versioned agent guide into a library when it prepares that library.
 
-**Multi-library (opt-in):** use `docker-compose.hub.multi.yml` (named volumes) or `docker-compose.multi.yml` (source build bind mounts). Libraries live under `/libraries`; recent entries under `/atlas-registry`. The container entrypoint supervises runtime switches without restarting the container. Browse/create only within mounted allowed roots — the app cannot see arbitrary host paths that were not mounted. Manager mode ignores the image default `DATA_DIR=/data` (that path is not mounted in the multi-library Compose files); use `ATLAS_OPEN_LIBRARY` only when you want to open a path under `/libraries` at startup.
+### Upgrade from the old fixed /data layout
 
-**Update (keep data):**
+Version 6 removes fixed mode and the separate multi-library Compose files. Do not merely replace the image while retaining `DATA_DIR=/data`; startup will report the obsolete setting without changing data.
 
-1. Stop is optional; back up volumes or export a ZIP first.
-2. If you pin a version, set `ATLAS_DOCS_VERSION` to the new tag.
-3. Pull and recreate:
+1. Stop the old container and back up the complete old library or its volume. Preserve the old Compose file and volume names.
+2. Use the new standard Compose with persistent libraries, registry, and upgrade-backup volumes. Remove `DATA_DIR` and `ATLAS_LIBRARY_MODE=fixed`.
+3. Add the old named volume as an external volume and mount it at `/libraries/existing-project`, or copy the entire stopped library into a host directory mounted there. Copy all four data entries and any personal agent instructions; copying only `docs/` loses metadata and media.
+4. Start Atlas, open `/libraries/existing-project` from Projects, and verify documents, attachments, comments, and history. Keep the backup and original data until verified. There is no automatic move or deletion.
 
-```powershell
-docker compose -f docker-compose.hub.yml pull
-docker compose -f docker-compose.hub.yml up -d
+Example additional Compose mount (replace the actual old volume name):
+
+```yaml
+services:
+  atlas-docs:
+    volumes:
+      - old-project:/libraries/existing-project
+volumes:
+  old-project:
+    external: true
+    name: YOUR_EXISTING_VOLUME_NAME
 ```
 
-Do **not** run `docker compose down -v` during an update; `-v` deletes volumes.
+Merge this with the standard Compose; retain its three persistent mounts. Docker does not infer the old volume name for you.
 
-**Roll back an image** only when the older image still supports the library `schemaVersion`. If a newer image already migrated the schema, restore the upgrade backup volume (or a ZIP taken before migration). Updating the image is separate from schema migration; migration runs when the library is opened (`ATLAS_DOCS_MIGRATE_YES=1` is set in the image).
-
-**Bind mounts:** if you replace named volumes with host directories on Linux and the app cannot write, `chown` those directories to UID **1000** (the image `node` user).
-
-Readiness: the image HEALTHCHECK calls `GET /api/health`.
-
-### Source checkout Compose (developers)
-
-From the repository root:
+### Build from source
 
 ```powershell
 docker compose up -d --build
 ```
 
-The container starts with an empty library, mounts `./data` at `/data` and `./.atlas-docs-upgrade-backups` at `/upgrade-backups`, and listens on http://127.0.0.1:3000. To load the optional demo into that empty volume:
-
-```powershell
-docker compose stop atlas-docs
-docker compose run --rm --no-deps atlas-docs node scripts/seed-demo.mjs
-docker compose up -d
-```
-
-For a separate demo volume without touching existing `./data`:
-
-```powershell
-docker compose build
-docker compose run --rm --no-deps -v atlas-cafe-demo:/data -v atlas-cafe-demo-backups:/upgrade-backups atlas-docs node scripts/seed-demo.mjs
-docker compose run --rm --no-deps -v atlas-cafe-demo:/data -v atlas-cafe-demo-backups:/upgrade-backups -p 127.0.0.1:3001:3000 atlas-docs
-```
-
-Open http://127.0.0.1:3001 for that demo.
+Open http://127.0.0.1:3000. Source Compose persists `./libraries`, `./atlas-registry`, and `./.atlas-docs-upgrade-backups`. It uses the same Projects workflow as npm and the published Docker image.
 
 ### Publish to Docker Hub locally
 
@@ -130,7 +86,7 @@ From the repository root, use PowerShell. Run each step only after the previous 
 $releaseVersion = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
 $imageName = 'ezwaytechvn/atlas-docs'
 docker build -f app/Dockerfile -t "${imageName}:${releaseVersion}" .
-docker run --rm -p 127.0.0.1:3001:3000 -v ${env:TEMP}/atlas-docs-smoke-data:/data -v ${env:TEMP}/atlas-docs-smoke-backups:/upgrade-backups "${imageName}:${releaseVersion}"
+docker run --rm -p 127.0.0.1:3001:3000 -v ${env:TEMP}/atlas-docs-smoke-libraries:/libraries -v ${env:TEMP}/atlas-docs-smoke-registry:/atlas-registry -v ${env:TEMP}/atlas-docs-smoke-backups:/upgrade-backups "${imageName}:${releaseVersion}"
 ```
 
 Open http://127.0.0.1:3001 and check the app, then stop the container with Ctrl+C.
@@ -150,6 +106,12 @@ npm publishing has a separate [local release checklist](npm.md#build-and-release
 
 The Hub repository short description and full Overview are not taken from the image. Edit [`docker-hub-overview.md`](docker-hub-overview.md), then update the Hub repository metadata after you authenticate with Docker Hub (JWT from the Hub login API; see [Docker Hub API authentication](https://docs.docker.com/docker-hub/api/latest/#tag/authentication)). Some personal access tokens return 403 for description updates — use an account password or a token that can update repository metadata.
 
+### Keep public agent instructions aligned
+
+GitHub renders the root `README.md`; the npm package README is built from `guides/npm.md`; Docker Hub Overview is published separately from `guides/docker-hub-overview.md`. Updating one does not update the others. The agent-kit copies `guides/agent-guide.md` into `.atlas/guides/` during library preparation; built-in Help bundles that guide at build time. Existing library `AGENTS.md` files are preserved, so new template rules do not overwrite personal instructions.
+
+For a documentation release, verify all three public entry points explain initialization before content generation, show `db.json` beside `docs/`, and link to the agent guide. Verify those links on the published pages, including raw Markdown access for web-reading agents. Check the installed package's bundled guide as well. If a separate website repeats setup instructions, update its owning project separately; this repository does not automatically publish those pages. Do not report local edits as published documentation.
+
 PowerShell example (set `$token` to the JWT from Hub authentication first):
 
 ```powershell
@@ -166,7 +128,7 @@ Verify https://hub.docker.com/r/ezwaytechvn/atlas-docs shows the new Overview an
 
 ## Where data lives
 
-The library is `data/` next to `app/`, or the absolute directory in `DATA_DIR`. It holds `db.json`, `docs/`, `uploads/`, and `history/`. `history/<doc-id>/<timestamp>_<uuid>.md` is one revision; the matching `.json` file is its metadata. `history/observed/` is a copy of current document content written on save. Nothing reads that copy, and version cleanup does not delete it.
+The library is the selected project folder shown in Projects. It holds `db.json`, `docs/`, `uploads/`, and `history/`. `history/<doc-id>/<timestamp>_<uuid>.md` is one revision; the matching `.json` file is its metadata. `history/observed/` is a copy of current document content written on save. Nothing reads that copy, and version cleanup does not delete it.
 
 ## History
 
@@ -279,7 +241,7 @@ The root `package.json` keeps the common app and release commands; it has no dep
 | `docker compose stop` | Stop Docker without deleting data |
 | `docker compose logs -f` / `docker compose ps` | Follow container logs / show status |
 
-Extra arguments are forwarded, for example `npm run dev -- --port 3001`. `DATA_DIR` is inherited by all forwarded app commands.
+Extra arguments are forwarded, for example `npm run dev -- --port 3001`. Use `ATLAS_OPEN_LIBRARY` to select an existing project; `DATA_DIR` is reserved for child runtimes and maintenance tools.
 
 ## Update an installation
 
@@ -290,7 +252,7 @@ Open **Help → Version & updates** to see the running version and installation-
 1. Stop the app and back up the complete active data directory, or export a ZIP before stopping.
 2. Review changes and preserve local source edits before updating the checkout. Older checkouts may have tracked data files; see the warning above.
 3. Run `npm run setup`, then `npm run build`.
-4. Start with the same absolute `DATA_DIR` using `npm start`. For source Docker, keep the same volumes and rebuild with `docker compose up -d --build`.
+4. Start with `npm start` and select the same project from Projects. For source Docker, keep the same volumes and rebuild with `docker compose up -d --build`.
 5. Open a known document and attachment. Keep the backup until the updated installation is verified.
 
 **npm package:** see [npm updates](npm.md#updates). **Docker Hub image:** see [Docker Hub image](#docker-hub-image-end-users). App updates do not replace library data; schema migration (if needed) runs when the library is opened and creates a full backup under the upgrade-backup directory.
@@ -299,7 +261,7 @@ Open **Help → Version & updates** to see the running version and installation-
 
 | Symptom | Check and action |
 | --- | --- |
-| Library looks empty | Check the active `DATA_DIR` and Docker volume. Do not seed or import until you have confirmed the intended library. |
+| Library looks empty | Check the selected project path and Docker volume. Do not seed or import until you have confirmed the intended library. |
 | A file does not appear | Check the supported extension, lowercase filename, folder depth, and required parent folder in the [agent guide](agent-guide.md). Reload the browser after external edits. |
 | Visual mode is unavailable | Complex Markdown requires Source, Split, or Preview; see the [user guide](user-guide.md). |
 | Import is refused | Use an empty library and check the archive limits. Never erase a working library to make import succeed. |
@@ -325,16 +287,15 @@ workspace/
 PowerShell, from `atlas-docs/` (use your actual absolute path):
 
 ```powershell
-$env:DATA_DIR = 'C:/workspace/my-product-docs'
-npm run bootstrap
 npm run dev
+# In Projects, create or open C:/workspace/my-product-docs
 ```
 
-On macOS/Linux, use `export DATA_DIR="/absolute/workspace/my-product-docs"`. Keep this variable set for every command using that library. The app adds `docs/` underneath `DATA_DIR`; do not point it at `my-product-docs/docs`.
+On macOS/Linux, choose the absolute project folder through Projects as well. Select the parent containing `db.json` and `docs/`, not `docs/` alone.
 
 Initialize Git in `my-product-docs` yourself and track `docs/` for text history. For a text-only repository, ignore `/db.json`, `/uploads/`, `/history/`, and temporary or journal files. Upload-backed images require the original library data to render. Do not commit secrets or private uploads accidentally.
 
-Git history of `docs/` is not a complete Atlas Docs backup: it excludes comments, media records, preferences, uploads, and app revisions. Use ZIP export or a stopped-app copy of the whole data root for full recovery. For Docker, change the volume mapping explicitly; the host shell variable does not replace the compose file's `./data:/data` mapping.
+Git history of `docs/` is not a complete Atlas Docs backup: it excludes comments, media records, preferences, uploads, and app revisions. Use ZIP export or a stopped-app copy of the whole data root for full recovery. For Docker, change the volume mapping explicitly; mount the entire project beneath `/libraries` and preserve the registry volume.
 
 ## Maintain Help and screenshots
 
@@ -350,6 +311,6 @@ Review the screenshots visually before committing: the red numbered outlines ide
 
 ### Project manager checks
 
-`npm --prefix app run test:source-picker` exercises Example open/reuse, create/open/initialize empty, invalid folders, cancel folder pick, missing-path list, remove/delete confirmation, stale tabs, locked projects, unsaved drafts, keyboard controls, desktop/mobile layout, and fixed mode. It uses temporary projects and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development manager and one Example switch instead. Native folder picks are mocked with `ATLAS_DOCS_PICK_FOLDER_MOCK`. The reveal check opens only a temporary test project.
+`npm --prefix app run test:source-picker` exercises Example open/reuse, create/open/initialize empty, invalid folders, cancel folder pick, missing-path list, remove/delete confirmation, stale tabs, locked projects, unsaved drafts, keyboard controls, desktop/mobile layout, and managed startup without native folder picking. It uses temporary projects and registry storage. Build with `ATLAS_DIST_DIR=test-results/builds/source-picker` first; use a temporary `DATA_DIR` for that build. Set `ATLAS_SOURCE_TEST_DEV=1` and a separate `ATLAS_DIST_DIR` to check the development manager and one Example switch instead. Native folder picks are mocked with `ATLAS_DOCS_PICK_FOLDER_MOCK`. The reveal check opens only a temporary test project.
 
 Set `ATLAS_LOCAL_DESKTOP=0` for a server without a local desktop; the UI uses in-app browse and path copying instead of the OS folder dialog or host file manager.

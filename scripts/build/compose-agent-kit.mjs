@@ -4,14 +4,15 @@
  */
 import {readFile, writeFile, mkdir, cp, readdir} from 'node:fs/promises';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 
 const CONNECT_SOURCE_NPM = `## Connect the source repository
 
-This guide is installed under the library's .atlas directory. The library root is two directories above this file; documents belong in its docs directory. Read the library AGENTS.md first.
+This guide is installed at <library>/.atlas/guides/agent-guide.md. From its containing guides directory, go up two levels to reach the library root (<library>); documents belong in <library>/docs/. Read <library>/AGENTS.md first.
 
 Agents working in another repository do not automatically discover these instructions. Add a link to the library AGENTS.md in that repository's instructions; see [npm usage](npm.md#connect-an-agent).
 
-Confirm the absolute library and source project paths before writing. Run \`atlas-docs library info\` and \`atlas-docs doctor\` before bulk edits. Do not write into a library until its schema is compatible with this app version.
+Confirm the absolute library and source project paths before writing. For npm, run \`atlas-docs library info\` and \`atlas-docs doctor\` before bulk edits. For Docker, confirm the selected project and mounted path in Projects; the image does not provide the npm CLI. Do not write into a library until its schema is compatible with this app version.
 `;
 
 const FILE_PATH_NPM_NOTE = `The npm CLI does not modify your Git configuration. Choose what to track explicitly. Prefer the library \`docs/\` directory (not a repository \`data/docs/\` path).`;
@@ -75,7 +76,19 @@ Before editing library files directly, run \`atlas-docs library info\` (or open 
   } else {
     ops = `${OPERATIONS_NPM_BANNER}\n${ops}`;
   }
+  ops = ops.replaceAll('(../docker-compose.hub.yml)', '(https://github.com/ezway-tech/atlas-docs/blob/main/docker-compose.hub.yml)');
   await writeFile(operations, ops);
 
+  const files = {};
+  async function scan(directory, prefix = '') {
+    for (const entry of await readdir(directory, {withFileTypes: true})) {
+      const relative = prefix + entry.name;
+      if (relative === 'manifest.json' || relative === 'library-AGENTS.md') continue;
+      if (entry.isDirectory()) await scan(path.join(directory, entry.name), relative + '/');
+      else files[relative] = createHash('sha256').update(await readFile(path.join(directory, entry.name))).digest('hex');
+    }
+  }
+  await scan(kitDir);
+  await writeFile(path.join(kitDir, 'manifest.json'), JSON.stringify({format: 'atlas-agent-kit', version, files}, null, 2) + '\n');
   return {version};
 }

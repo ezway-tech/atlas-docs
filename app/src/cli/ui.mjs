@@ -31,20 +31,20 @@ Options:
 
 Library selection order:
   1. --data-dir
-  2. DATA_DIR
-  3. nearest atlas-docs.config.json
-  4. valid recent library from this machine’s registry
-  5. existing ./atlas-docs-data in the current directory (compatibility)
-  6. library manager welcome screen (nothing is created automatically)
+  2. nearest atlas-docs.config.json
+  3. valid recent library from this machine’s registry
+  4. existing ./atlas-docs-data in the current directory (compatibility)
+  5. Projects screen with one durable Example project
 
-Relative --data-dir and DATA_DIR paths resolve from the calling directory.
+Relative --data-dir paths resolve from the calling directory.
 Config dataDir paths resolve from the config file location.
 Recent libraries are stored outside the library (Windows: LOCALAPPDATA/atlas-docs;
 Linux: $XDG_CONFIG_HOME/atlas-docs or ~/.config/atlas-docs). Override with
 ATLAS_DOCS_REGISTRY_DIR.
 
-Automation tip: pass --data-dir or DATA_DIR when you need a library path without
-the welcome screen. Explicit paths that are missing or invalid fail loudly.
+Automation: pass --data-dir to select a project; switching remains available.
+A missing or empty explicit target is initialized; invalid directories are refused.
+DATA_DIR and ATLAS_LIBRARY_MODE=fixed are no longer launcher settings.
 
 Run two projects at once with different libraries and ports, for example:
   atlas-docs --data-dir ./docs-a --port 17430

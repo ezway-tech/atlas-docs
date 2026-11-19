@@ -189,9 +189,9 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     const reg = await core.loadUserRegistrySafe(process.env);
     const entry = o.id ? reg.libraries.find((item: {id: string}) => item.id === o.id) : null;
     const target = o.id ? entry?.path : identity.libraryRoot;
-    if (!target || (libraryMode() === 'fixed' && core.libraryIdentityKey(target) !== identity.libraryId)) throw new AppError('errors.library.forbidden', 403);
+    if (!target) throw new AppError('errors.library.forbidden', 403);
     const {spawn} = await import('node:child_process');
-    const root = await core.assertWithinAllowedRoots(target, libraryMode() === 'fixed' ? [identity.libraryRoot] : core.resolveAllowedRoots(process.env), {mustExist: true});
+    const root = await core.assertWithinAllowedRoots(target, core.resolveAllowedRoots(process.env), {mustExist: true});
     const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command, [root], {shell: false, windowsHide: true, stdio: 'ignore'});
@@ -225,7 +225,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
   if (['preview-import', 'import-folder'].includes(seg[1]) && method === 'POST') {
     // Kept for compatibility tests; not used by the project manager UI.
     requireManage(req);
-    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const options = {source: String(o.source || ''), name: String(o.name || ''),
       parentDir: o.parentDir ? String(o.parentDir) : undefined,
@@ -239,9 +239,6 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'recent' && method === 'GET') {
     requireManage(req);
-    if (!caps.canBrowse && libraryMode() === 'fixed') {
-      return json({libraries: [], missing: [], capabilities: caps});
-    }
     const reg = await core.loadUserRegistrySafe(process.env);
     const currentKey = identity.libraryRoot ? core.libraryIdentityKey(identity.libraryRoot) : null;
     const libraries = [];
@@ -277,7 +274,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'browse' && method === 'GET') {
     requireManage(req);
-    if (!caps.canBrowse) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canBrowse) throw new AppError('errors.library.managerRequired', 409);
     const target = req.nextUrl.searchParams.get('path') || caps.defaultParentDir;
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     return json(await core.listBrowsableDir(target, allowed));
@@ -285,7 +282,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'inspect' && method === 'POST') {
     requireManage(req);
-    if (!caps.canOpen) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canOpen) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     return json(await core.inspectOpenTarget(String(o.path || ''), allowed));
@@ -317,7 +314,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'preview-create' && method === 'POST') {
     requireManage(req);
-    if (!caps.canCreate) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canCreate) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     return json(
@@ -331,7 +328,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'create' && method === 'POST') {
     requireManage(req);
-    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const created: {root: string; displayName: string} = await prepareSource(() => core.createLibrary({
@@ -350,7 +347,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'open' && method === 'POST') {
     requireManage(req);
-    if (!caps.canOpen || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canOpen || !caps.canSwitch) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const inspected = await core.inspectOpenTarget(String(o.path || ''), allowed);
@@ -377,7 +374,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'initialize-empty' && method === 'POST') {
     requireManage(req);
-    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canCreate || !caps.canSwitch) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     if (!o.confirm) {
       return json({error: {code: 'library.confirmRequired', message: 'Confirm to create a project in this empty folder.'}}, 409);
@@ -397,7 +394,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'demo' && method === 'POST') {
     requireManage(req);
-    if (!caps.canDemo || !caps.canSwitch) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canDemo || !caps.canSwitch) throw new AppError('errors.library.managerRequired', 409);
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const seed = await loadSeedDemo();
     const dest: {path: string; displayName: string} = await prepareSource(() =>
@@ -414,7 +411,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'rename' && method === 'POST') {
     requireManage(req);
-    if (!caps.canRenameRecent) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canRenameRecent) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const reg = await core.renameLibraryEntry(String(o.id || ''), String(o.displayName || ''));
     return json({ok: true, libraries: reg.libraries});
@@ -422,7 +419,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'relocate' && method === 'POST') {
     requireManage(req);
-    if (!caps.canRelocateRecent) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canRelocateRecent) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const inspected = await core.inspectOpenTarget(String(o.path || ''), allowed);
@@ -435,7 +432,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'remove' && method === 'POST') {
     requireManage(req);
-    if (!caps.canRemoveRecent) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canRemoveRecent) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const reg = await core.removeLibraryEntry(String(o.id || ''));
     return json({ok: true, libraries: reg.libraries, recentId: reg.recentId});
@@ -443,7 +440,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'delete' && method === 'POST') {
     requireManage(req);
-    if (!caps.canRemoveRecent) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canRemoveRecent) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const example = await core.readExampleProject({allowedRoots: allowed});
@@ -475,11 +472,11 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
 
   if (seg[1] === 'use-for-project' && method === 'POST') {
     requireManage(req);
-    if (!caps.canUseForProject) throw new AppError('errors.library.fixedMode', 409);
+    if (!caps.canUseForProject) throw new AppError('errors.library.managerRequired', 409);
     const o = await body();
     const launchCwd = process.env.ATLAS_LAUNCH_CWD;
     if (!launchCwd || !String(launchCwd).trim()) {
-      const err = new AppError('errors.library.fixedMode', 409);
+      const err = new AppError('errors.library.managerRequired', 409);
       err.message = 'Project config can only be written for the directory that launched Atlas Docs (ATLAS_LAUNCH_CWD).';
       throw err;
     }

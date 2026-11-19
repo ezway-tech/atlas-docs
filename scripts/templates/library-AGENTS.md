@@ -1,9 +1,12 @@
 # Atlas Docs library
 
 This directory is the library root. Write project documents under `docs/`.
+It must contain Atlas-created `db.json`, `docs/`, `uploads/`, and `history/` before you write content.
+If `db.json` is missing, preserve existing files and follow the agent guide's initialization and recovery steps; do not invent a database.
 Before editing, read [.atlas/guides/agent-guide.md](.atlas/guides/agent-guide.md)
 and [.atlas/guides/user-guide.md](.atlas/guides/user-guide.md).
-For launch and upgrade instructions, read [.atlas/guides/npm.md](.atlas/guides/npm.md).
+For npm launch and upgrades, read [.atlas/guides/npm.md](.atlas/guides/npm.md).
+For Docker, read [.atlas/guides/operations.md](.atlas/guides/operations.md).
 
 Read the source project's own instructions and relevant code before documenting behavior.
 Keep documents in simple English. Prefer updating existing articles. Verify links.

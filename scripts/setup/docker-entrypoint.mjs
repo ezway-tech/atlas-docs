@@ -1,7 +1,6 @@
 /**
  * Docker entrypoint: keep a long-lived supervisor so library switches do not
- * require restarting the container. Fixed single-library mode still works when
- * ATLAS_LIBRARY_MODE is unset/fixed and DATA_DIR is set.
+ * require restarting the container. All installations use Projects.
  */
 import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
@@ -28,8 +27,7 @@ for (const candidate of coreCandidates) {
 }
 if (!core) throw new Error('Atlas Docs core not found for Docker entrypoint');
 
-const modeEnv = process.env.ATLAS_LIBRARY_MODE || 'fixed';
-const manager = modeEnv === 'manager';
+if (process.env.DATA_DIR || process.env.ATLAS_LIBRARY_MODE === 'fixed') throw Error('Atlas Docs 6 uses Projects. Remove DATA_DIR / ATLAS_LIBRARY_MODE=fixed. Mount existing data under /libraries/<project> and open it from Projects. No data was changed.');
 const port = process.env.PORT || '3000';
 const host = process.env.HOSTNAME || '0.0.0.0';
 
@@ -45,6 +43,7 @@ async function prepare(libraryRoot) {
     allowMigrate: true,
     autoConfirmMigrate: migrateYes,
     backupParentDir,
+    agentKitPath: process.env.ATLAS_AGENT_KIT || null,
     holdLock: false,
     log: console.log,
   });
@@ -91,8 +90,8 @@ async function runChild({dataDir, libraryMode, switchError}) {
       ATLAS_RUNTIME_ID: runtimeId,
       ATLAS_LIBRARY_ID: libraryId,
       ATLAS_LIBRARY_MODE: libraryMode,
-      ATLAS_LIBRARY_MANAGER: manager || libraryMode === 'library' ? '1' : '',
-      ATLAS_CLI_MANAGED: manager || libraryMode === 'library' ? '1' : '',
+      ATLAS_LIBRARY_MANAGER: '1',
+      ATLAS_CLI_MANAGED: '1',
       ATLAS_LIBRARY_SWITCH_ERROR: switchError || '',
     },
     dataDir,
@@ -141,10 +140,6 @@ async function runChild({dataDir, libraryMode, switchError}) {
       reply({error: 'A library switch is already in progress.'});
       return;
     }
-    if (!manager && libraryMode !== 'library') {
-      reply({error: 'Library switching is disabled in fixed mode.'});
-      return;
-    }
     busy = true;
     switchJob = {path: msg.path, displayName: msg.displayName, action: msg.action || 'open'};
     reply({id: randomUUID()});
@@ -183,28 +178,16 @@ async function runChild({dataDir, libraryMode, switchError}) {
   return {code, switch: switchJob, stopping, drainOk};
 }
 
-if (!manager) {
-  const root = process.env.DATA_DIR
-    ? core.canonicalize(path.resolve(process.env.DATA_DIR))
-    : core.resolveAppDataRoot(process.env, process.cwd());
-  await prepare(root);
-  console.log('[Atlas Docs] data:', root);
-  const result = await runChild({dataDir: root, libraryMode: 'fixed'});
-  process.exit(result.code || 0);
-}
-
-// Multi-library manager mode — ignore baked-in DATA_DIR=/data from the image.
-let current = {
-  dataDir: core.resolveManagerInitialLibrary(process.env),
-  mode: 'manager',
-  switchError: null,
-};
-if (current.dataDir) {
-  current.mode = 'library';
+// Projects startup uses the same durable Example and registry as npm/source.
+let current = {dataDir: null, mode: 'manager', switchError: null};
+try {
+  const startup = await core.resolveManagedStartupProject({env: process.env, packageRoot: appRoot, openLibrary: core.resolveManagerInitialLibrary(process.env)});
+  current = {dataDir: startup.root, mode: 'library', switchError: null};
   await prepare(current.dataDir);
-  console.log('[Atlas Docs] data:', current.dataDir);
-} else {
-  console.log('[Atlas Docs] Multi-library manager — no library selected yet');
+} catch (error) {
+  if (process.env.ATLAS_OPEN_LIBRARY) throw error;
+  current = {dataDir: null, mode: 'manager', switchError: error.message};
+  console.error('[Atlas Docs] Opening Projects:', error.message);
 }
 
 for (;;) {

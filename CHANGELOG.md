@@ -1,5 +1,13 @@
 # Changelog
 
+## 6.0.0 — 2026-11-19
+
+- All installations use Projects with one durable Example on first launch. Docker now shares npm/source startup and preserves Example edits and recent projects.
+- **Breaking:** fixed-library launcher mode is removed. Remove DATA_DIR and ATLAS_LIBRARY_MODE=fixed from launch configuration. Standard Docker Compose persists /libraries, /atlas-registry, and /upgrade-backups; mount an old complete library under /libraries/<project> and open it from Projects. No data is automatically moved or deleted.
+- Docker includes versioned agent instructions. Guides now show the complete library structure and require Atlas initialization before agents generate documents.
+- The data schema remains version 1. Existing compatible libraries, uploads, comments, and history remain supported.
+
+
 ## 5.4.1
 
 ### Docs

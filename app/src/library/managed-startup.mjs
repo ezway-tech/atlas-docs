@@ -8,9 +8,9 @@ import {resolveAllowedRoots, assertWithinAllowedRoots} from './fs-policy.mjs';
 import {ensureDemoLibrary} from './demo-library.mjs';
 import {canonicalize} from './paths.mjs';
 
-async function loadSeedDemo(packageRoot) {
+async function loadSeedDemo(packageRoot, env) {
   const candidates = [
-    process.env.ATLAS_SEED_DEMO,
+    env.ATLAS_SEED_DEMO,
     packageRoot ? path.join(packageRoot, 'demo', 'seed-demo.mjs') : null,
     packageRoot ? path.join(packageRoot, 'scripts', 'setup', 'seed-demo.mjs') : null,
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../scripts/setup/seed-demo.mjs'),
@@ -18,7 +18,10 @@ async function loadSeedDemo(packageRoot) {
   for (const candidate of candidates) {
     try {
       await access(candidate);
-      return await import(pathToFileURL(candidate).href);
+      const module = await import(pathToFileURL(candidate).href);
+      const sample = env.ATLAS_DEMO_ROOT || (packageRoot && candidate === path.join(packageRoot, 'demo', 'seed-demo.mjs')
+        ? path.join(packageRoot, 'demo', 'little-cafe') : module.demoRoot);
+      return {seedDemo: root => module.seedDemo(root, sample)};
     } catch {
       // try next
     }
@@ -66,7 +69,7 @@ export async function resolveManagedStartupProject({
       await registerCompanionIfReady(companionDataRoot, env);
     }
     try {
-      const seedMod = seed || await loadSeedDemo(packageRoot);
+      const seedMod = seed || await loadSeedDemo(packageRoot, env);
       await ensureDemoLibrary({allowedRoots, seed: seedMod.seedDemo, env, remember: false});
     } catch (error) {
       // The read-only project list exposes unavailable Example state; keep the chosen project open.
@@ -85,7 +88,7 @@ export async function resolveManagedStartupProject({
     if (!bad) {
       // Keep Example available in the list without forcing it open.
       try {
-        const seedMod = seed || (await loadSeedDemo(packageRoot));
+        const seedMod = seed || (await loadSeedDemo(packageRoot, env));
         await ensureDemoLibrary({
           allowedRoots,
           seed: seedMod.seedDemo,
@@ -104,7 +107,7 @@ export async function resolveManagedStartupProject({
     }
   }
 
-  const seedMod = seed || (await loadSeedDemo(packageRoot));
+  const seedMod = seed || (await loadSeedDemo(packageRoot, env));
   const example = await ensureDemoLibrary({
     allowedRoots,
     seed: seedMod.seedDemo,

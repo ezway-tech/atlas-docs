@@ -6,7 +6,7 @@ Use this guide when maintaining a project's documentation in Atlas Docs. For cha
 
 ## Connect the source repository
 
-Default arrangement:
+Source-checkout example with a confirmed project folder (not a universal default):
 
 ```text
 workspace/
@@ -15,7 +15,11 @@ workspace/
   atlas-docs/
     AGENTS.md
     guides/agent-guide.md
-    data/docs/
+    data/
+      db.json
+      uploads/
+      history/
+      docs/
 ```
 
 The user can add this section to `my-product/AGENTS.md`. Do not assume agents in that repository automatically read sibling instructions.
@@ -28,9 +32,49 @@ and ../atlas-docs/guides/agent-guide.md.
 Update affected documentation when changing documented behavior.
 Verify behavior against this project's source and tests.
 Write documentation in simple English.
+Confirm the library is initialized before writing documents.
+Let Atlas create db.json; do not hand-author it.
 ```
 
-Replace the paths if the repositories have other names or the library uses `DATA_DIR`. These paths are relative to the source repository root. Resolve them to absolute paths before writing. If the configured data root cannot be established, ask which library to use rather than creating a second one.
+Replace the paths if the repositories have other names or the selected project lives elsewhere. These paths are relative to the source repository root. Resolve them to absolute paths before writing. If the configured data root cannot be established, ask which library to use rather than creating a second one.
+
+## Initialize before writing
+
+An Atlas Docs library is a complete data directory, not just a tree of Markdown files. Select the parent containing `db.json` and `docs/` when opening a project.
+
+```text
+<library>/
+  db.json                   # Required; Atlas creates and manages this file
+  uploads/                  # Atlas-managed attachment bytes
+  history/                  # Atlas-managed revisions and observed copies
+  docs/                     # Agent-authored content
+    overview/
+      getting-started.md
+  AGENTS.md                 # Installed by the npm agent-kit when absent
+  .atlas/                   # Generated reference guides when a kit is installed
+```
+
+`db.json` stores `schemaVersion` (currently 1), assets, folder metadata, comments, navigation order, and settings. It is not a list of document bodies. Atlas scans valid files and folders under `docs/`; agents do not need to register each new document in the database. The app manages uploads and history. `AGENTS.md` and `.atlas/` are guidance, not replacements for the database.
+
+1. Confirm the absolute library path, installation method, and installed app version. Use the guides bundled with that version when available; online `main` can describe newer behavior. Never assume a sibling `data/` is the active library.
+2. For an existing library, open it in Atlas or inspect it with `atlas-docs doctor --data-dir "<absolute-library-path>"` when the CLI is installed. Confirm the printed path and a compatible schema. A damaged or unrecognized directory is not a new empty library.
+3. For a new library, initialize the confirmed missing or empty directory using one of the methods below. Do this **before creating even an empty `docs/` directory**. Wait for successful initialization and check that `db.json`, `docs/`, `uploads/`, and `history/` exist.
+4. Only then create documents such as `docs/overview/getting-started.md`, following the file rules below. Reload Atlas and check that the document appears. If runtime access is unavailable, report that visibility has not been verified.
+
+### Initialization methods
+
+- **npm/npx:** run `npx atlas-docs@latest --data-dir "<absolute-library-path>" --no-open` (or use the installed `atlas-docs` command). Replace the placeholder with the confirmed path. This starts a server and initializes a missing or empty explicit target. Wait for Ready; stop with Ctrl+C before bulk external edits. There is no `atlas-docs init` command; `library use` selects a path, not an initialization operation.
+- **Source checkout:** run `npm run setup`, then `npm run dev` from the repository root. Create or open the project in Projects and confirm its absolute path. For an existing project, `ATLAS_OPEN_LIBRARY` may select it at startup. The maintenance command `npm run bootstrap` can initialize an explicit empty `DATA_DIR`; unset that variable before launching the app.
+- **Docker:** use the standard Compose, open Projects, and create a project under `/libraries`. Atlas initializes that individual project folder. A host agent needs its corresponding host bind-mount path or authorized container access; a named volume is not a local `./data` folder. Persist `/libraries`, `/atlas-registry`, and `/upgrade-backups`. See [Docker operations](operations.md#docker).
+- **App UI:** create a project, or initialize an empty folder through the project manager. Confirm the selected project directory before handing it to an agent.
+
+### Missing database or unrecognized folder
+
+If `docs/` already exists but `db.json` is missing, the library inspector rejects the directory with `Directory has files but no db.json.` Even an empty manually created `docs/` can trigger this. Re-running startup or adding `--yes` does not convert that directory into a valid library.
+
+Preserve the existing files. If this was a working Atlas library, recover its complete backup; an invented database cannot recover attachment records, comments, or settings. If these are newly generated text documents only, agree on a separate empty destination, initialize it with Atlas, then copy the supported documents into its `docs/<folder>/` structure. Keep the originals and verify links and document visibility. Do not silently switch the configured library, delete files to make it look empty, or copy an unrelated `db.json` from a demo.
+
+A folder of generated documents is not an Atlas backup ZIP. Do not promise it can be restored through Backup & restore; that flow expects an app backup with database and manifest. If Atlas cannot be run, deliver the text files with explicit initialization instructions and state that the library is not ready to open.
 
 ## Where content belongs
 
@@ -105,4 +149,4 @@ Before bulk disk edits, confirm the library path and schema compatibility (`atla
 
 Direct file edits are discovered by catalog scans, but do not call the app save operation and do not create app revision history. Use Git for text change history or the app's editing flow when app revisions are required. Avoid simultaneous browser and agent edits, which can overwrite changes.
 
-The default `data/` is ignored by this repository's Git configuration. For a separate versioned document repository, follow [Version project documents with Git](operations.md#version-project-documents-with-git). `DATA_DIR` points to the library root, not its `docs/` subdirectory. Text-only Git history is not a replacement for a complete library backup.
+The default `data/` is ignored by this repository's Git configuration. For a separate versioned document repository, follow [Version project documents with Git](operations.md#version-project-documents-with-git). Select the project root, not its `docs/` subdirectory. Text-only Git history is not a replacement for a complete library backup.

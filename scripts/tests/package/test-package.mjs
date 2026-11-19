@@ -118,6 +118,22 @@ try {
       await access(resolved);
     }
   }
+  const firstRun = await start(cli);
+  const firstSession = await json(firstRun.url + '/api/libraries/session');
+  const firstHeaders = {'X-Atlas-Library-Api': '1', 'X-Atlas-Runtime': firstSession.runtimeId, 'X-Atlas-Library': firstSession.libraryId};
+  const firstProjects = await (await fetch(firstRun.url + '/api/libraries/recent', {headers: firstHeaders})).json();
+  assert.equal(firstProjects.libraries.length, 1, 'clean install creates only Example');
+  assert.equal(firstProjects.libraries[0].isExample, true);
+  assert.match((await fetch(firstRun.url)).url, /\/projects$/);
+  const examplePath = firstProjects.libraries[0].path;
+  await stop(firstRun);
+  const exampleEdit = path.join(examplePath, 'docs', 'overview');
+  await mkdir(exampleEdit, {recursive: true});
+  await writeFile(path.join(exampleEdit, 'kept.md'), '# Keep this Example edit\n');
+  const nextRun = await start(cli);
+  assert.equal(await readFile(path.join(exampleEdit, 'kept.md'), 'utf8'), '# Keep this Example edit\n');
+  assert.equal((await json(nextRun.url + '/api/libraries/session')).libraryRoot, examplePath);
+  await stop(nextRun);
   const server = await start(cli, ['--data-dir', 'atlas-docs-data']);
   const library = path.join(cwd, 'atlas-docs-data');
   const session = await json(server.url + '/api/libraries/session');
@@ -260,7 +276,7 @@ try {
     ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '& $env:ATLAS_TEST_SHIM --version; exit $LASTEXITCODE'], {cwd, env: {...env, ATLAS_TEST_SHIM: shim}, encoding: 'utf8', windowsHide: true})
     : spawnSync(shim, ['--version'], {cwd, env, encoding: 'utf8'});
   assert.equal(shimResult.status, 0, shimResult.stderr); assert.equal(shimResult.stdout.trim(), version);
-  const restored = await start(path.join(globalPackage, 'bin/atlas-docs.mjs'), ['--data-dir', 'restored library'], {DATA_DIR: 'wrong library'});
+  const restored = await start(path.join(globalPackage, 'bin/atlas-docs.mjs'), ['--data-dir', 'restored library']);
   const restoredSession = await json(restored.url + '/api/libraries/session');
   async function authRestored(url, method = 'GET', body, headersExtra = {}) {
     const headers = {
@@ -280,8 +296,10 @@ try {
   assert.notEqual(await readFile(path.join(cwd, 'restored library/AGENTS.md'), 'utf8'), 'Keep my rules');
   await assert.rejects(() => access(path.join(cwd, 'wrong library')));
   await stop(restored);
-  const envServer = await start(cli, [], {DATA_DIR: 'from environment'});
-  await access(path.join(cwd, 'from environment/db.json')); await stop(envServer);
+  const rejected = spawnSync(process.execPath, [cli, '--no-open'], {cwd, env: {...env, DATA_DIR: 'from environment'}, encoding: 'utf8', windowsHide: true});
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /Remove DATA_DIR/);
+  await assert.rejects(() => access(path.join(cwd, 'from environment')));
   const npxServer = await start(cli, ['--data-dir', 'npx library'], {}, true);
   const npxSession = await json(npxServer.url + '/api/libraries/session');
   const npxDocs = await fetch(npxServer.url + '/api/docs', {

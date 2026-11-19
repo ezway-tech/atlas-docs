@@ -16,7 +16,7 @@ Atlas Docs turns local Markdown, API definitions, and structured files into a br
 
 ## Quick start (npm)
 
-Requires Node.js 22.12 or newer. Once the package is published:
+Requires Node.js 22.12 or newer.
 
 ```sh
 # Run immediately
@@ -39,6 +39,32 @@ The first npx run downloads the package and its production dependencies. No sour
 Offline use works after the package is already installed; update checks never block opening the app.
 Default URL: http://127.0.0.1:17430. There is no login on the write API; keep the application local.
 
+## Before an agent generates documents
+
+**Initialize first, write documents second.** Choose the confirmed absolute library path and run:
+
+```sh
+npx atlas-docs@latest --data-dir "<absolute-library-path>" --no-open
+```
+
+Replace the placeholder; use a missing or empty directory for a new library. Wait for Ready. Atlas creates this structure:
+
+```text
+<library>/
+  db.json       # Required metadata and schemaVersion; managed by Atlas
+  uploads/      # Attachments managed by Atlas
+  history/      # Revisions managed by Atlas
+  docs/         # Agent writes docs/<folder>/<file>.md here
+  AGENTS.md     # Agent entry point, installed when absent
+  .atlas/       # Bundled guides matching the installed package
+```
+
+Stop with Ctrl+C before bulk external edits. Read the library `AGENTS.md` and `.atlas/guides/agent-guide.md`; put the first document at `docs/overview/getting-started.md`, not directly in `docs/`. Start the same library again and verify it appears.
+
+Do not create `docs/` before initialization or hand-author `db.json`. A nonempty folder without the database is refused; `--yes` does not fix it. Preserve any generated documents and follow the [agent guide](agent-guide.md) for recovery and file rules. `atlas-docs library use` selects a path; it does not initialize storage. Check a specific library with `atlas-docs doctor --data-dir "<absolute-library-path>"`.
+
+For web-only agents, the [public agent guide](https://github.com/ezway-tech/atlas-docs/blob/main/guides/agent-guide.md) and its [raw Markdown](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/agent-guide.md) are available without a checkout. Prefer bundled guides for your installed version; `main` may be newer.
+
 ## What you get
 
 - Browse folders, search documents and comments, pin destinations, and follow a table of contents.
@@ -60,15 +86,14 @@ Each library is a folder (`db.json`, `docs/`, `uploads/`, `history/`). The app p
 Selection order:
 
 1. `--data-dir`
-2. `DATA_DIR`
-3. Nearest `atlas-docs.config.json` walking up from the current directory
-4. Valid recent library from this machine’s registry
-5. Existing `./atlas-docs-data` in the current directory (compatibility with earlier versions)
-6. Projects screen — open, create, or try the demo (nothing is created until you confirm)
+2. Nearest `atlas-docs.config.json` walking up from the current directory
+3. Valid recent library from this machine’s registry
+4. Existing `./atlas-docs-data` in the current directory (compatibility with earlier versions)
+5. Projects screen — one durable Example is prepared automatically; create or open your own project
 
-Relative `--data-dir` and `DATA_DIR` values resolve from the calling directory.
+Relative `--data-dir` values resolve from the calling directory.
 `dataDir` inside the config file resolves from the config file's directory.
-A broken config or missing/invalid explicit path is an error; the CLI does not fall back to recent or invent another library.
+A broken config or invalid explicit path is an error. A missing or empty `--data-dir` target is initialized; the CLI does not silently substitute another path.
 Passing `--data-dir` for one run does not rewrite project config. Opening a library in the UI also does not rewrite project config unless you use an explicit “use for this project” action.
 
 Recent libraries are stored outside any library folder (Windows: `%LOCALAPPDATA%\atlas-docs`, Linux: `$XDG_CONFIG_HOME/atlas-docs` or `~/.config/atlas-docs`). Override with `ATLAS_DOCS_REGISTRY_DIR` (useful in tests and Docker). Remove from list deletes the registry entry only. Delete project folder removes the folder on disk (with safety checks), then the registry entry.
@@ -80,7 +105,7 @@ atlas-docs --data-dir ./project-docs --port 17431 --no-open
 atlas-docs start --yes
 ```
 
-Automation: always pass `--data-dir` or `DATA_DIR` when scripts expect a library without the Projects UI. Example for two projects at once:
+Automation: always pass `--data-dir` when scripts expect a library without the Projects UI. Example for two projects at once:
 
 ```sh
 atlas-docs --data-dir ./docs-a --port 17430
@@ -114,6 +139,7 @@ Add this to the source project's own `AGENTS.md`, adjusting the path to your act
 Before editing documentation, read ./atlas-docs-data/AGENTS.md
 and ./atlas-docs-data/.atlas/guides/agent-guide.md.
 Write project documents under ./atlas-docs-data/docs/.
+Verify Atlas has created db.json before writing; never invent it.
 Verify statements against this project's code and tests.
 ```
 
@@ -145,7 +171,7 @@ npx atlas-docs@latest --data-dir "/absolute/path/to/library"
 Pin a version when you need to stay on a known release:
 
 ```sh
-npx atlas-docs@5.4.1 --data-dir "/absolute/path/to/library"
+npx atlas-docs@6.0.0 --data-dir "/absolute/path/to/library"
 ```
 
 ### Global install
@@ -175,7 +201,7 @@ Import into an empty library; generated guides do not prevent import. Backups wi
 
 ## Source and Docker (different defaults)
 
-This guide is for the npm package. A source checkout still defaults to repository `data/`. Docker still mounts `/data`. See [operations](operations.md). Do not assume npm CLI path rules apply to those entry points.
+All installations use Projects. Source and npm use local project folders; Docker stores projects under mounted `/libraries` and persists its registry separately. `DATA_DIR` and `ATLAS_LIBRARY_MODE=fixed` are obsolete launcher settings; use `--data-dir` for npm or `ATLAS_OPEN_LIBRARY` for source/Docker when selecting an initial project. Switching remains available. See [operations](operations.md).
 
 ## Build and release (maintainers)
 

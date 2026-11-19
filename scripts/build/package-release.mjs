@@ -136,21 +136,6 @@ ${server}`,
       .replaceAll('(user-guide.md)', '(agent-kit/guides/user-guide.md)'),
   );
 
-  const files = {};
-  async function scan(dir, prefix = '') {
-    for (const entry of await readdir(dir, {withFileTypes: true})) {
-      const relative = prefix + entry.name;
-      if (relative === 'library-AGENTS.md') continue;
-      if (entry.isDirectory()) await scan(path.join(dir, entry.name), relative + '/');
-      else files[relative] = createHash('sha256').update(await readFile(path.join(dir, entry.name))).digest('hex');
-    }
-  }
-  await scan(kit);
-  await writeFile(
-    path.join(kit, 'manifest.json'),
-    JSON.stringify({format: 'atlas-agent-kit', version: manifest.version, files}, null, 2) + '\n',
-  );
-
   await neutralizeBuildRoot(path.join(output, 'runtime'), root);
 
   await run(npmArgs(['pack', '--silent', '--pack-destination', path.join(root, 'dist')]), {cwd: output});

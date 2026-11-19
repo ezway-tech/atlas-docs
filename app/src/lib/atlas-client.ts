@@ -4,7 +4,7 @@ export type AtlasSession = {
   runtimeId: string;
   libraryId: string;
   libraryRoot: string | null;
-  mode: 'manager' | 'library' | 'fixed';
+  mode: 'manager' | 'library';
   displayName?: string | null;
   switchError?: string | null;
   appVersion?: string;

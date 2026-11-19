@@ -88,6 +88,7 @@ export async function runStart(packageRoot, options, manifest) {
   if (major < 22 || (major === 22 && minor < 12)) throw Error('Node.js 22.12 or newer is required');
 
   const env = options.env || process.env;
+  if (env.DATA_DIR || env.ATLAS_LIBRARY_MODE === 'fixed') throw Error('Atlas Docs 6 uses Projects. Remove DATA_DIR / ATLAS_LIBRARY_MODE=fixed; use --data-dir to select a project. Existing data is unchanged.');
   const resolved = await resolveLibraryPath({
     dataDir: options.dataDirFlag,
     env,
