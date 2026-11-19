@@ -132,8 +132,8 @@ ${server}`,
   await writeFile(
     path.join(output, 'README.md'),
     (await readFile(path.join(root, 'guides/npm.md'), 'utf8'))
-      .replaceAll('(agent-guide.md)', '(agent-kit/guides/agent-guide.md)')
-      .replaceAll('(user-guide.md)', '(agent-kit/guides/user-guide.md)'),
+      .replace(/\((agent-guide|user-guide|operations|architecture|npm)\.md(#[^)]+)?\)/g,
+        (_, guide, anchor = '') => `(https://github.com/ezway-tech/atlas-docs/blob/v${manifest.version}/guides/${guide}.md${anchor})`),
   );
 
   await neutralizeBuildRoot(path.join(output, 'runtime'), root);
