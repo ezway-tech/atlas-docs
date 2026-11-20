@@ -260,7 +260,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
       if (status.status === 'missing') missing.push(item);
       else libraries.push(item);
     }
-    libraries.sort((a, b) => Number(b.isExample) - Number(a.isExample) || (b.lastOpenedAt || '').localeCompare(a.lastOpenedAt || ''));
+    libraries.sort((a, b) => Number(b.isExample) - Number(a.isExample));
     return json({
       libraries,
       missing,
@@ -414,6 +414,15 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
       displayName: dest.displayName,
     });
     return json({root: dest.path, libraryId, displayName: dest.displayName, demo: true, switch: result}, 202);
+  }
+
+  if (seg[1] === 'reorder' && method === 'POST') {
+    requireManage(req);
+    if (!caps.canRenameRecent) throw new AppError('errors.library.managerRequired', 409);
+    const o = await body();
+    const ids = Array.isArray(o.ids) ? o.ids.map((id: unknown) => String(id || '')) : [];
+    const reg = await core.reorderLibraryEntries(ids);
+    return json({ok: true, libraries: reg.libraries});
   }
 
   if (seg[1] === 'rename' && method === 'POST') {

@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import {
   rememberSuccessfulOpen,
   renameLibraryEntry,
+  reorderLibraryEntries,
   removeLibraryEntry,
   loadUserRegistry,
   libraryIdentityKey,
@@ -160,6 +161,42 @@ test('deleteLibraryOnDisk removes folder and registry; guards current, example, 
     reg = await loadUserRegistry(env);
     assert.equal(reg.libraries.some(item => item.id === keepId), true);
     await access(keep.root);
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('registry preserves manual library order across reload', async () => {
+  const root = await temp();
+  const env = {ATLAS_DOCS_REGISTRY_DIR: path.join(root, 'reg')};
+  try {
+    const one = path.join(root, 'One');
+    const two = path.join(root, 'Two');
+    const three = path.join(root, 'Three');
+    await initEmptyLibrary(one);
+    await initEmptyLibrary(two);
+    await initEmptyLibrary(three);
+    await rememberSuccessfulOpen(one, {displayName: 'One', env});
+    await rememberSuccessfulOpen(two, {displayName: 'Two', env});
+    await rememberSuccessfulOpen(three, {displayName: 'Three', env});
+    let reg = await loadUserRegistry(env);
+    assert.equal(reg.libraries.length, 3);
+    const ids = reg.libraries.map(item => item.id);
+    const reordered = [ids[2], ids[0], ids[1]];
+    await reorderLibraryEntries(reordered, env);
+    reg = await loadUserRegistry(env);
+    assert.deepEqual(
+      reg.libraries.map(item => item.id),
+      reordered,
+    );
+    await rememberSuccessfulOpen(one, {displayName: 'One', env});
+    reg = await loadUserRegistry(env);
+    assert.deepEqual(
+      reg.libraries.map(item => item.id),
+      reordered,
+      're-open must not reshuffle manual order',
+    );
+    await assert.rejects(() => reorderLibraryEntries([ids[0]], env), /Order must contain|invalidOrder/i);
   } finally {
     await rm(root, {recursive: true, force: true});
   }

@@ -8,5 +8,6 @@ export type Asset={id:string;filename:string;storedName:string;mimeType:string;s
 export type Comment={id:string;docId:string;content:string;quote:string;blockId:string;createdAt:string;resolved:boolean};
 export type HistoryPolicy={maxCount:number;maxBytes:number};
 export type BackupPolicy={maxUncompressedBytes:number;maxZipBytes:number;maxDataFiles:number};
-export type Settings={theme:'dark'|'light';leftWidth:number;rightWidth:number;pinnedFolders:string[];hiddenFolders:string[];keymap:Keymap;history?:HistoryPolicy;backup?:BackupPolicy};
+export type SidebarSection='hidden'|'pinned'|'topics';
+export type Settings={theme:'dark'|'light';leftWidth:number;rightWidth:number;pinnedFolders:string[];hiddenFolders:string[];sidebarSectionOrder?:SidebarSection[];keymap:Keymap;history?:HistoryPolicy;backup?:BackupPolicy};
 export type DB={schemaVersion?:number;assets:Asset[];folders:{path:string;title:string;imageId:string|null;icon?:string|null}[];comments:Comment[];navigationOrder:Record<string,string[]>;settings:Settings;[key:string]:unknown};

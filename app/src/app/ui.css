@@ -79,3 +79,7 @@
 
 .ui-dialog-overlay.source-picker-overlay{align-items:center;justify-content:center;padding:16px}
 .ui-dialog-overlay.source-picker-overlay>.library-manager-modal{width:min(720px,100%);max-height:calc(100dvh - 32px)}
+
+.folder-node[draggable=true],.tree-doc[draggable],.pin-item[draggable],.hidden-row[draggable],.aside-caption[draggable],.aside-toggle[draggable],.ui-tabs>button[draggable=true],.project-list-select[draggable],.resource-card[draggable]{cursor:grab}
+.folder-node[draggable=true]:active,.tree-doc[draggable]:active,.pin-item[draggable]:active,.hidden-row[draggable]:active,.aside-caption[draggable]:active,.aside-toggle[draggable]:active,.ui-tabs>button[draggable=true]:active,.project-list-select[draggable]:active,.resource-card[draggable]:active{cursor:grabbing}
+.aside-section{min-width:0}

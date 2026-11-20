@@ -95,7 +95,6 @@ function normalizeRegistry(raw) {
     seen.add(entry.identityKey);
     libraries.push(entry);
   }
-  libraries.sort((a, b) => String(b.lastOpenedAt || '').localeCompare(String(a.lastOpenedAt || '')));
   base.libraries = libraries;
   const recent = typeof raw.recentId === 'string' ? raw.recentId : null;
   if (recent && libraries.some(l => l.id === recent)) {
@@ -232,6 +231,21 @@ export async function rememberSuccessfulOpen(libraryRoot, {displayName, env = pr
     };
     reg.libraries.unshift(entry);
     reg.recentId = entry.id;
+    return reg;
+  }, env, platform);
+}
+
+/** Persist manual project list order (all registry ids, Example kept first by callers/API). */
+export async function reorderLibraryEntries(ids, env = process.env, platform = process.platform) {
+  if (!Array.isArray(ids) || new Set(ids).size !== ids.length) {
+    throw new AtlasError('registry.invalidOrder', 'Order must list each project once.', {});
+  }
+  return updateUserRegistry(reg => {
+    const byId = new Map(reg.libraries.map(l => [l.id, l]));
+    if (ids.length !== byId.size || ids.some(id => !byId.has(id))) {
+      throw new AtlasError('registry.invalidOrder', 'Order must contain every registered project.', {});
+    }
+    reg.libraries = ids.map(id => byId.get(id));
     return reg;
   }, env, platform);
 }

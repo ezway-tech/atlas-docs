@@ -253,8 +253,24 @@ try {
     await openNameDialog.waitFor();
     const nameInput = openNameDialog.locator('input.ui-input');
     assert.equal(await nameInput.inputValue(), 'named-ready-project');
-    await nameInput.fill('Ready Custom');
-    await openNameDialog.getByRole('button', {name: 'Open project', exact: true}).click();
+    // Dialog focuses the field and selects the whole hint so typing replaces it.
+    await nameInput.waitFor({state: 'visible'});
+    for (let i = 0; i < 20; i++) {
+      const allSelected = await nameInput.evaluate(
+        el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length,
+      );
+      if (allSelected) break;
+      await delay(50);
+    }
+    assert.ok(
+      await nameInput.evaluate(
+        el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length,
+      ),
+      'name field should be focused with the whole hint selected',
+    );
+    await nameInput.pressSequentially('Ready Custom');
+    assert.equal(await nameInput.inputValue(), 'Ready Custom');
+    await nameInput.press('Enter');
     const opened = await waitSession(
       next => next.libraryRoot === namedReadyProject && next.displayName === 'Ready Custom',
     );

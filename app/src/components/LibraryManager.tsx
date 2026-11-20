@@ -310,7 +310,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
 
   async function confirmPendingBrowse() {
     if (!pendingBrowse) return;
-    const name = (pendingNameRef.current?.value ?? pendingName).trim();
+    const name = pendingName.trim();
     if (!name) return;
     beginBusy(pendingBrowse.path);
     setError('');
@@ -338,6 +338,17 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       endBusy();
     }
   }
+
+  useEffect(() => {
+    if (!pendingBrowse) return;
+    const id = requestAnimationFrame(() => {
+      const el = pendingNameRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [pendingBrowse?.path, pendingBrowse?.mode, pendingBrowse?.nameHint]);
 
   async function beginOpenProject() {
     const path = await pickFolder(t('libraries.pick.openTitle'), session?.libraryRoot || caps?.defaultBrowseDir);
@@ -523,9 +534,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
         lastOpenedAt: null,
       });
     }
-    list.sort(
-      (a, b) => Number(b.isExample) - Number(a.isExample) || (b.lastOpenedAt || '').localeCompare(a.lastOpenedAt || ''),
-    );
+    list.sort((a, b) => Number(b.isExample) - Number(a.isExample));
     return list;
   }, [recent, session]);
 
@@ -664,6 +673,34 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     );
   }
 
+  async function reorderProjects(fromId: string, toId: string) {
+    if (!fromId || !toId || fromId === toId || busy) return;
+    const ids = recent.filter(entry => entry.id && !entry.isExample).map(entry => entry.id as string);
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, fromId);
+    const exampleIds = [...recent, ...missing]
+      .filter(entry => entry.id && entry.isExample)
+      .map(entry => entry.id as string);
+    const missingIds = missing.filter(entry => entry.id && !entry.isExample).map(entry => entry.id as string);
+    const nextIds = [...exampleIds, ...ids, ...missingIds];
+    const prev = recent;
+    const byId = new Map(recent.map(entry => [entry.id, entry]));
+    setRecent(
+      [...exampleIds, ...ids]
+        .map(id => byId.get(id))
+        .filter((entry): entry is RecentEntry => !!entry),
+    );
+    try {
+      await libraryApi('/api/libraries/reorder', {method: 'POST', body: JSON.stringify({ids: nextIds})});
+    } catch (e) {
+      setRecent(prev);
+      setError((e as Error).message);
+    }
+  }
+
   function renderListEntry(entry: RecentEntry) {
     const rowBusy = busy && busyKey === entry.path;
     const selectedRow = selectedPath === entry.path;
@@ -688,6 +725,27 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
           className="project-list-select"
           disabled={busy}
           aria-busy={rowBusy || undefined}
+          draggable={!!entry.id && !entry.isExample && !busy && !query.trim()}
+          title={entry.id && !entry.isExample && !query.trim() ? t('workspace.tree.dragReorder') : undefined}
+          onDragStart={e => {
+            if (!entry.id || entry.isExample) {
+              e.preventDefault();
+              return;
+            }
+            e.dataTransfer.setData('application/x-atlas-project', entry.id);
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragOver={e => {
+            if (!entry.id || entry.isExample) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+          }}
+          onDrop={e => {
+            e.preventDefault();
+            if (!entry.id || entry.isExample) return;
+            const from = e.dataTransfer.getData('application/x-atlas-project');
+            if (from) void reorderProjects(from, entry.id);
+          }}
           onClick={() => selectEntry(entry)}
           onDoubleClick={() => openEntry(entry)}
           onKeyDown={e => {
@@ -1162,10 +1220,15 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
             <label className="library-field">
               <span>{t('libraries.create.name')}</span>
               <Input
-                key={pendingBrowse.path + ':' + pendingBrowse.mode}
                 ref={pendingNameRef}
-                defaultValue={pendingBrowse.nameHint}
+                value={pendingName}
                 onChange={e => setPendingName(e.target.value)}
+                onFocus={e => e.currentTarget.select()}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter' || e.shiftKey) return;
+                  e.preventDefault();
+                  if (!busy && pendingName.trim()) void confirmPendingBrowse();
+                }}
                 disabled={busy}
                 autoFocus
                 maxLength={120}
@@ -1174,7 +1237,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
             <div className="modal-actions">
               <Button
                 className="btn primary"
-                disabled={busy || !(pendingNameRef.current?.value ?? pendingName).trim()}
+                disabled={busy || !pendingName.trim()}
                 onClick={() => void confirmPendingBrowse()}
               >
                 {pendingBrowse.mode === 'empty' ? t('libraries.empty.confirm') : t('libraries.openName.confirm')}

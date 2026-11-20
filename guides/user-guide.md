@@ -9,7 +9,7 @@ Atlas Docs organizes a local document library. The interface supports Vietnamese
 
 Each project is one folder that holds `docs/`, `uploads/`, `history/`, and `db.json`. The first launch prepares the sample **Example** project. Later launches prepare your most recent valid project, but you enter the workspace only after choosing a project. The home page opens the separate Projects screen. Select a project to load the workspace. Reloading a workspace or opening a document link keeps that page.
 
-Use the **Project · name** control in the top bar to leave the workspace and open the separate **Projects** page. Unsaved changes must be saved first or discarded through the confirmation dialog. The Projects page uses the same top bar style as the workspace (brand on the left; Help and Utilities on the right). Bundled Help also uses that top bar, with Back to library and theme controls; guide text stays in English. The page uses a list on the left and project details on the right. It shows a project count and a search box for name or path. **Example** is first, then projects in recent-open order. Select a project to review its path, status, and a short summary (topics, folders, documents, comments, assets, and schema version). Then use **Open project**. Double-click a row also opens it. **Browse for project** uses the operating-system folder dialog on a personal desktop. In Docker or other environments without a local desktop, browse stays inside the storage mounts the app is allowed to see.
+Use the **Project · name** control in the top bar to leave the workspace and open the separate **Projects** page. Unsaved changes must be saved first or discarded through the confirmation dialog. The Projects page uses the same top bar style as the workspace (brand on the left; Help and Utilities on the right). Bundled Help also uses that top bar, with Back to library and theme controls; guide text stays in English. The page uses a list on the left and project details on the right. It shows a project count and a search box for name or path. **Example** is first, then your other projects in the order you set. Drag non-Example rows to rearrange that order (saved on this machine). Select a project to review its path, status, and a short summary (topics, folders, documents, comments, assets, and schema version). Then use **Open project**. Double-click a row also opens it. **Browse for project** uses the operating-system folder dialog on a personal desktop. In Docker or other environments without a local desktop, browse stays inside the storage mounts the app is allowed to see.
 
 **Open project** opens the chosen folder in place. It does not copy files. When **Browse for project** selects a folder that is not already in the list, Atlas asks for a display name (suggested from the folder name) before opening or creating the project. An empty folder can become a new project after you confirm that name. A folder that has other files but is not an Atlas Docs project is explained and left unchanged. Folders already in the list open with their existing display name. **Create project** asks for a name and save location, then creates a new project folder.
 
@@ -50,7 +50,7 @@ For two projects at once, start two CLI processes with different `--data-dir` an
 The numbered outlines locate the library navigation and the reading side panel. Use the tree to open an article, then its contents to jump to a heading.
 
 
-Use folder actions to create a **Subfolder**, change **Rename / cover**, or choose an icon. The library supports up to three folder levels. Drag siblings to change their order.
+Use folder actions to create a **Subfolder**, change **Rename / cover**, or choose an icon. The library supports up to three folder levels. Drag sibling **folders** or **documents** in the library tree to change their order (saved in the project). Drag the right-panel tabs (**Contents** / **Comments**) to reorder them on this browser. You can also drag the sidebar section headers (Hidden / Pinned / Topics) and items in the Pinned or Hidden lists.
 
 Use **Pin** for frequent destinations and **Hide from sidebar** to reduce clutter. Hidden folders remain in the library and can be shown again from the dashboard. Hiding is not access control or deletion. A folder must be empty before it can be deleted.
 
@@ -110,7 +110,7 @@ Open the highlighted resource picker, then select a file to inspect or insert.
 3. Save and insert the edited copy into the draft.
 
 
-Open **Utilities → Attachments**. Search files, switch grid/list views, and use **Filters** to narrow by type, source, or usage. Preview images, play supported audio/video, download files, and inspect where a resource is used.
+Open **Utilities → Attachments**. Search files, switch grid/list views, and use **Filters** to narrow by type, source, or usage. Choose **Custom order** to drag files into a saved sequence used by the library and pickers. Preview images, play supported audio/video, download files, and inspect where a resource is used.
 
 To insert an image while editing, choose **Insert resource**, select or upload the resource, and insert it. Pasting an image opens an image workflow. Save the document after inserting it.
 
