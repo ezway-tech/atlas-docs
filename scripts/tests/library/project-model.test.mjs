@@ -77,7 +77,14 @@ test('initialize empty project in place; unknown folder is not mutated', async (
     await mkdir(empty, {recursive: true});
     const created = await initializeEmptyProject(empty, [root]);
     assert.equal(created.root, path.resolve(empty));
+    assert.equal(created.displayName, 'empty');
     assert.ok(await readFile(path.join(empty, 'db.json'), 'utf8'));
+
+    const named = path.join(root, 'named-folder');
+    await mkdir(named, {recursive: true});
+    const withName = await initializeEmptyProject(named, [root], {displayName: 'My Library'});
+    assert.equal(withName.root, path.resolve(named));
+    assert.equal(withName.displayName, 'My Library');
 
     const junk = path.join(root, 'junk');
     await mkdir(junk, {recursive: true});

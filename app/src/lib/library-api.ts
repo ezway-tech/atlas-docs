@@ -337,6 +337,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
       allowedRoots: allowed,
     }));
     const libraryId = core.libraryIdentityKey(created.root);
+    await core.ensureRegistered(created.root, {displayName: created.displayName});
     const result = await requestManagedSwitch({
       action: 'open',
       path: created.root,
@@ -364,10 +365,13 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
       return json({error: {code: 'library.inUse', message: `Project is already open in another Atlas Docs process: ${inspected.root}`}}, 409);
     }
     const libraryId = core.libraryIdentityKey(inspected.root);
+    const openName = typeof o.displayName === 'string' ? o.displayName.trim() : '';
+    // Register the display name before switch so session does not briefly fall back to basename.
+    if (openName) await core.ensureRegistered(inspected.root, {displayName: openName});
     const result = await requestManagedSwitch({
       action: 'open',
       path: inspected.root,
-      displayName: typeof o.displayName === 'string' ? o.displayName : undefined,
+      displayName: openName || undefined,
     });
     return json({root: inspected.root, libraryId, inspection: inspected.inspection, switch: result}, 202);
   }
@@ -381,9 +385,12 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     }
     const allowed = core.resolveAllowedRoots(process.env, process.platform);
     const created: {root: string; displayName: string} = await prepareSource(() =>
-      core.initializeEmptyProject(String(o.path || ''), allowed),
+      core.initializeEmptyProject(String(o.path || ''), allowed, {
+        displayName: typeof o.displayName === 'string' ? o.displayName : undefined,
+      }),
     );
     const libraryId = core.libraryIdentityKey(created.root);
+    await core.ensureRegistered(created.root, {displayName: created.displayName});
     const result = await requestManagedSwitch({
       action: 'open',
       path: created.root,

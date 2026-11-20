@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useId, useMemo, useState} from 'react';
+import {useCallback, useEffect, useId, useMemo, useRef, useState} from 'react';
 import {FolderOpen, FolderPlus, Library, MoreHorizontal, Copy, FolderOpen as RevealFolder, Search, X} from 'lucide-react';
 import {Button, Input} from './ui/controls';
 import {Dialog, ConfirmDialog} from './ui/dialog';
@@ -78,6 +78,22 @@ function BusyStatus({label}: {label: string}) {
   );
 }
 
+function sameLibraryPath(a: string, b: string) {
+  return a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
+}
+
+function folderNameHint(p: string) {
+  const cleaned = String(p || '').replace(/[/\\]+$/, '');
+  const parts = cleaned.split(/[/\\]/);
+  return parts[parts.length - 1] || 'Project';
+}
+
+type PendingBrowse = {
+  path: string;
+  mode: 'empty' | 'open';
+  nameHint: string;
+};
+
 export default function LibraryManager({embedded, onClose, onEnterCurrent, session: initialSession}: Props) {
   const {t, lowerText, formatDateTime} = useLocale();
   const titleId = useId();
@@ -101,7 +117,9 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
   const [panel, setPanel] = useState<'home' | 'open' | 'create'>('home');
   const [pickingParent, setPickingParent] = useState(false);
   const [relocateId, setRelocateId] = useState<string | null>(null);
-  const [pendingEmpty, setPendingEmpty] = useState<string | null>(null);
+  const [pendingBrowse, setPendingBrowse] = useState<PendingBrowse | null>(null);
+  const [pendingName, setPendingName] = useState('');
+  const pendingNameRef = useRef<HTMLInputElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [exampleError, setExampleError] = useState<string | null>(null);
   const [browse, setBrowse] = useState<BrowseResult | null>(null);
@@ -214,10 +232,19 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     }
   }
 
+  function findListedEntry(root: string) {
+    return (
+      recent.find(entry => sameLibraryPath(entry.path, root)) ||
+      missing.find(entry => sameLibraryPath(entry.path, root)) ||
+      null
+    );
+  }
+
   async function openPath(target: string, displayName?: string) {
     beginBusy(target);
     setError('');
-    setPendingEmpty(null);
+    setPendingBrowse(null);
+    setPendingName('');
     try {
       if (target === session?.libraryRoot) {
         onClose?.();
@@ -232,17 +259,48 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       }>('/api/libraries/inspect', {method: 'POST', body: JSON.stringify({path: target})});
       if (!inspected.openable) {
         if (inspected.canInitialize || inspected.inspection.state === 'empty') {
-          setPendingEmpty(inspected.root);
+          const hint = folderNameHint(inspected.root);
+          setPendingName(hint);
+          setPendingBrowse({
+            path: inspected.root,
+            mode: 'empty',
+            nameHint: hint,
+          });
           return;
         }
         setError(inspected.error?.message || t('libraries.errors.unusable'));
         return;
       }
-      const opened = await libraryApi<{root: string; libraryId: string}>('/api/libraries/open', {
-        method: 'POST',
-        body: JSON.stringify({path: inspected.root, displayName}),
+      let listed = findListedEntry(inspected.root);
+      if (!listed && !(displayName && displayName.trim())) {
+        const list = await libraryApi<{libraries: RecentEntry[]; missing?: RecentEntry[]}>(
+          '/api/libraries/recent',
+        );
+        setRecent(list.libraries || []);
+        setMissing(list.missing || []);
+        listed =
+          (list.libraries || []).find(entry => sameLibraryPath(entry.path, inspected.root)) ||
+          (list.missing || []).find(entry => sameLibraryPath(entry.path, inspected.root)) ||
+          null;
+      }
+      if (listed || (displayName && displayName.trim())) {
+        const opened = await libraryApi<{root: string; libraryId: string}>('/api/libraries/open', {
+          method: 'POST',
+          body: JSON.stringify({
+            path: inspected.root,
+            displayName: displayName?.trim() || listed?.displayName,
+          }),
+        });
+        await afterSwitch(opened.libraryId);
+        return;
+      }
+      const hint = folderNameHint(inspected.root);
+      setPendingName(hint);
+      setPendingBrowse({
+        path: inspected.root,
+        mode: 'open',
+        nameHint: hint,
       });
-      await afterSwitch(opened.libraryId);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -250,17 +308,30 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
     }
   }
 
-  async function confirmInitializeEmpty() {
-    if (!pendingEmpty) return;
-    beginBusy(pendingEmpty);
+  async function confirmPendingBrowse() {
+    if (!pendingBrowse) return;
+    const name = (pendingNameRef.current?.value ?? pendingName).trim();
+    if (!name) return;
+    beginBusy(pendingBrowse.path);
     setError('');
     try {
-      const created = await libraryApi<{libraryId: string}>('/api/libraries/initialize-empty', {
+      if (pendingBrowse.mode === 'empty') {
+        const created = await libraryApi<{libraryId: string}>('/api/libraries/initialize-empty', {
+          method: 'POST',
+          body: JSON.stringify({path: pendingBrowse.path, confirm: true, displayName: name}),
+        });
+        setPendingBrowse(null);
+        setPendingName('');
+        await afterSwitch(created.libraryId);
+        return;
+      }
+      const opened = await libraryApi<{root: string; libraryId: string}>('/api/libraries/open', {
         method: 'POST',
-        body: JSON.stringify({path: pendingEmpty, confirm: true}),
+        body: JSON.stringify({path: pendingBrowse.path, displayName: name}),
       });
-      setPendingEmpty(null);
-      await afterSwitch(created.libraryId);
+      setPendingBrowse(null);
+      setPendingName('');
+      await afterSwitch(opened.libraryId);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1067,19 +1138,55 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
 
       {busy && panel === 'home' && <BusyStatus label={t('libraries.working')} />}
 
-      {pendingEmpty && (
-        <Dialog open onOpenChange={open => !open && setPendingEmpty(null)} title={t('libraries.empty.title')}>
+      {pendingBrowse && (
+        <Dialog
+          open
+          onOpenChange={open => {
+            if (!open) {
+              setPendingBrowse(null);
+              setPendingName('');
+            }
+          }}
+          title={pendingBrowse.mode === 'empty' ? t('libraries.empty.title') : t('libraries.openName.title')}
+        >
           <div className="modal" data-ui-block-shortcuts="">
             <div className="modal-heading">
-              <h2>{t('libraries.empty.title')}</h2>
+              <h2>
+                {pendingBrowse.mode === 'empty' ? t('libraries.empty.title') : t('libraries.openName.title')}
+              </h2>
             </div>
-            <p>{t('libraries.empty.body')}</p>
-            <code>{pendingEmpty}</code>
+            <p>
+              {pendingBrowse.mode === 'empty' ? t('libraries.empty.body') : t('libraries.openName.body')}
+            </p>
+            <code>{pendingBrowse.path}</code>
+            <label className="library-field">
+              <span>{t('libraries.create.name')}</span>
+              <Input
+                key={pendingBrowse.path + ':' + pendingBrowse.mode}
+                ref={pendingNameRef}
+                defaultValue={pendingBrowse.nameHint}
+                onChange={e => setPendingName(e.target.value)}
+                disabled={busy}
+                autoFocus
+                maxLength={120}
+              />
+            </label>
             <div className="modal-actions">
-              <Button className="btn primary" disabled={busy} onClick={() => void confirmInitializeEmpty()}>
-                {t('libraries.empty.confirm')}
+              <Button
+                className="btn primary"
+                disabled={busy || !(pendingNameRef.current?.value ?? pendingName).trim()}
+                onClick={() => void confirmPendingBrowse()}
+              >
+                {pendingBrowse.mode === 'empty' ? t('libraries.empty.confirm') : t('libraries.openName.confirm')}
               </Button>
-              <Button className="btn" disabled={busy} onClick={() => setPendingEmpty(null)}>
+              <Button
+                className="btn"
+                disabled={busy}
+                onClick={() => {
+                  setPendingBrowse(null);
+                  setPendingName('');
+                }}
+              >
                 {t('common.cancel')}
               </Button>
             </div>

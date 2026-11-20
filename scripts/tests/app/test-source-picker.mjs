@@ -15,6 +15,7 @@ const origin = `http://127.0.0.1:${port}`;
 const output = path.join(appRoot, 'test-results/source-picker');
 const emptyProject = path.join(root, 'empty-project');
 const readyProject = path.join(root, 'ready-project');
+const namedReadyProject = path.join(root, 'named-ready-project');
 const env = {
   ...process.env,
   DATA_DIR: '',
@@ -113,6 +114,7 @@ try {
     path.join(readyProject, 'docs', 'guide', 'note.md'),
     '---\ntitle: Ready note\ndescription: ""\n---\n\n# Ready note\n',
   );
+  await initEmptyLibrary(namedReadyProject);
   await mkdir(output, {recursive: true});
 
   launch();
@@ -234,12 +236,12 @@ try {
     }
     assert.equal((await api('/api/libraries/open', {path: path.join(root, 'missing')})).status, 409);
 
-    // Open ready project via mocked native picker (stay in managed library mode with Example open).
+    // Open an unlisted ready project via mocked native picker — asks for display name.
     await stop();
     launch({
       ATLAS_LIBRARY_MODE: '',
       ATLAS_OPEN_LIBRARY: demoSession.libraryRoot,
-      ATLAS_DOCS_PICK_FOLDER_MOCK: readyProject,
+      ATLAS_DOCS_PICK_FOLDER_MOCK: namedReadyProject,
     });
     await ready();
     await gotoApp(page);
@@ -247,15 +249,35 @@ try {
     await page.locator('.source-switcher').click();
     await manager.waitFor();
     await browseForProject().click();
-    const opened = await waitSession(next => next.libraryRoot === readyProject);
+    const openNameDialog = page.getByRole('dialog', {name: 'Name this project?', exact: true});
+    await openNameDialog.waitFor();
+    const nameInput = openNameDialog.locator('input.ui-input');
+    assert.equal(await nameInput.inputValue(), 'named-ready-project');
+    await nameInput.fill('Ready Custom');
+    await openNameDialog.getByRole('button', {name: 'Open project', exact: true}).click();
+    const opened = await waitSession(
+      next => next.libraryRoot === namedReadyProject && next.displayName === 'Ready Custom',
+    );
+    await gotoApp(page, '/workspace');
     await page.waitForSelector('.source-switcher', {timeout: 60000});
-    assert.equal(opened.libraryRoot, readyProject);
+    assert.equal(opened.libraryRoot, namedReadyProject);
+    assert.equal(opened.displayName, 'Ready Custom');
 
-    // Empty folder requires confirm initialize.
+    // Browsing a listed project again skips the name dialog.
+    await page.locator('.source-switcher').click();
+    await manager.waitFor();
+    await browseForProject().click();
+    await waitSession(next => next.libraryRoot === namedReadyProject && next.displayName === 'Ready Custom');
+    await gotoApp(page, '/workspace');
+    await page.waitForSelector('.source-switcher', {timeout: 60000});
+    assert.equal(await openNameDialog.count(), 0);
+    assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).displayName, 'Ready Custom');
+
+    // Empty folder requires confirm initialize with a display name.
     await stop();
     launch({
       ATLAS_LIBRARY_MODE: '',
-      ATLAS_OPEN_LIBRARY: readyProject,
+      ATLAS_OPEN_LIBRARY: namedReadyProject,
       ATLAS_DOCS_PICK_FOLDER_MOCK: emptyProject,
     });
     await ready();
@@ -266,15 +288,21 @@ try {
     await browseForProject().click();
     const emptyDialog = page.getByRole('dialog', {name: 'Create project here?', exact: true});
     await emptyDialog.waitFor();
+    assert.equal(await emptyDialog.locator('input').inputValue(), 'empty-project');
     await emptyDialog.getByRole('button', {name: 'Cancel', exact: true}).click();
-    assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, readyProject);
+    assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, namedReadyProject);
     // Manager stays open after cancelling the empty-folder confirm.
     await browseForProject().click();
     await emptyDialog.waitFor();
+    await emptyDialog.locator('input.ui-input').fill('Empty Custom');
     await emptyDialog.getByRole('button', {name: 'Create project here', exact: true}).click();
-    const emptyOpened = await waitSession(next => next.libraryRoot === emptyProject);
+    const emptyOpened = await waitSession(
+      next => next.libraryRoot === emptyProject && next.displayName === 'Empty Custom',
+    );
+    await gotoApp(page, '/workspace');
     await page.waitForSelector('.source-switcher', {timeout: 60000});
     assert.equal(emptyOpened.libraryRoot, emptyProject);
+    assert.equal(emptyOpened.displayName, 'Empty Custom');
     assert.ok(await readFile(path.join(emptyProject, 'db.json'), 'utf8'));
 
     // Invalid non-project folder: clear error, no mutate.
@@ -362,6 +390,9 @@ try {
     await page.locator('.source-switcher').click();
     await manager.waitFor();
     await browseForProject().click();
+    const legacyNameDialog = page.getByRole('dialog', {name: 'Name this project?', exact: true});
+    await legacyNameDialog.waitFor();
+    await legacyNameDialog.getByRole('button', {name: 'Open project', exact: true}).click();
     await manager.locator('[role=alert]').waitFor({timeout: 60000});
     assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, demoSession.libraryRoot);
 
@@ -423,7 +454,7 @@ try {
     // Selected project detail loads lightweight counts.
     await manager
       .locator('.project-list li')
-      .filter({hasText: 'ready-project'})
+      .filter({has: page.getByRole('button', {name: 'ready-project', exact: true})})
       .locator('button.project-list-select')
       .click();
     const stats = manager.locator('.project-detail-stats');

@@ -157,9 +157,13 @@ export async function inspectOpenTarget(targetPath, allowedRoots) {
 /**
  * Initialize an empty folder as a project in place. Refuses non-empty or unknown content.
  * Call only after the user confirms.
+ * Optional displayName is validated; otherwise the folder basename is used.
  */
-export async function initializeEmptyProject(targetPath, allowedRoots) {
+export async function initializeEmptyProject(targetPath, allowedRoots, {displayName} = {}) {
   const inspected = await inspectOpenTarget(targetPath, allowedRoots);
+  const resolvedName = displayName != null && String(displayName).trim()
+    ? validateDisplayName(displayName)
+    : path.basename(inspected.root) || 'Project';
   if (inspected.inspection.state === 'empty' && inspected.canInitialize) {
     const names = await readdir(inspected.root);
     const meaningful = names.filter(n => n !== '.gitkeep');
@@ -173,13 +177,13 @@ export async function initializeEmptyProject(targetPath, allowedRoots) {
     await initEmptyLibrary(inspected.root);
     return {
       root: inspected.root,
-      displayName: path.basename(inspected.root) || 'Project',
+      displayName: resolvedName,
     };
   }
   if (inspected.openable) {
     return {
       root: inspected.root,
-      displayName: path.basename(inspected.root) || 'Project',
+      displayName: resolvedName,
       alreadyReady: true,
     };
   }
