@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import {loadAtlasSession} from '@/lib/atlas-client';
 import {KeymapProvider} from './KeymapProvider';
 import {LocaleProvider} from './LocaleProvider';
+import UpdateNoticeProvider from './UpdateNoticeProvider';
 import WorkspaceLoading from './WorkspaceLoading';
 import type {Locale} from '@/lib/i18n/locales';
 const Workspace=dynamic(()=>import('./Workspace'));
@@ -19,5 +20,5 @@ function WorkspaceGate(){
 }
 export default function Shell({children,initialLocale}:{children:React.ReactNode;initialLocale:Locale}){
  const path=usePathname();const workspace=path!=='/'&&path!=='/projects'&&!path.startsWith('/help');
- return <LocaleProvider initialLocale={initialLocale}><KeymapProvider>{workspace&&<WorkspaceGate/>}{children}</KeymapProvider></LocaleProvider>;
+ return <LocaleProvider initialLocale={initialLocale}><UpdateNoticeProvider><KeymapProvider>{workspace&&<WorkspaceGate/>}{children}</KeymapProvider></UpdateNoticeProvider></LocaleProvider>;
 }

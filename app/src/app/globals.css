@@ -346,15 +346,20 @@ html.dark .storage-warn{color:#fbbf24}
 .storage-modal .storage-pane>.usage-block{margin-bottom:12px;padding-bottom:20px;border-bottom:1px solid var(--line)}
 
 /* Library navigation and Help. */
-.help-update-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.brand-version{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;height:28px;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:var(--soft);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.02em}
+.brand-version:hover{color:var(--accent);border-color:var(--accent)}
+.brand-version.is-update{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--accentsoft)}
+.brand-update-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0}
 .help-version-label{white-space:nowrap}
 .help-version-dialog{width:min(520px,100%);max-height:calc(100dvh - 32px);overflow:auto}
 .help-version-dialog p{line-height:1.6;overflow-wrap:anywhere}
 .help-version-number{font-size:18px}
+.help-update-whats-new{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:650}
+.help-update-whats-new:hover{text-decoration:underline}
 .help-update-command{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:8px;flex-wrap:wrap}
 .help-update-command code{flex:1;min-width:0;overflow-wrap:anywhere;user-select:all}
 .help-update-error{color:var(--danger,#c43b45)}
-@media(max-width:700px){.top-actions .top-help>svg:last-child{display:none}.top-actions .top-help{position:relative}.top-actions .help-update-dot{position:absolute;top:6px;right:4px}.help-version-dialog .modal-actions{flex-wrap:wrap}}
+@media(max-width:700px){.top-actions .top-help>svg:last-child{display:none}.help-version-dialog .modal-actions{flex-wrap:wrap}}
 
 /* Shared responsive layout — keep in sync with app/src/lib/layout-breakpoints.ts (700 / 900 / 1000). */
 .top-search-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -385,8 +390,6 @@ html.dark .storage-warn{color:#fbbf24}
  .top-actions .tools-trigger svg:last-child,
  .top-actions .top-help>span,
  .top-actions .top-help>svg:last-child{display:none}
- .top-actions .top-help{position:relative}
- .top-actions .help-update-dot{position:absolute;top:6px;right:4px}
  .source-switcher{max-width:160px}
  .source-switcher-kind,.source-switcher-sep{display:none}
 }

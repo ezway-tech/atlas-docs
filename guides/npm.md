@@ -191,7 +191,7 @@ atlas-docs update
 
 Installing an older package is safe only when that older app still understands the library `schemaVersion`. If a newer app already migrated the schema, restore the pre-upgrade filesystem backup (or a ZIP taken before migration) instead of only downgrading the package. Updates require an explicit action. In-app restart confirmation permits the normal schema migration with a full backup; CLI migration uses `--yes` or an interactive prompt.
 
-Background update checks use a local cache (at most once per 24 hours); **Check again** bypasses the cache. Disable all registry checks with `ATLAS_DOCS_NO_UPDATE_CHECK=1`. They are off in CI and in development mode. App notifications stay inside Help; there is no banner above the workspace. Checks never upload library paths or document contents.
+Background update checks use a local cache (at most once per 24 hours); **Check again** bypasses the cache. Disable all registry checks with `ATLAS_DOCS_NO_UPDATE_CHECK=1`. They are off in CI and in development mode. The UI shows a quiet version chip beside the brand (with an optional skip for that version); there is no banner above the workspace. **What's new** opens the GitHub changelog for deciding whether to update. Checks never upload library paths or document contents.
 
 ## Backup boundaries
 

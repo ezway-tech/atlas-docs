@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Update notice moves to a version chip beside the brand (no Help menu dot). **Skip this version** hides the highlight until a newer release; **What's new** opens the GitHub changelog. Bundled Help release notes remain the installed package changelog.
+
 ## 6.1.0 — 2026-11-20
 
 - Browse for project asks for a display name when the folder is not already in the list (suggested from the folder name; focus selects the hint so you can type over it; Enter confirms). Empty folders use the same name step before initialize-in-place.

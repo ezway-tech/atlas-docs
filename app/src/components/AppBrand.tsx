@@ -1,11 +1,12 @@
 'use client';
 
 import {BookOpen} from 'lucide-react';
+import {PRODUCT_GITHUB,PRODUCT_HOME} from '@/lib/product';
 import {useLocale} from './LocaleProvider';
 import {Tooltip} from './Tooltip';
+import {BrandVersionChip} from './UpdateNoticeProvider';
 
-export const PRODUCT_HOME = 'https://atlasdocs.ezway.tech/';
-export const PRODUCT_GITHUB = 'https://github.com/ezway-tech/atlas-docs';
+export {PRODUCT_GITHUB,PRODUCT_HOME};
 
 function GithubMark() {
   return (
@@ -46,6 +47,7 @@ export default function AppBrand({
           </span>
         </a>
       </Tooltip>
+      <BrandVersionChip />
       {showPromo && (
         <div className="top-promo">
           <Tooltip content={t('brand.githubTooltip')}>

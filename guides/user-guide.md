@@ -60,7 +60,7 @@ Open **Help** in the top bar for **Guides**, **Release notes**, **Version & upda
 
 The Atlas Docs logo opens the [project website](https://atlasdocs.ezway.tech/). To support development, open **Help → Support the project** or visit the [donation page](https://atlasdocs.ezway.tech/donate/).
 
-Updates appear inside Help, with a dot when a newer stable version is available. **Version & updates** shows your running version and lets you check again. Development mode shows **Development** and does not check for updates. A failed check is shown as unavailable, not as up to date.
+The running version appears next to the Atlas Docs brand. When a newer stable version is available, that chip highlights lightly. Open it (or **Help → Version & updates**) to update, open **What's new** on GitHub for the latest release notes, or choose **Skip this version** to hide the highlight until a newer release appears. Local **Help → Release notes** shows the changelog bundled with the version you already run. Development mode shows **Development** and does not check for updates. A failed check is shown as unavailable, not as up to date.
 
 A verified global npm installation started by the Atlas Docs CLI can use **Update and restart**. Save or discard drafts first, confirm the restart, and wait for the page to reconnect. Other installation methods show a command or the relevant [update instructions](operations.md#update-an-installation).
 
