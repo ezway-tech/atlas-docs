@@ -81,12 +81,9 @@ export function docKind(id:string):DocKind{if(/\.ya?ml$/i.test(id))return 'yaml'
 export const folderFile=(f:string)=>path.join(docsRoot,...safeFolder(f).split('/'));
 export const docFile=(f:string)=>{const id=safeDoc(f);return path.join(docsRoot,...id.split('/'))+(docKind(id)==='md'?'.md':'');};
 export const slug=(title:string)=>title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,65)||'untitled';
-/** Display title when db.json has no folder entry: split on -/_ , Title Case each part. */
+/** Display title when db.json has no folder entry: keep the path basename as-is. */
 export function folderTitleFromSlug(pathOrSegment:string){
- const segment=String(pathOrSegment||'').split('/').filter(Boolean).at(-1)||String(pathOrSegment||'');
- const parts=segment.split(/[-_]+/).filter(Boolean);
- if(!parts.length)return segment||'untitled';
- return parts.map(part=>part.replace(/^[a-z]/,c=>c.toUpperCase())).join(' ');
+ return String(pathOrSegment||'').split('/').filter(Boolean).at(-1)||String(pathOrSegment||'')||'untitled';
 }
 export function contentHash(raw:string){return createHash('sha256').update(raw,'utf8').digest('hex');}
 async function traverse(base:string,prefix='',depth=1,files:string[]=[],folders:string[]=[]){let list;try{list=await readdir(base,{withFileTypes:true});}catch{return {files,folders};}

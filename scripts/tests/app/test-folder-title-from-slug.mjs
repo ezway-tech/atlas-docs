@@ -9,13 +9,13 @@ const root = await mkdtemp(path.join(tmpdir(), 'atlas-folder-title-'));
 process.env.DATA_DIR = root;
 try {
   const {folderTitleFromSlug} = await loadTs('src/lib/store.ts');
-  assert.equal(folderTitleFromSlug('00-start'), '00 Start');
-  assert.equal(folderTitleFromSlug('api-v2'), 'Api V2');
-  assert.equal(folderTitleFromSlug('start'), 'Start');
-  assert.equal(folderTitleFromSlug('my_folder'), 'My Folder');
-  assert.equal(folderTitleFromSlug('a/b/00-start'), '00 Start');
-  assert.equal(folderTitleFromSlug('guides/api-v2'), 'Api V2');
-  console.log('PASS: folderTitleFromSlug humanizes kebab/underscore without stripping separators');
+  assert.equal(folderTitleFromSlug('00-start'), '00-start');
+  assert.equal(folderTitleFromSlug('api-v2'), 'api-v2');
+  assert.equal(folderTitleFromSlug('start'), 'start');
+  assert.equal(folderTitleFromSlug('my_folder'), 'my_folder');
+  assert.equal(folderTitleFromSlug('a/b/00-start'), '00-start');
+  assert.equal(folderTitleFromSlug('guides/api-v2'), 'api-v2');
+  console.log('PASS: folderTitleFromSlug keeps basename slug as-is');
 } finally {
   await rm(root, {recursive: true, force: true});
 }
