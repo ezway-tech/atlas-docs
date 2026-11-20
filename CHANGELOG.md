@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.1.0 — 2026-11-20
+
+- Browse for project asks for a display name when the folder is not already in the list (suggested from the folder name; focus selects the hint so you can type over it; Enter confirms). Empty folders use the same name step before initialize-in-place.
+- Drag to reorder sibling folders and documents in the tree, right-panel tabs, sidebar section order and pinned folders, non-Example projects in Projects, and assets in Media.
+- Folder titles without a `db.json` entry show the path basename as-is (no PascalCase rewrite).
+- The data schema remains version 1. Existing compatible libraries remain supported.
+
 ## 6.0.0 — 2026-11-19
 
 - All installations use Projects with one durable Example on first launch. Docker now shares npm/source startup and preserves Example edits and recent projects.
