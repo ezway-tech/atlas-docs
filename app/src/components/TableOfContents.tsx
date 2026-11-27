@@ -29,7 +29,7 @@ export function TableOfContentsActions({state}:{state:TocState}){
  return <div className="toc-actions">
  <Tooltip content={t('toc.collapseAll')}><Button aria-label={t('toc.collapseAll')} disabled={!branches.length} onClick={()=>changeCollapsed(branches)}><ChevronsDownUp size={14}/></Button></Tooltip>
  <Tooltip content={t('toc.expandAll')}><Button aria-label={t('toc.expandAll')} disabled={!collapsed.size} onClick={()=>changeCollapsed([])}><ChevronsUpDown size={14}/></Button></Tooltip>
- <Popover label={t('toc.config.label')} trigger={<Button aria-label={t('toc.config.label')} title={t('toc.config.label')}><Settings size={14}/></Button>}><div className="toc-filters">
+ <Popover label={t('toc.config.label')} trigger={<Button aria-label={t('toc.config.label')}><Settings size={14}/></Button>}><div className="toc-filters">
   <label>{t('toc.fromLevel')}<Select label={t('toc.fromLevel')} value={String(range[0])} onValueChange={v=>changeRange([Number(v),range[1]])} options={[1,2,3,4,5,6].filter(n=>n<=range[1]).map(n=>({value:String(n),label:`H${n}`}))}/></label>
   <label>{t('toc.toLevel')}<Select label={t('toc.toLevel')} value={String(range[1])} onValueChange={v=>changeRange([range[0],Number(v)])} options={[1,2,3,4,5,6].filter(n=>n>=range[0]).map(n=>({value:String(n),label:`H${n}`}))}/></label>
  </div></Popover></div>;

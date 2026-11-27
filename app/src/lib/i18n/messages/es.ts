@@ -127,6 +127,7 @@ const messages:Messages={
  "workspace.sidebar.emptyNoMatch":"No hay artículos coincidentes.",
  "workspace.sidebar.emptyNoTopics":"Aún no hay temas. Presione + para crear uno.",
  "workspace.sidebar.loading":"Cargando biblioteca...",
+ "workspace.tree.tips":"Consejos para el árbol de carpetas",
  "workspace.tree.expandBranch":"Expandir o contraer. Alt+clic para toda la rama",
  "workspace.tree.folderMenu":"Menú de carpeta",
  "workspace.tree.dragReorder":"Arrastra para cambiar el orden",

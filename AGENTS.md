@@ -17,3 +17,7 @@ Before generating documents, verify that Atlas has initialized the confirmed lib
 Prefer updating existing documentation over adding duplicates. Check links and paths. Do not describe planned features as implemented. Report what changed and which checks actually ran. Use temporary libraries for tests; never use the working library as a test fixture.
 
 Do not modify a sibling source repository just because this repository sits beside it. Follow the user's task scope and that repository's instructions. For documentation-only changes, check content and links; builds and runtime tests are unnecessary unless behavior is in question.
+
+## Shared UI components
+
+Prefer the existing Atlas components for buttons, dialogs, menus and tooltips. Use the shared Tooltip for hover and keyboard-focus hints; avoid native HTML title tooltips. Group panel tips and gesture instructions behind a help button that opens the shared Dialog on activation. Keep accessible names and expanded state on the controls themselves.

@@ -223,5 +223,5 @@ export default function StorageDialog({onClose}:{onClose:()=>void}){
 }
 
 function FileName({name}:{name:string}){
- return <Tooltip content={name} onlyOverflow><span className="cleanup-name" tabIndex={0} title={name}>{name}</span></Tooltip>;
+ return <Tooltip content={name} onlyOverflow><span className="cleanup-name" tabIndex={0}>{name}</span></Tooltip>;
 }

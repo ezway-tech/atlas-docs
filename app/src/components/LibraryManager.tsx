@@ -1,5 +1,6 @@
 'use client';
 
+import {Tooltip} from './Tooltip';
 import {useCallback, useEffect, useId, useMemo, useRef, useState} from 'react';
 import {FolderOpen, FolderPlus, Library, MoreHorizontal, Copy, FolderOpen as RevealFolder, Search, X} from 'lucide-react';
 import {Button, Input} from './ui/controls';
@@ -648,7 +649,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
             <FolderOpen size={16} />
             <strong>{entry.displayName}</strong>
           </span>
-          <code title={entry.path}>{entry.path}</code>
+          <Tooltip content={entry.path} onlyOverflow><code>{entry.path}</code></Tooltip>
         </div>
         <DropdownMenu
           align="end"
@@ -725,7 +726,6 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
           disabled={busy}
           aria-busy={rowBusy || undefined}
           draggable={!!entry.id && !entry.isExample && !busy && !query.trim()}
-          title={entry.id && !entry.isExample && !query.trim() ? t('workspace.tree.dragReorder') : undefined}
           onDragStart={e => {
             if (!entry.id || entry.isExample) {
               e.preventDefault();
@@ -951,7 +951,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                       </div>
                     </div>
                     <p className="project-detail-path">
-                      <code title={selected.path}>{selected.path}</code>
+                      <Tooltip content={selected.path} onlyOverflow><code>{selected.path}</code></Tooltip>
                       <Button className="btn" disabled={busy} onClick={() => copyPath(selected.path)}>
                         <Copy size={14} />
                         {t('libraries.copyPath')}

@@ -127,6 +127,7 @@ const messages:Messages={
  "workspace.sidebar.emptyNoMatch":"Không có mục khớp.",
  "workspace.sidebar.emptyNoTopics":"Chưa có chủ đề. Nhấn + để tạo.",
  "workspace.sidebar.loading":"Đang tải thư viện...",
+ "workspace.tree.tips":"Mẹo dùng cây thư mục",
  "workspace.tree.expandBranch":"Mở hoặc thu gọn. Alt+click cho cả nhánh",
  "workspace.tree.folderMenu":"Menu thư mục",
  "workspace.tree.dragReorder":"Kéo để đổi thứ tự",

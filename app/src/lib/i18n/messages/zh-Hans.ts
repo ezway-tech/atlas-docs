@@ -127,6 +127,7 @@ const messages:Messages={
  "workspace.sidebar.emptyNoMatch":"没有匹配的项目。",
  "workspace.sidebar.emptyNoTopics":"还没有主题。按 + 创建一个。",
  "workspace.sidebar.loading":"正在加载库...",
+ "workspace.tree.tips":"文件夹树操作提示",
  "workspace.tree.expandBranch":"展开或折叠。 Alt+单击查看整个分支",
  "workspace.tree.folderMenu":"文件夹菜单",
  "workspace.tree.dragReorder":"拖动以更改顺序",

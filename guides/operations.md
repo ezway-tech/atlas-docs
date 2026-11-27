@@ -44,7 +44,7 @@ Copy [docker-compose.hub.yml](../docker-compose.hub.yml), then:
 docker compose -f docker-compose.hub.yml up -d
 ```
 
-Open http://127.0.0.1:17430. The default image is `ezwaytechvn/atlas-docs:6.2.1`; override with `ATLAS_DOCS_VERSION`. Override the host port with `ATLAS_DOCS_PORT`. Keep the localhost binding: there is no login on the write API.
+Open http://127.0.0.1:17430. The default image is `ezwaytechvn/atlas-docs:6.2.2`; override with `ATLAS_DOCS_VERSION`. Override the host port with `ATLAS_DOCS_PORT`. Keep the localhost binding: there is no login on the write API.
 
 Projects is the only Docker mode. The standard Compose persists three named volumes: `/libraries` for individual projects (including Example), `/atlas-registry` for the project list and Example identity, and `/upgrade-backups` for schema backups. Preserve all three when recreating or upgrading the container. Never run `docker compose down -v` to update.
 

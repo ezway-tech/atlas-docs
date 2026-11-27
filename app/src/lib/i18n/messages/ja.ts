@@ -127,6 +127,7 @@ const messages:Messages={
  "workspace.sidebar.emptyNoMatch":"No matching items.",
  "workspace.sidebar.emptyNoTopics":"No topics yet. Press + to create one.",
  "workspace.sidebar.loading":"Loading library...",
+ "workspace.tree.tips":"フォルダーツリーのヒント",
  "workspace.tree.expandBranch":"Expand or collapse. Alt+click for the whole branch",
  "workspace.tree.folderMenu":"Folder menu",
  "workspace.tree.dragReorder":"Drag to change order",

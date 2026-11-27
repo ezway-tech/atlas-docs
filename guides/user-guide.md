@@ -5,6 +5,8 @@
 Atlas Docs organizes a local document library. The interface supports Vietnamese, English, Simplified Chinese, Spanish, and Japanese. Choose a language from **Utilities → Language**; the browser stores that choice in a cookie and does not rewrite library files. Light and dark theme also live under **Utilities** on Projects and the workspace (Help keeps its own theme control). This guide uses English feature names. Start with the [installation instructions](operations.md#install-and-run) if the app is not running.
 
 
+Use the **?** button in the folder tree or comments panel to open its tips. Press **Escape** to return to the workspace.
+
 ## Manage projects
 
 A traditional Atlas library is one folder that holds `docs/`, `uploads/`, `history/`, and `db.json`. The first launch prepares the sample **Example** project. Later launches prepare your most recent valid project, but you enter the workspace only after choosing a project. The home page opens the separate Projects screen. Select a project to load the workspace. Reloading a workspace or opening a document link keeps that page.

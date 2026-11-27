@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.2.2 — 2026-11-27
+
+- Open folder tree and comment tips with the help buttons. Drag instructions no longer appear over rows, and truncated names use the shared tooltip.
+
 ## 6.2.1 — 2026-11-27
 
 - Open existing document folders in the standard Atlas workspace. Markdown front matter supplies titles and ordering while the original documents and revision history stay in place.
