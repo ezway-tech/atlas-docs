@@ -180,7 +180,7 @@ export async function initializeEmptyProject(targetPath, allowedRoots, {displayN
       displayName: resolvedName,
     };
   }
-  if (inspected.openable) {
+  if (inspected.openable && !inspected.inspection.state.startsWith('folder')) {
     return {
       root: inspected.root,
       displayName: resolvedName,
@@ -291,6 +291,10 @@ export async function deleteLibraryOnDisk({
     throw new AtlasError('fs.notDirectory', `Not a directory: ${root}`, {path: root});
   }
 
+  const classification = await inspectLibrary(root);
+  if (classification.state !== 'ready' || classification.db?.layout === 'atlas-folder-v1') {
+    throw new AtlasError('library.deleteProtected','Use Remove from Projects to keep the files in this folder.');
+  }
   await rm(root, {recursive: true, force: true});
   return removeLibraryEntry(entryId, env, platform);
 }

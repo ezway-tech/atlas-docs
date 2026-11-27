@@ -51,7 +51,7 @@ test('inspect distinguishes missing, empty, ready, legacy, newer, unknown', asyn
     const unknown = path.join(root, 'unknown');
     await mkdir(unknown);
     await writeFile(path.join(unknown, 'db.json'), '{"hello":1}');
-    assert.equal((await inspectLibrary(unknown)).state, 'unknown');
+    assert.equal((await inspectLibrary(unknown)).state, 'folder-readonly');
   } finally {
     await rm(root, {recursive: true, force: true});
   }

@@ -1,6 +1,23 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "folderProject.files":"Files",
+ "folderProject.choose":"Choose a document",
+ "folderProject.projects":"Projects",
+ "folderProject.readOnly":"Read-only folder",
+ "folderProject.empty":"No supported documents yet. Add a Markdown, OpenAPI or SQL file and return to this window.",
+ "folderProject.error":"Cannot read {path}",
+ "folderProject.history":"History",
+ "folderProject.noHistory":"No earlier versions.",
+ "folderProject.revision":"Open revision from {date} as draft",
+ "folderProject.save":"Save",
+ "folderProject.cancel":"Cancel",
+ "folderProject.edit":"Edit",
+ "folderProject.text":"Document text",
+ "folderProject.conflict":"File changed on disk",
+ "folderProject.keep":"Keep editing against this version",
+ "folderProject.discard":"Discard unsaved changes?",
+
  "help.guide":"Guides",
  "help.releaseNotes":"Release notes",
  "help.version":"Version & updates",

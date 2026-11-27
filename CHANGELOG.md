@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.2.0 — 2026-11-27
+
+- Open existing document folders in place, preview nested files and edit originals with conflict detection and revision history.
+
 ## 6.1.2 — 2026-11-27
 
 - Open the selected project folder with the desktop file manager and report launcher errors. Hide this action in Docker and headless Linux sessions.

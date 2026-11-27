@@ -302,23 +302,11 @@ try {
     await page.locator('.source-switcher').click();
     await manager.waitFor();
     await browseForProject().click();
-    const emptyDialog = page.getByRole('dialog', {name: 'Create project here?', exact: true});
-    await emptyDialog.waitFor();
-    assert.equal(await emptyDialog.locator('input').inputValue(), 'empty-project');
-    await emptyDialog.getByRole('button', {name: 'Cancel', exact: true}).click();
-    assert.equal((await (await fetch(origin + '/api/libraries/session')).json()).libraryRoot, namedReadyProject);
-    // Manager stays open after cancelling the empty-folder confirm.
-    await browseForProject().click();
-    await emptyDialog.waitFor();
-    await emptyDialog.locator('input.ui-input').fill('Empty Custom');
-    await emptyDialog.getByRole('button', {name: 'Create project here', exact: true}).click();
-    const emptyOpened = await waitSession(
-      next => next.libraryRoot === emptyProject && next.displayName === 'Empty Custom',
-    );
+    const emptyOpened = await waitSession(next => next.libraryRoot === emptyProject);
     await gotoApp(page, '/workspace');
     await page.waitForSelector('.source-switcher', {timeout: 60000});
     assert.equal(emptyOpened.libraryRoot, emptyProject);
-    assert.equal(emptyOpened.displayName, 'Empty Custom');
+    assert.equal(emptyOpened.displayName, 'empty-project');
     assert.ok(await readFile(path.join(emptyProject, 'db.json'), 'utf8'));
 
     // Invalid non-project folder: clear error, no mutate.
@@ -337,7 +325,7 @@ try {
     await page.locator('.source-switcher').click();
     await manager.waitFor();
     await browseForProject().click();
-    await manager.locator('[role=alert]').waitFor();
+    await waitSession(next => next.libraryRoot === junk);
     assert.equal(await readFile(path.join(junk, 'notes.txt'), 'utf8'), 'not a project');
 
     // Unsaved draft cancel keeps draft.

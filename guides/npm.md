@@ -61,7 +61,7 @@ Replace the placeholder; use a missing or empty directory for a new library. Wai
 
 Stop with Ctrl+C before bulk external edits. Read the library `AGENTS.md` and `.atlas/guides/agent-guide.md`; put the first document at `docs/overview/getting-started.md`, not directly in `docs/`. Start the same library again and verify it appears.
 
-Do not create `docs/` before initialization or hand-author `db.json`. A nonempty folder without the database is refused; `--yes` does not fix it. Preserve any generated documents and follow the [agent guide](agent-guide.md) for recovery and file rules. `atlas-docs library use` selects a path; it does not initialize storage. Check a specific library with `atlas-docs doctor --data-dir "<absolute-library-path>"`.
+Do not create `docs/` before initialization or hand-author `db.json`. In 6.2 and later, opening an existing document folder initializes an in-place project and keeps files at their original paths. If Atlas metadata was damaged, restore from a backup. Preserve any generated documents and follow the [agent guide](agent-guide.md) for recovery and file rules. `atlas-docs library use` selects a path; it does not initialize storage. Check a specific library with `atlas-docs doctor --data-dir "<absolute-library-path>"`.
 
 For web-only agents, the [public agent guide](https://github.com/ezway-tech/atlas-docs/blob/main/guides/agent-guide.md) and its [raw Markdown](https://raw.githubusercontent.com/ezway-tech/atlas-docs/main/guides/agent-guide.md) are available without a checkout. Prefer bundled guides for your installed version; `main` may be newer.
 
@@ -171,7 +171,7 @@ npx atlas-docs@latest --data-dir "/absolute/path/to/library"
 Pin a version when you need to stay on a known release:
 
 ```sh
-npx atlas-docs@6.1.2 --data-dir "/absolute/path/to/library"
+npx atlas-docs@6.2.0 --data-dir "/absolute/path/to/library"
 ```
 
 ### Global install

@@ -3,6 +3,10 @@
 [Documentation home](../README.md) · [User guide](user-guide.md) · [Agent guide](agent-guide.md)
 
 Commands below run from the Atlas Docs repository root unless stated otherwise. The interface supports five languages (vi, en, zh-Hans, es, ja). Pick one from **Utilities → Language**. Guides use English names for features; on-screen labels follow the selected language.
+## In-place document folders
+
+Opening a writable document folder creates a root-level db.json identifying the in-place layout (schema 2). Traditional libraries retain schema 1. Use 6.2 or later for in-place folders. Keep the metadata and hidden .atlas-folder-history directory when moving or backing up a folder. Restore a filesystem backup into a separate location, then open that location. Traditional ZIP restore, attachment cleanup and project-folder deletion are unavailable in this layout. Docker needs a mount for the folder and access through the allowed roots. A read-only mount can be browsed without initializing metadata.
+
 ## Install and run
 
 All installations use **Projects**. On a clean first launch, Atlas prepares one durable **Example** project. Create a project or open an existing project folder; Atlas creates the database and storage directories before documents are added. Restarting preserves Example edits, projects, and the registry. The home URL opens Projects; reloading a workspace or document keeps that page.
@@ -40,7 +44,7 @@ Copy [docker-compose.hub.yml](../docker-compose.hub.yml), then:
 docker compose -f docker-compose.hub.yml up -d
 ```
 
-Open http://127.0.0.1:17430. The default image is `ezwaytechvn/atlas-docs:6.1.2`; override with `ATLAS_DOCS_VERSION`. Override the host port with `ATLAS_DOCS_PORT`. Keep the localhost binding: there is no login on the write API.
+Open http://127.0.0.1:17430. The default image is `ezwaytechvn/atlas-docs:6.2.0`; override with `ATLAS_DOCS_VERSION`. Override the host port with `ATLAS_DOCS_PORT`. Keep the localhost binding: there is no login on the write API.
 
 Projects is the only Docker mode. The standard Compose persists three named volumes: `/libraries` for individual projects (including Example), `/atlas-registry` for the project list and Example identity, and `/upgrade-backups` for schema backups. Preserve all three when recreating or upgrading the container. Never run `docker compose down -v` to update.
 

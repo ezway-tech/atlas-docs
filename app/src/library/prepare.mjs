@@ -1,3 +1,4 @@
+import {folderLayout, initializeFolder} from './folder-project.mjs';
 import {AtlasError} from './errors.mjs';
 import {inspectLibrary, assertOpenable} from './inspect.mjs';
 import {acquireLibraryLock} from './lock.mjs';
@@ -43,6 +44,7 @@ export async function prepareLibrary({
     throw new AtlasError('library.unknown', inspection.message || 'Not a valid Atlas Docs library.', {root});
   }
 
+  if (inspection.state === 'folder-readonly') return {root, inspection, lock:null, readOnly:true};
   const lock = await acquireLibraryLock(root, 'server');
   try {
     inspection = await inspectLibrary(root);
@@ -53,6 +55,14 @@ export async function prepareLibrary({
       inspection = await inspectLibrary(root);
     }
 
+    if (inspection.state === 'folder') {
+      await initializeFolder(root);
+      inspection = await inspectLibrary(root);
+    }
+    if (inspection.db?.layout === folderLayout) {
+      if (!holdLock) await lock.release();
+      return {root, inspection, lock: holdLock ? lock : null};
+    }
     const importInterrupted = inspection.state === 'interrupted' && inspection.interrupted === 'import';
 
     if (!importInterrupted && (inspection.state === 'missing' || inspection.state === 'empty')) {

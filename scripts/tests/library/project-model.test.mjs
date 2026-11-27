@@ -90,8 +90,8 @@ test('initialize empty project in place; unknown folder is not mutated', async (
     await mkdir(junk, {recursive: true});
     await writeFile(path.join(junk, 'file.txt'), 'stay');
     const inspected = await inspectOpenTarget(junk, [root]);
-    assert.equal(inspected.openable, false);
-    assert.equal(inspected.inspection.state, 'unknown');
+    assert.equal(inspected.openable, true);
+    assert.equal(inspected.inspection.state, 'folder');
     await assert.rejects(() => initializeEmptyProject(junk, [root]), /files but no db\.json|not an Atlas Docs project|not a recognized|Cannot initialize/i);
     assert.equal(await readFile(path.join(junk, 'file.txt'), 'utf8'), 'stay');
   } finally {

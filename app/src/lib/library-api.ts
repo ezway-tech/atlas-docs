@@ -160,6 +160,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     }
     return json({
       ...identity,
+      folderMode: libraryRoot ? !!(await ensureLibraryPrepared()).folderMode : false,
       displayName,
       appVersion: appRuntime().version,
       switchError: process.env.ATLAS_LIBRARY_SWITCH_ERROR || null,
@@ -243,6 +244,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     for (const entry of reg.libraries) {
       const status = await entryStatus(core, entry.path);
       const item = {
+        folderProject: status.inspection.db?.layout === core.folderLayout || status.inspection.state.startsWith('folder'),
         id: entry.id,
         path: entry.path,
         displayName: entry.displayName,

@@ -29,6 +29,7 @@ type Caps = {
 };
 
 type RecentEntry = {
+  folderProject?: boolean;
   id: string;
   path: string;
   displayName: string;
@@ -259,18 +260,16 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
       }>('/api/libraries/inspect', {method: 'POST', body: JSON.stringify({path: target})});
       if (!inspected.openable) {
         if (inspected.canInitialize || inspected.inspection.state === 'empty') {
-          const hint = folderNameHint(inspected.root);
-          setPendingName(hint);
-          setPendingBrowse({
-            path: inspected.root,
-            mode: 'empty',
-            nameHint: hint,
+          const opened = await libraryApi<{libraryId:string}>('/api/libraries/initialize-empty', {
+            method:'POST', body:JSON.stringify({path:inspected.root,confirm:true,displayName:folderNameHint(inspected.root)})
           });
+          await afterSwitch(opened.libraryId);
           return;
         }
         setError(inspected.error?.message || t('libraries.errors.unusable'));
         return;
       }
+      if (inspected.inspection.state.startsWith('folder')) displayName ||= folderNameHint(inspected.root);
       let listed = findListedEntry(inspected.root);
       if (!listed && !(displayName && displayName.trim())) {
         const list = await libraryApi<{libraries: RecentEntry[]; missing?: RecentEntry[]}>(
@@ -797,7 +796,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                 {t('libraries.actions.removeRecent')}
               </MenuItem>
               <MenuItem
-                disabled={entry.current || entry.status === 'in_use' || entry.status === 'missing'}
+                disabled={entry.folderProject || entry.current || entry.status === 'in_use' || entry.status === 'missing'}
                 onSelect={() => askDeleteEntry(entry)}
               >
                 {t('libraries.actions.deleteFolder')}
@@ -1041,7 +1040,7 @@ export default function LibraryManager({embedded, onClose, onEnterCurrent, sessi
                           </Button>
                           <Button
                             className="btn"
-                            disabled={busy || selected.status === 'in_use' || selected.status === 'missing'}
+                            disabled={busy || selected.folderProject || selected.status === 'in_use' || selected.status === 'missing'}
                             onClick={() => askDeleteEntry(selected)}
                           >
                             {t('libraries.actions.deleteFolder')}

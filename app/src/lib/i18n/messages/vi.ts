@@ -1,6 +1,23 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "folderProject.files":"Tệp",
+ "folderProject.choose":"Chọn tài liệu",
+ "folderProject.projects":"Dự án",
+ "folderProject.readOnly":"Thư mục chỉ đọc",
+ "folderProject.empty":"Chưa có tài liệu phù hợp. Thêm tệp Markdown, OpenAPI hoặc SQL rồi quay lại cửa sổ này.",
+ "folderProject.error":"Không thể đọc {path}",
+ "folderProject.history":"Lịch sử",
+ "folderProject.noHistory":"Chưa có phiên bản trước.",
+ "folderProject.revision":"Mở bản ngày {date} làm bản nháp",
+ "folderProject.save":"Lưu",
+ "folderProject.cancel":"Hủy",
+ "folderProject.edit":"Sửa",
+ "folderProject.text":"Nội dung tài liệu",
+ "folderProject.conflict":"Tệp gốc đã thay đổi",
+ "folderProject.keep":"Giữ bản nháp và đối chiếu với bản này",
+ "folderProject.discard":"Bỏ thay đổi chưa lưu?",
+
  "help.guide":"Hướng dẫn",
  "help.releaseNotes":"Ghi chú phiên bản",
  "help.version":"Phiên bản & cập nhật",

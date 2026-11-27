@@ -1,3 +1,4 @@
+export {folderLayout,listFolderFiles,folderRevision,folderRevisions,readFolderDocument,saveFolderDocument} from './folder-project.mjs';
 export {AtlasError, isAtlasError} from './errors.mjs';
 export {
   CURRENT_SCHEMA_VERSION,
