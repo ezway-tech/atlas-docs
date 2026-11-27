@@ -1,6 +1,6 @@
 {
   "name": "atlas-docs",
-  "version": "6.1.1",
+  "version": "6.1.2",
   "homepage": "https://atlasdocs.ezway.tech/",
   "funding": "https://atlasdocs.ezway.tech/donate/",
   "private": true,
@@ -31,7 +31,7 @@
     "test:help": "node ../scripts/tests/app/test-help.mjs",
     "test:help-menu": "node ../scripts/tests/app/test-help-menu.mjs",
     "test:local-request": "node ../scripts/tests/app/test-local-request.mjs",
-    "test:library-session": "node ../scripts/tests/app/test-library-session-api.mjs",
+    "test:library-session": "node ../scripts/tests/app/test-library-session-api.mjs && node ../scripts/tests/app/test-reveal-folder.mjs",
     "test:media-session": "node ../scripts/tests/app/test-media-session-query.mjs",
     "test:visual-media": "node ../scripts/tests/app/test-visual-media-session.mjs",
     "test:shutdown-drain": "node ../scripts/tests/app/test-shutdown-drain.mjs",

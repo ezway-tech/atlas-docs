@@ -1,3 +1,5 @@
+import {isManagerMode} from '@/lib/library-capabilities';
+import {readDB} from '@/lib/store';
 import type {Metadata} from 'next';
 import {cookies,headers} from 'next/headers';
 import './globals.css';
@@ -31,5 +33,16 @@ export async function generateMetadata():Promise<Metadata>{
 
 export default async function RootLayout({children}:{children:React.ReactNode}){
  const locale=await readLocale();
- return <html lang={locale} suppressHydrationWarning><body><Shell initialLocale={locale}>{children}</Shell></body></html>;
+ const manager = isManagerMode();
+ const dark = !manager && await readDB().then(db => db.settings.theme === 'dark').catch(() => false);
+ return <html className={dark ? 'dark' : undefined} data-project-theme={manager ? undefined : 'true'} lang={locale} suppressHydrationWarning>
+  <head>{manager && <script dangerouslySetInnerHTML={{__html: `try {
+    for (const key of ['atlas-ui-theme','atlas-projects-theme','atlas-help-theme']) {
+      const value = localStorage.getItem(key);
+      if (value === 'light' || value === 'dark') {
+        document.documentElement.classList.toggle('dark', value === 'dark');
+        break;
+      }
+    }
+  } catch {}`}}/>}</head><body><Shell initialLocale={locale}>{children}</Shell></body></html>;
 }

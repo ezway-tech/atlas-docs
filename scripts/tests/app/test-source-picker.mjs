@@ -364,11 +364,14 @@ try {
     await discard.getByRole('button', {name: 'Discard changes', exact: true}).click();
     await manager.waitFor();
     await manager.locator('.current').getByRole('button', {name: /Actions for/}).click();
-    await page.getByRole('menuitem', {name: 'Open in Explorer', exact: true}).waitFor();
+    const {canReveal} = await (await api('/api/libraries/capabilities')).json();
+    const revealItem = page.getByRole('menuitem', {name: 'Open in Explorer', exact: true});
+    if (canReveal) await revealItem.waitFor();
+    else assert.equal(await revealItem.count(), 0);
     await page.keyboard.press('Escape');
     const runtimeBeforeEnter=(await (await fetch(origin+'/api/libraries/session')).json()).runtimeId;
     const revealed = await api('/api/libraries/reveal', {});
-    assert.equal(revealed.status, 200);
+    assert.equal(revealed.status, canReveal ? 200 : 403);
     await manager.locator('.current .project-list-select').click();
     await manager.locator('.project-detail').getByRole('button', {name: 'Open project', exact: true}).click();
     await page.waitForSelector('.source-switcher');

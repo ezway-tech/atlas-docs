@@ -1,6 +1,6 @@
 services:
   atlas-docs:
-    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-6.1.0}
+    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-6.1.2}
     ports:
       - "127.0.0.1:${ATLAS_DOCS_PORT:-17430}:3000"
     environment:

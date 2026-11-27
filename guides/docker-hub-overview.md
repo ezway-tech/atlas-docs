@@ -29,7 +29,7 @@ Save the following as `compose.yaml` (or copy [`docker-compose.hub.yml`](https:/
 ```yaml
 services:
   atlas-docs:
-    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-6.1.0}
+    image: ezwaytechvn/atlas-docs:${ATLAS_DOCS_VERSION:-6.1.2}
     ports:
       - "127.0.0.1:${ATLAS_DOCS_PORT:-17430}:3000"
     environment:
@@ -117,7 +117,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Use a version tag such as `6.1.0` for predictable updates, or `latest` to follow the latest published image.
+Use a version tag such as `6.1.2` for predictable updates, or `latest` to follow the latest published image.
 
 An older image may not support a library upgraded by a newer release. If the library schema changed, rolling back also requires a compatible backup.
 
