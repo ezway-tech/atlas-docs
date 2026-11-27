@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.1.1 — 2026-11-25
+
+- Add npm search keywords for documentation, Markdown, OpenAPI, SQL, and local-first usage.
+
 ## 6.1.0 — 2026-11-20
 
 - Browse for project asks for a display name when the folder is not already in the list (suggested from the folder name; focus selects the hint so you can type over it; Enter confirms). Empty folders use the same name step before initialize-in-place.
