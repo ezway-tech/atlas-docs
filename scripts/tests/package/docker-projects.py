@@ -102,11 +102,13 @@ try:
     status, projects = request('/api/libraries/recent', session=session)
     assert status == 200 and len(projects['libraries']) == 2, projects
     assert sum(bool(p['isExample']) for p in projects['libraries']) == 1
-    # A generated docs-only directory is rejected without inventing a database.
+    # Opening an existing document folder adopts it without moving its files.
     docker('exec', container, 'mkdir', '-p', '/libraries/uninitialized/docs')
-    status, invalid = request('/api/libraries/open', {'path': '/libraries/uninitialized'}, session)
-    assert status >= 400, invalid
-    docker('exec', container, 'test', '!', '-e', '/libraries/uninitialized/db.json')
+    docker('exec', container, 'touch', '/libraries/uninitialized/docs/README.md')
+    status, opened = request('/api/libraries/open', {'path': '/libraries/uninitialized'}, session)
+    assert status == 202, opened
+    session = ready('/libraries/uninitialized')
+    docker('exec', container, 'test', '-f', '/libraries/uninitialized/db.json')
     status, outside = request('/api/libraries/open', {'path': '/etc'}, session)
     assert status >= 400, outside
     stop()

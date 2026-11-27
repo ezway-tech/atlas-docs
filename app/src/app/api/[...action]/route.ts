@@ -1,3 +1,5 @@
+import {loadCore} from '@/lib/load-core';
+import {ensureLibraryPrepared} from '@/lib/runtime-prepare';
 import {validateAsset,assetKind,assetExtension} from '@/lib/assets';
 import {createReadStream} from 'node:fs';
 import {Readable} from 'node:stream';
@@ -23,9 +25,9 @@ import '@/lib/shutdown-hook';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 type Params={params:Promise<{action:string[]}>};
 let updatePending=false;
-const json=(x:unknown)=>Response.json(x,{headers:{'Cache-Control':'no-store'}});
+const json=(x:unknown,status=200)=>Response.json(x,{status,headers:{'Cache-Control':'no-store'}});
 const parts=async(c:Params)=>(await c.params).action;
-const DATA_ACTIONS=new Set(['docs','folders','settings','order','comments','history','links','dashboard','media','storage','backup']);
+const DATA_ACTIONS=new Set(['folder-files','docs','folders','settings','order','comments','history','links','dashboard','media','storage','backup']);
 /** GET /api/media/{uuid} bytes — browser img/video use rt/lib query instead of custom headers. */
 function isMediaBytesGet(name:string,method:string,seg:string[]){
   return name==='media'&&method==='GET'&&seg.length===2&&seg[1]!=='referenced';
@@ -64,6 +66,24 @@ async function handler(req:NextRequest,c:Params){const seg=await parts(c),name=s
   if(stale==='missing' && process.env.ATLAS_RUNTIME_ID && process.env.ATLAS_LIBRARY_MANAGER==='1'){
    return Response.json({error:'Missing runtime session headers. Reload the page.',errorKey:'errors.library.staleRuntime'},{status:409});
   }
+ }
+ if(DATA_ACTIONS.has(name)){
+   const project=await ensureLibraryPrepared();
+   if(project.folderMode){
+     if(name!=='folder-files')return json({error:'This operation is unavailable for an in-place folder.'},409);
+     const core=await loadCore(), file=query.get('path');
+     if(method==='GET'&&!file)return json({...await core.listFolderFiles(project.root),readOnly:!!project.readOnly});
+     if(method==='GET'&&file&&query.has('revision'))return json(await core.folderRevision(project.root,file,query.get('revision')));
+     if(method==='GET'&&file&&query.has('history'))return json(await core.folderRevisions(project.root,file));
+     if(method==='GET'&&file)return json(await core.readFolderDocument(project.root,file));
+     if(method==='PUT'&&file&&!project.readOnly){
+       if(!assertLocalAppRequest(req,'x-atlas-library-api','1'))return json({error:'Local request required.'},403);
+       const input=await body();
+       if(typeof input.raw!=='string'||typeof input.version!=='string')return json({error:'Invalid edit.'},400);
+       return withLibraryLock(async()=>{const result=await core.saveFolderDocument(project.root,file,input.raw,input.version);return json(result,result.conflict?409:200);});
+     }
+     return json({error:'This folder is read only.'},403);
+   }
  }
  if(name==='docs'){
    if(method==='GET'&&seg.length===1)return json(await listDocs(localeFromRequest(req)));

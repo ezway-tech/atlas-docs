@@ -1,6 +1,23 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "folderProject.files":"Archivos",
+ "folderProject.choose":"Elige un documento",
+ "folderProject.projects":"Proyectos",
+ "folderProject.readOnly":"Carpeta de solo lectura",
+ "folderProject.empty":"Añade un archivo Markdown, OpenAPI o SQL y vuelve aquí.",
+ "folderProject.error":"No se puede leer {path}",
+ "folderProject.history":"Historial",
+ "folderProject.noHistory":"No hay versiones anteriores.",
+ "folderProject.revision":"Abrir la versión del {date} como borrador",
+ "folderProject.save":"Guardar",
+ "folderProject.cancel":"Cancelar",
+ "folderProject.edit":"Editar",
+ "folderProject.text":"Contenido del documento",
+ "folderProject.conflict":"El archivo ha cambiado en el disco",
+ "folderProject.keep":"Seguir editando sobre esta versión",
+ "folderProject.discard":"¿Descartar los cambios sin guardar?",
+
  "help.guide":"Guías",
  "help.releaseNotes":"Notas de la versión",
  "help.version":"Versión y actualizaciones",

@@ -1,4 +1,5 @@
-import {readdir, readFile, stat} from 'node:fs/promises';
+import {folderLayout} from './folder-project.mjs';
+import {access, constants, lstat, readdir, readFile, stat} from 'node:fs/promises';
 import path from 'node:path';
 import {AtlasError} from './errors.mjs';
 import {IMPORT_JOURNAL, MIGRATE_JOURNAL, canonicalize} from './paths.mjs';
@@ -69,7 +70,27 @@ export async function inspectLibrary(libraryRoot) {
     };
   }
 
+  // A legacy library with missing metadata needs recovery. Ordinary docs/ folders
+  // alone are common in user projects and do not identify an Atlas library.
+  const managedMarkers = ['history','uploads','.atlas','.atlas-folder-history'];
+  const recovery = managedMarkers.some(name => names.includes(name));
+  const hasDb = names.includes('db.json');
+  if (!hasDb && !recovery && names.some(name => name !== '.atlas-docs.lock')) {
+    const writable = await access(root,constants.W_OK).then(()=>true,()=>false);
+    return {state:writable?'folder':'folder-readonly',root,schemaVersion:null};
+  }
+  if (hasDb && !(await lstat(path.join(root,'db.json'))).isFile()) {
+    return {state:'unknown',root,schemaVersion:null,message:'Project metadata must be a regular file.'};
+  }
   const dbInfo = await readDbFile(root);
+  if (dbInfo.db?.layout === folderLayout && dbInfo.db.schemaVersion === 2) {
+    assertDatabaseShape(dbInfo.db);
+    const writable = await access(root,constants.W_OK).then(()=>true,()=>false);
+    return {state:writable?'ready':'folder-readonly',root,schemaVersion:2,db:dbInfo.db};
+  }
+  if (hasDb && !recovery && !dbInfo.parseError && !['schemaVersion','comments','assets','layout'].some(k=>Object.hasOwn(dbInfo.db||{},k))) {
+    return {state:'folder-readonly',root,schemaVersion:null};
+  }
   const hasDataDirs = {};
   for (const name of DATA_DIRS) hasDataDirs[name] = await exists(path.join(root, name));
   const anyDataContent =
@@ -89,13 +110,13 @@ export async function inspectLibrary(libraryRoot) {
 
   if (!dbInfo.present) {
     if (anyDataContent || unexpected.length || Object.values(hasDataDirs).some(Boolean)) {
-      return {state: 'unknown', root, schemaVersion: null, message: 'Directory has files but no db.json.'};
+      return {state: 'unknown', root, schemaVersion: null, message: 'This folder contains Atlas storage but its project metadata is missing. Restore the project metadata from your backup before opening it.'};
     }
     return {state: 'empty', root, schemaVersion: null};
   }
 
   if (dbInfo.parseError) {
-    return {state: 'unknown', root, schemaVersion: null, message: 'db.json is not valid JSON.', db: null};
+    return {state: 'unknown', root, schemaVersion: null, message: 'Project metadata is damaged. Restore db.json from a backup before opening this folder.', db: null};
   }
 
   try {

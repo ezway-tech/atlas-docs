@@ -39,7 +39,9 @@ test('resolveListenPort auto-falls back and respects explicit --port', async () 
   const held = [];
   const logs = [];
   try {
-    held.push(await holdPort(DEFAULT_PORT));
+    // A local Atlas instance may already occupy the default port.
+    try {held.push(await holdPort(DEFAULT_PORT));}
+    catch (error) {if (error.code !== 'EADDRINUSE') throw error;}
     const next = await resolveListenPort({port: DEFAULT_PORT, portExplicit: false}, message => logs.push(message));
     assert.equal(next, DEFAULT_PORT + 1);
     assert.match(logs.join('\n'), new RegExp(`Port ${DEFAULT_PORT} busy; using ${DEFAULT_PORT + 1}`));

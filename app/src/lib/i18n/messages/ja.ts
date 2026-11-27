@@ -1,6 +1,23 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "folderProject.files":"ファイル",
+ "folderProject.choose":"文書を選択",
+ "folderProject.projects":"プロジェクト",
+ "folderProject.readOnly":"読み取り専用フォルダー",
+ "folderProject.empty":"Markdown、OpenAPI または SQL ファイルを追加し、この画面に戻ってください。",
+ "folderProject.error":"{path} を読み取れません",
+ "folderProject.history":"履歴",
+ "folderProject.noHistory":"過去の版はありません。",
+ "folderProject.revision":"{date} の版を下書きとして開く",
+ "folderProject.save":"保存",
+ "folderProject.cancel":"キャンセル",
+ "folderProject.edit":"編集",
+ "folderProject.text":"文書の内容",
+ "folderProject.conflict":"ファイルが外部で変更されました",
+ "folderProject.keep":"この版を基準に編集を続ける",
+ "folderProject.discard":"未保存の変更を破棄しますか？",
+
  "help.guide":"ガイド",
  "help.releaseNotes":"リリースノート",
  "help.version":"バージョンと更新",

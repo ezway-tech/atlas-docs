@@ -1,6 +1,7 @@
 'use client';
 
 export type AtlasSession = {
+  folderMode?: boolean;
   runtimeId: string;
   libraryId: string;
   libraryRoot: string | null;

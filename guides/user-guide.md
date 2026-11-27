@@ -7,11 +7,23 @@ Atlas Docs organizes a local document library. The interface supports Vietnamese
 
 ## Manage projects
 
-Each project is one folder that holds `docs/`, `uploads/`, `history/`, and `db.json`. The first launch prepares the sample **Example** project. Later launches prepare your most recent valid project, but you enter the workspace only after choosing a project. The home page opens the separate Projects screen. Select a project to load the workspace. Reloading a workspace or opening a document link keeps that page.
+A traditional Atlas library is one folder that holds `docs/`, `uploads/`, `history/`, and `db.json`. The first launch prepares the sample **Example** project. Later launches prepare your most recent valid project, but you enter the workspace only after choosing a project. The home page opens the separate Projects screen. Select a project to load the workspace. Reloading a workspace or opening a document link keeps that page.
 
 Use the **Project · name** control in the top bar to leave the workspace and open the separate **Projects** page. Unsaved changes must be saved first or discarded through the confirmation dialog. The Projects page uses the same top bar style as the workspace (brand on the left; Help and Utilities on the right). Bundled Help also uses that top bar, with Back to library and theme controls; guide text stays in English. The page uses a list on the left and project details on the right. It shows a project count and a search box for name or path. **Example** is first, then your other projects in the order you set. Drag non-Example rows to rearrange that order (saved on this machine). Select a project to review its path, status, and a short summary (topics, folders, documents, comments, assets, and schema version). Then use **Open project**. Double-click a row also opens it. **Browse for project** uses the operating-system folder dialog on a personal desktop. In Docker or other environments without a local desktop, browse stays inside the storage mounts the app is allowed to see.
 
-**Open project** opens the chosen folder in place. It does not copy files. When **Browse for project** selects a folder that is not already in the list, Atlas asks for a display name (suggested from the folder name) before opening or creating the project. An empty folder can become a new project after you confirm that name. A folder that has other files but is not an Atlas Docs project is explained and left unchanged. Folders already in the list open with their existing display name. **Create project** asks for a name and save location, then creates a new project folder.
+### Open an existing document folder
+
+1. From **Projects**, choose **Browse for project** and select the folder containing your files. Atlas creates its metadata in that folder. Your files keep their names and locations.
+2. Expand a folder in **Files** and select a document. Markdown, SQL and OpenAPI have dedicated previews. Other supported text formats show their source. Unsupported files stay visible in the list.
+3. Choose **Edit**, change the text, then **Save**. The original file changes on disk. Use **History** to open an earlier version as a draft. If an external edit conflicts with a draft, compare it with the disk version before saving.
+
+![Select Browse for project on the Projects screen](assets/open-existing-folder.png)
+
+![Select Getting started.md in the original folder tree](assets/folder-project-tree.png)
+
+![Save your changes to the original file](assets/folder-project-edit.png)
+
+Read-only folders and folders with another application's database can be viewed. Projects with damaged Atlas metadata need recovery from a known backup. **Remove from list** forgets the location. Disk deletion and traditional library ZIP import are disabled for in-place folders. To back up this layout, close Atlas and back up the whole folder, including hidden revision files. To restore, open a separate restored copy.
 
 **Missing locations (N)** stays as one summary line below the list. Select **Manage** to open a compact, scrollable dialog with search by name or path. Each row has a menu to **Choose location again** or **Remove from list** (with confirmation). **Remove all missing entries** asks for confirmation and only removes missing entries from the list. Removing from the list does not delete files on disk. If Example cannot be prepared, its row shows an unavailable status and error details.
 

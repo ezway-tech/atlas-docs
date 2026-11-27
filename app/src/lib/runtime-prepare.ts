@@ -3,6 +3,8 @@ import {loadCore} from './load-core';
 import {isManagerMode} from './library-capabilities';
 
 type PrepareResult = {
+  folderMode?: boolean;
+  readOnly?: boolean;
   root: string | null;
   lock: {release: () => Promise<void>} | null;
 };
@@ -55,7 +57,7 @@ export function ensureLibraryPrepared(): Promise<PrepareResult> {
         process.once('SIGINT', unlock);
         process.once('SIGTERM', unlock);
 
-        return {root: result.root, lock: result.lock};
+        return {root: result.root, lock: result.lock, folderMode: result.readOnly || result.inspection?.db?.layout === core.folderLayout, readOnly: !!result.readOnly};
       } catch (error) {
         globalThis.__atlasPrepare = undefined;
         console.error('[Atlas Docs] Library prepare failed:', error);

@@ -1,6 +1,23 @@
 import type {Messages} from '../translate';
 
 const messages:Messages={
+ "folderProject.files":"文件",
+ "folderProject.choose":"选择文档",
+ "folderProject.projects":"项目",
+ "folderProject.readOnly":"只读文件夹",
+ "folderProject.empty":"添加 Markdown、OpenAPI 或 SQL 文件后返回此窗口。",
+ "folderProject.error":"无法读取 {path}",
+ "folderProject.history":"历史",
+ "folderProject.noHistory":"暂无历史版本。",
+ "folderProject.revision":"将 {date} 的版本打开为草稿",
+ "folderProject.save":"保存",
+ "folderProject.cancel":"取消",
+ "folderProject.edit":"编辑",
+ "folderProject.text":"文档内容",
+ "folderProject.conflict":"磁盘上的文件已更改",
+ "folderProject.keep":"基于此版本继续编辑",
+ "folderProject.discard":"放弃未保存的更改？",
+
  "help.guide":"使用指南",
  "help.releaseNotes":"版本说明",
  "help.version":"版本与更新",
