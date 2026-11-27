@@ -46,7 +46,7 @@ export default function Help({slug}: {slug?: string}) {
 
   useEffect(() => {
     let cancelled = false;
-    void readUiTheme().then(next => {
+    void readUiTheme({useSettings: document.documentElement.hasAttribute('data-project-theme')}).then(next => {
       if (cancelled) return;
       setDark(applyUiTheme(next));
     });
@@ -63,7 +63,7 @@ export default function Help({slug}: {slug?: string}) {
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
-    void writeUiTheme(next);
+    void writeUiTheme(next, {persistSettings: document.documentElement.hasAttribute('data-project-theme')});
   };
 
   const article = docs.find(d => d.slug === slug);

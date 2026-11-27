@@ -1,3 +1,4 @@
+import {canRevealFolder} from './reveal-folder';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {loadCore} from './load-core';
@@ -46,7 +47,7 @@ export async function libraryCapabilities() {
     mode,
     managed,
     storageLocation: 'server' as const,
-    canReveal: desktop,
+    canReveal: canRevealFolder(),
     canPickFolder: desktop,
     canBrowse: true,
     canCreate: true,

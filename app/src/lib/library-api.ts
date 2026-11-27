@@ -1,3 +1,4 @@
+import {revealFolder} from './reveal-folder';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import type {NextRequest} from 'next/server';
@@ -190,14 +191,8 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     const entry = o.id ? reg.libraries.find((item: {id: string}) => item.id === o.id) : null;
     const target = o.id ? entry?.path : identity.libraryRoot;
     if (!target) throw new AppError('errors.library.forbidden', 403);
-    const {spawn} = await import('node:child_process');
     const root = await core.assertWithinAllowedRoots(target, core.resolveAllowedRoots(process.env), {mustExist: true});
-    const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(command, [root], {shell: false, windowsHide: true, stdio: 'ignore'});
-      child.once('error', reject);
-      child.once('spawn', () => {child.unref(); resolve();});
-    });
+    await revealFolder(root);
     return json({ok: true});
   }
 
