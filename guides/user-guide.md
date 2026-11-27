@@ -14,8 +14,8 @@ Use the **Project · name** control in the top bar to leave the workspace and op
 ### Open an existing document folder
 
 1. From **Projects**, choose **Browse for project** and select the folder containing your files. Atlas creates its metadata in that folder. Your files keep their names and locations.
-2. Expand a folder in **Files** and select a document. Markdown, SQL and OpenAPI have dedicated previews. Other supported text formats show their source. Unsupported files stay visible in the list.
-3. Choose **Edit**, change the text, then **Save**. The original file changes on disk. Use **History** to open an earlier version as a draft. If an external edit conflicts with a draft, compare it with the disk version before saving.
+2. Use the same workspace as Example. Expand your project in the sidebar and select a document. Markdown, SQL and OpenAPI have dedicated previews. Other supported text formats show their source. Other files stay in their original locations.
+3. Choose **Edit**, change the text, then **Save**. The original file changes on disk. Use **History** to review and restore an earlier version. If an external edit conflicts with a draft, copy your draft, reload the document and reconcile the edits before saving.
 
 ![Select Browse for project on the Projects screen](assets/open-existing-folder.png)
 

@@ -74,7 +74,7 @@ export function withLibraryLock<T>(fn:()=>Promise<T>):Promise<T>{
 }
 export function listActiveTemps(){return [...activeTemps];}
 function withDocLock<T>(id:string,fn:()=>Promise<T>):Promise<T>{const prev=docLocks.get(id)||Promise.resolve();const next=prev.catch(()=>{}).then(fn);docLocks.set(id,next);return next;}
-async function db(){if(isManagerMode())throw new AppError('errors.library.required',409);if(!singleton)singleton=(async()=>{if((await ensureLibraryPrepared()).folderMode)throw Error("This operation requires a managed docs library.");await mkdir(ROOT,{recursive:true});await recoverInterruptedImport();return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
+async function db(){if(isManagerMode())throw new AppError('errors.library.required',409);if(!singleton)singleton=(async()=>{const project=await ensureLibraryPrepared();if(project.readOnly)throw Error("This folder is read only.");if(project.folderMode)return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));await mkdir(ROOT,{recursive:true});await recoverInterruptedImport();return JSONFilePreset<DB>(path.join(ROOT,'db.json'),structuredClone(initial));})();return singleton;}
 function assetSource(value:unknown):AssetSource{return value==='paste'||value==='edit'?value:'upload';}
 function fill(d:DB){d.assets||=[];for(const asset of d.assets)asset.source=assetSource(asset.source);d.comments||=[];d.folders||=[];d.navigationOrder||={};d.settings={...defaults,...d.settings,keymap:cleanKeymap(d.settings?.keymap),sidebarSectionOrder:normalizeSidebarSectionOrder(d.settings?.sidebarSectionOrder),pinnedFolders:Array.isArray(d.settings?.pinnedFolders)?d.settings.pinnedFolders:[],hiddenFolders:Array.isArray(d.settings?.hiddenFolders)?d.settings.hiddenFolders:[]};d.settings.history=effectiveHistoryLimits(d.settings);d.settings.backup=effectiveBackupLimits(d.settings);return d;}
 export async function readDB(){await serial.catch(()=>{});const x=await db();await x.read();return structuredClone(fill(x.data));}
@@ -96,8 +96,14 @@ export function contentHash(raw:string){return createHash('sha256').update(raw,'
 async function traverse(base:string,prefix='',depth=1,files:string[]=[],folders:string[]=[]){let list;try{list=await readdir(base,{withFileTypes:true});}catch{return {files,folders};}
  for(const e of list){if(e.name.startsWith('.')||e.isSymbolicLink())continue;const key=prefix?prefix+'/'+e.name:e.name;if(e.isDirectory()&&depth<=3&&/^[a-z0-9][a-z0-9_ -]*$/.test(e.name)){folders.push(key);await traverse(path.join(base,e.name),key,depth+1,files,folders);}else if(e.isFile()&&prefix&&/^[a-z0-9][a-z0-9_ -]*\.md$/.test(e.name)){files.push(key.slice(0,-3));}else if(e.isFile()&&prefix&&/^[a-z0-9][a-z0-9_ -]*\.(yml|yaml|sql|json)$/.test(e.name)){files.push(key);}}
  return {files,folders};}
-export function strip(raw:string){return matter(raw).content;}
-function mapDoc(id:string,raw:string,updatedAt:string):DocInfo{const kind=docKind(id),category=id.split('/').slice(0,-1).join('/');if(kind!=='md'){const file=id.split('/').at(-1)||id;return {id,kind,title:file.replace(/\.(ya?ml|sql|json)$/i,''),description:'',category,order:999,updatedAt,text:raw.slice(0,50000),headings:[],content:raw,raw};}const parsed=matter(raw),body=parsed.content;return {id,kind,title:String(parsed.data.title||id.split('/').at(-1)),description:String(parsed.data.description||''),category,order:Number(parsed.data.order||999),updatedAt,text:body.replace(/[`#>*|_]/g,' ').slice(0,50000),headings:extractHeadings(raw),content:body,raw};}
+function markdownParts(raw:string){
+  if(/^---\r?\n/.test(raw)){
+    try{return matter(raw);}catch{/* Preserve malformed front matter as editable text. */}
+  }
+  return {data:{} as Record<string,unknown>,content:raw};
+}
+export function strip(raw:string){return markdownParts(raw).content;}
+export function mapDoc(id:string,raw:string,updatedAt:string):DocInfo{const kind=docKind(id),category=id.split('/').slice(0,-1).join('/');if(kind!=='md'){const file=id.split('/').at(-1)||id;return {id,kind,title:file.replace(/\.(ya?ml|sql|json)$/i,''),description:'',category,order:999,updatedAt,text:raw.slice(0,50000),headings:[],content:raw,raw};}const parsed=markdownParts(raw),body=parsed.content;return {id,kind,title:String(parsed.data.title||id.split('/').at(-1)),description:String(parsed.data.description||''),category,order:Number(parsed.data.order??999),updatedAt,text:body.replace(/[`#>*|_]/g,' ').slice(0,50000),headings:extractHeadings(raw),content:body,raw};}
 const mirror=(id:string)=>path.join(historyRoot,'observed',...safeDoc(id).split('/'))+'.md';
 const metaFile=(md:string)=>md.replace(/\.md$/i,'.json');
 function historyDir(id:string){return path.join(historyRoot,...safeDoc(id).split('/'));}

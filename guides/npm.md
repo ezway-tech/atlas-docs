@@ -171,7 +171,7 @@ npx atlas-docs@latest --data-dir "/absolute/path/to/library"
 Pin a version when you need to stay on a known release:
 
 ```sh
-npx atlas-docs@6.2.0 --data-dir "/absolute/path/to/library"
+npx atlas-docs@6.2.1 --data-dir "/absolute/path/to/library"
 ```
 
 ### Global install

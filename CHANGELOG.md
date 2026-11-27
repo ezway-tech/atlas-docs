@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 6.2.1 — 2026-11-27
+
+- Open existing document folders in the standard Atlas workspace. Markdown front matter supplies titles and ordering while the original documents and revision history stay in place.
 
 - Update notice moves to a version chip beside the brand (no Help menu dot). **Skip this version** hides the highlight until a newer release; **What's new** opens the GitHub changelog. Bundled Help release notes remain the installed package changelog.
 

@@ -109,6 +109,10 @@ try:
     assert status == 202, opened
     session = ready('/libraries/uninitialized')
     docker('exec', container, 'test', '-f', '/libraries/uninitialized/db.json')
+    status, catalog = request('/api/docs', session=session)
+    assert status == 200 and any(doc['id'] == 'project/docs/README.md' for doc in catalog), catalog
+    status, doc = request('/api/docs/project/docs/README.md', session=session)
+    assert status == 200 and doc['raw'] == '' and doc['version'], doc
     status, outside = request('/api/libraries/open', {'path': '/etc'}, session)
     assert status >= 400, outside
     stop()

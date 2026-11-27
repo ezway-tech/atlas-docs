@@ -20,7 +20,7 @@ async function checkedPath(root, relative) {
 }
 
 export async function listFolderFiles(root) {
-  const files = [], unreadable = [];
+  const files = [], unreadable = [], directories = [];
   async function walk(directory, prefix) {
     let entries;
     try { entries = await readdir(directory, {withFileTypes:true}); }
@@ -28,12 +28,12 @@ export async function listFolderFiles(root) {
     for (const entry of entries) {
       if (ignored(entry.name) || entry.isSymbolicLink() || (!prefix && controlFiles.has(entry.name.toLowerCase()))) continue;
       const key = prefix ? prefix + '/' + entry.name : entry.name;
-      if (entry.isDirectory()) await walk(path.join(directory, entry.name), key);
+      if (entry.isDirectory()) { directories.push(key); await walk(path.join(directory, entry.name), key); }
       else if (entry.isFile()) files.push({path:key, supported:supported(entry.name)});
     }
   }
   await walk(root, '');
-  return {files, unreadable};
+  return {files, unreadable, directories};
 }
 
 export async function readFolderDocument(root, relative) {

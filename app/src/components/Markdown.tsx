@@ -118,6 +118,24 @@ function highlight(children:React.ReactNode,comments:Comment[],open:(id:string)=
 
 const SPEC_EXT=/\.(md|ya?ml|sql|json)$/i;
 
+function folderLink(id:string,href:string,image=false){
+  const session=peekAtlasSession();
+  if(!session?.folderMode||!href||/^(?:[a-z]+:|[/#?])/i.test(href))return null;
+  const parts=id.split('/').slice(0,-1);
+  const [pathname,fragment]=href.split('#');
+  if(!image&&!/\.(?:md|markdown|ya?ml|sql|json)$/i.test(pathname))return null;
+  for(const raw of pathname.split('/')){
+    let name;
+    try{name=decodeURIComponent(raw);}catch{return null;}
+    if(name==='..'){if(parts.length<2)return null;parts.pop();}
+    else if(name&&name!=='.'){
+      const encoded=/^[a-zA-Z0-9_. -]+$/.test(name)?name:'~'+btoa(Array.from(new TextEncoder().encode(name),b=>String.fromCharCode(b)).join('')).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
+      parts.push(encodeURIComponent(encoded));
+    }
+  }
+  const target=parts.join('/');
+  return image?'/api/folder-image/'+target+'?'+new URLSearchParams({rt:session.runtimeId,lib:session.libraryId||''}):'/docs/'+target+(fragment?'#'+fragment:'');
+}
 function resolveDocHref(docId:string,href:string){
   let url=String(href||'');
   if(!SPEC_EXT.test(url))return null;
@@ -155,13 +173,13 @@ export default function Markdown({content,docId,comments=[],activeId,onComment,f
       return React.isValidElement(code)?<Code language={code.props.className?.replace('language-','')||'text'} onZoom={(svg,mode)=>openZoom({svg,mode})} dark={dark}>{code.props.children}</Code>:<pre>{children}</pre>;
     },
     a:({href,children}:any)=>{
-      const docs=resolveDocHref(docId,String(href||''));
+      const docs=folderLink(docId,String(href||''))||resolveDocHref(docId,String(href||''));
       if(docs)return <Link href={docs}>{children}</Link>;
       const session=peekAtlasSession();
       const url=withMediaSession(String(href||''),session||{});
       return <a href={url} target={url.startsWith('http')?'_blank':undefined} rel="noreferrer">{children}</a>;
     },
-    img:({src,alt}:any)=>{const session=peekAtlasSession();const mediaSrc=withMediaSession(String(src||''),session||{});const altText=String(alt||t('reader.imageAltDefault'));return <span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomImage')} onClick={()=>openZoom({mode:'medium',image:{src:mediaSrc,alt:altText}})}><img className="md-image" src={mediaSrc} alt={altText}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomFullscreen')} onClick={()=>openZoom({mode:'fullscreen',image:{src:mediaSrc,alt:altText}})}><Expand size={18}/></UiButton></span>;},
+    img:({src,alt}:any)=>{const session=peekAtlasSession();const mediaSrc=folderLink(docId,String(src||''),true)||withMediaSession(String(src||''),session||{});const altText=String(alt||t('reader.imageAltDefault'));return <span className="zoom-preview image-preview"><UiButton type="button" className="zoom-hit" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomImage')} onClick={()=>openZoom({mode:'medium',image:{src:mediaSrc,alt:altText}})}><img className="md-image" src={mediaSrc} alt={altText}/></UiButton><UiButton className="preview-fullscreen" aria-label={alt?t('reader.zoomImageNamed',{alt:String(alt)}):t('reader.zoomFullscreen')} onClick={()=>openZoom({mode:'fullscreen',image:{src:mediaSrc,alt:altText}})}><Expand size={18}/></UiButton></span>;},
     code:({children,className,...rest}:any)=><code className={className} {...rest}>{children}</code>
   };
   const wiki=markdownWiki(content);

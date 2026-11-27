@@ -160,6 +160,7 @@ async function handleLibraryRequest(req: NextRequest, seg: string[], method: str
     }
     return json({
       ...identity,
+      readOnly: libraryRoot ? !!(await ensureLibraryPrepared()).readOnly : false,
       folderMode: libraryRoot ? !!(await ensureLibraryPrepared()).folderMode : false,
       displayName,
       appVersion: appRuntime().version,

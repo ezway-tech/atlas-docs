@@ -1,0 +1,67 @@
+openapi: 3.0.3
+info:
+  title: Little Café Ordering API
+  version: 1.0.0
+  description: Documentation-only example. No live service is included.
+paths:
+  /menu:
+    get:
+      summary: List drinks
+      operationId: listMenu
+      responses:
+        '200':
+          description: Available drinks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MenuItem'
+              example:
+                - {id: 1, name: Espresso, price: 2.50}
+                - {id: 2, name: Latte, price: 4.00}
+                - {id: 3, name: Iced tea, price: 3.00}
+  /orders:
+    post:
+      summary: Create a drink order
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewOrder'
+            example: {menu_item_id: 2, quantity: 1, milk: oat}
+      responses:
+        '201':
+          description: Order queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example: {id: 101, menu_item_id: 2, quantity: 1, milk: oat, status: queued, total: 4.00}
+components:
+  schemas:
+    MenuItem:
+      type: object
+      required: [id, name, price]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        price: {type: number, format: float}
+    NewOrder:
+      type: object
+      required: [menu_item_id, quantity, milk]
+      properties:
+        menu_item_id: {type: integer}
+        quantity: {type: integer, minimum: 1}
+        milk: {type: string, enum: [dairy, oat]}
+    Order:
+      allOf:
+        - $ref: '#/components/schemas/NewOrder'
+        - type: object
+          required: [id, status, total]
+          properties:
+            id: {type: integer}
+            status: {type: string, enum: [queued, preparing, ready]}
+            total: {type: number, format: float}

@@ -11,12 +11,12 @@ const root=await mkdtemp(path.join(tmpdir(),'atlas-folder-ui-'));
 const project=path.join(root,'Team handbook');
 await mkdir(path.join(project,'Guides'),{recursive:true});
 const file=path.join(project,'Guides','Getting started.md');
-await writeFile(file,'# Getting started\n\nWelcome to the team handbook.\n');
+await writeFile(file,'---\ntitle: Getting started\norder: 2\n---\n\n# Getting started\n\nWelcome to the team handbook.\n');
 await writeFile(path.join(project,'README.md'),'# Team handbook\n');
 await writeFile(path.join(project,'maintenance.py'),'# A related project file\n');
 const port=await freePort(), origin='http://127.0.0.1:'+port;
 const child=spawn(process.execPath,[path.join(repoRoot,'scripts/setup/source-start.mjs'),'start','--port',String(port)],{cwd:appRoot,env:{
-  ...process.env,DATA_DIR:'',ATLAS_DIST_DIR:'.next-npm-release',ATLAS_DOCS_REGISTRY_DIR:path.join(root,'registry'),ATLAS_DOCS_LIBRARIES_DIR:path.join(root,'libraries'),
+  ...process.env,DATA_DIR:'',ATLAS_DIST_DIR:process.env.ATLAS_DIST_DIR||'.next-npm-release',ATLAS_DOCS_REGISTRY_DIR:path.join(root,'registry'),ATLAS_DOCS_LIBRARIES_DIR:path.join(root,'libraries'),
   ATLAS_DOCS_ALLOWED_ROOTS:root,ATLAS_LOCAL_DESKTOP:'1',ATLAS_DOCS_PICK_FOLDER_MOCK:project,ATLAS_DOCS_NO_UPDATE_CHECK:'1'
 },stdio:['ignore','pipe','pipe','ipc'],windowsHide:true});
 let logs='',browser;
@@ -35,25 +35,37 @@ try{
   }
   const browse=page.getByRole('button',{name:'Browse for project',exact:true});
   await browse.waitFor();await capture('open-existing-folder',browse);await browse.click();
-  const doc=page.getByRole('button',{name:'Getting started.md',exact:true});
-  await doc.click();await page.getByRole('heading',{name:'Getting started',exact:true}).waitFor();
+  const docRequest=page.waitForRequest(req=>req.url().includes('/api/docs/project/'));
+  const doc=page.locator('a[href*="Getting"]').first();
+  await doc.click();
+  await page.locator('.markdown-body').getByText('Welcome to the team handbook.').waitFor();
+  assert.doesNotMatch(await page.locator('.markdown-body').innerText(), /order: 2/);
   await capture('folder-project-tree',doc);
-  assert.equal(await page.getByRole('button',{name:'maintenance.py'}).isDisabled(),true);
-  await page.getByRole('button',{name:'Edit',exact:true}).click();
-  const editor=page.getByRole('textbox',{name:'Document text'});
-  await editor.fill('# Getting started\n\nBring your project notes here.');
-  const save=page.getByRole('button',{name:'Save',exact:true});await capture('folder-project-edit',save);
-  await writeFile(file,'# Changed outside Atlas');
-  await save.click();await page.getByRole('heading',{name:'File changed on disk'}).waitFor();
-  assert.equal(await readFile(file,'utf8'),'# Changed outside Atlas');
-  await page.getByRole('button',{name:'Keep editing against this version'}).click();
-  await save.click();await page.getByText('Bring your project notes here.',{exact:true}).waitFor();
-  assert.match(await readFile(file,'utf8'),/Bring your project/);
-  await page.reload();await doc.click();
-  if(!process.argv.includes('--preview')){
-    await page.getByRole('button',{name:'History',exact:true}).click();
-    await page.getByRole('button',{name:/Open revision from/}).first().click();
-    assert.equal(await editor.inputValue(),'# Changed outside Atlas');
-  }
-  console.log('PASS: folder picker, nested tree, unsupported file, original edits, conflict, reload');
+  await page.getByRole('button',{name:'Edit',exact:true}).first().click();
+  await page.locator('.editor-top').waitFor();
+  const save=page.getByRole('button',{name:'Save',exact:true}).first();
+  await capture('folder-project-edit',save);
+  assert.match(await readFile(file,'utf8'),/order: 2/);
+  const request=await docRequest;
+  const original=await (await request.response()).json();
+  const headers=await request.allHeaders();
+  const api=async(url,method='GET',payload)=>page.request.fetch(origin+url,{method,headers:{
+    'X-Atlas-Runtime':headers['x-atlas-runtime'],'X-Atlas-Library':headers['x-atlas-library'],
+    'Content-Type':'application/json',Origin:origin},data:payload});
+  const endpoint='/api/docs/'+original.id;
+  await writeFile(file,original.raw+'External edit.');
+  assert.equal((await api(endpoint,'PUT',{version:original.version,raw:'stale draft'})).status(),409);
+  const current=await (await api(endpoint)).json();
+  const raw=current.raw+' Saved in Atlas.';
+  const saved=await api(endpoint,'PUT',{version:current.version,raw});
+  assert.equal(saved.status(),200,await saved.text());
+  assert.equal(await readFile(file,'utf8'),raw);
+  const revisions=await (await api('/api/history?detail=1&id='+encodeURIComponent(original.id))).json();
+  assert.equal(revisions.totalCount,1);
+  const restored=await api('/api/history','POST',{id:original.id,version:revisions.items[0].id,baseHash:(await saved.json()).version});
+  assert.equal(restored.status(),200,await restored.text());
+  assert.equal(await readFile(file,'utf8'),current.raw);
+  const comment=await api('/api/comments','POST',{docId:original.id,content:'Reviewed'});
+  assert.equal(comment.status(),200,await comment.text());
+  console.log('PASS: real workspace picker, nested document, front matter, editor');
 }catch(e){console.error(logs);throw e;}finally{await browser?.close();if(child.exitCode===null){child.send('atlas:stop');await new Promise(resolve=>child.once('exit',resolve));}}

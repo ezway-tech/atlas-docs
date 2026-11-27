@@ -2,6 +2,7 @@
 
 export type AtlasSession = {
   folderMode?: boolean;
+  readOnly?: boolean;
   runtimeId: string;
   libraryId: string;
   libraryRoot: string | null;
